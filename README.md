@@ -9,6 +9,8 @@ Write the length as a 32 bit int in bytes 4-7.
 The compiler will return a memory location for the compiled binary.  
 
 ### Updates
+
+2017-06-29: Modified to use https://github.com/dracula/dracula-theme/  
 2017-06-29: Added http://prismjs.com/ syntax highlighting. 
 
 The wasmat compiler is based on https://github.com/maierfelix/momo by Felix Maier http://www.felixmaier.info/
