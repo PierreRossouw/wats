@@ -5,8 +5,8 @@ Check out the wasmat source code at https://pierrerossouw.github.io/Wasmat/
 
 ### Using the compiler
 WebAssembly does not have IO so some JavaScript is needed to use the compiler.  
-Write the source code to the shared memory starting at byte 8.  
-Write the length as a 32 bit int in bytes 4-7.  
+Write the source code to the shared memory starting at byte 12.  
+Write the length as a 32 bit int in bytes 8-11.  
 The compiler will return a memory location for the compiled binary.  
 
 ### Updates
