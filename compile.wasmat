@@ -1,7 +1,6 @@
-// Compile.wasmat v0.0.20170704
+// Compile.wasmat v0.1.20170704
 // A toy language with self-compiling compiler to WebAssembly
-// Only a minimal subset of WebAssemblyis implemented, just enough to self-compile
-// The goal is to have a compiler simple enough to eaily read and understand
+// A subset of WebAssembly is implemented - enough for self-compilation
 // Most reserved words and built-in functions compile to a single WebAssembly instruction
 // As a convention, pointers and functions returning pointers start with a Capital letter
 // Pierre Rossouw 04 July 2017 https://github.com/PierreRossouw/Wasmat
@@ -25,45 +24,46 @@ i32 nodes_variable   := 12
 i32 nodes_parameter  := 13
 i32 nodes_literal    := 14
 
-i32 tokens_identifier  := 43   // 2b
-i32 tokens_charLiteral := 46   // 2e
-i32 tokens_numLiteral  := 47   // 2f
-i32 tokens_lParen      := 50   // 32
-i32 tokens_comma       := 51   // 33
-i32 tokens_rParen      := 52   // 34
-i32 tokens_fun         := 60   // 3c
-i32 tokens_return      := 61   // 3d
-i32 tokens_endfun      := 62   // 3e
-i32 tokens_loop        := 70   // 46
-i32 tokens_continue    := 71   // 47
-i32 tokens_break       := 72   // 48
-i32 tokens_endloop     := 73   // 49
-i32 tokens_if          := 80   // 50 
-i32 tokens_then        := 82   // 52
-i32 tokens_else        := 83   // 53
-i32 tokens_endif       := 84   // 54
-i32 tokens_minPrec     := 99   // 63
-i32 tokens_assign      := 100  // 64  :=
-i32 tokens_or          := 101  // 65
-i32 tokens_and         := 102  // 66
-i32 tokens_eq          := 110  // 6e  =
-i32 tokens_ne          := 111  // 6f  <>
-i32 tokens_lt          := 112  // 70  <
-i32 tokens_le          := 113  // 71  <=
-i32 tokens_gt          := 114  // 72  >
-i32 tokens_ge          := 115  // 73  >=
-i32 tokens_add         := 118  // 76  +
-i32 tokens_sub         := 119  // 77  -
-i32 tokens_mul         := 120  // 78  *
-i32 tokens_div         := 121  // 79  /
-i32 tokens_mod         := 122  // 7a
-i32 tokens_not         := 123  // 7b
-i32 tokens_f64         := 124  // 7c
-i32 tokens_f32         := 125  // 7d 
-i32 tokens_i64         := 126  // 7e
-i32 tokens_i32         := 127  // 7f
+i32 tokens_identifier  := 43 
+i32 tokens_charLiteral := 46
+i32 tokens_numLiteral  := 47
+i32 tokens_lParen      := 50
+i32 tokens_comma       := 51
+i32 tokens_rParen      := 52
+i32 tokens_fun         := 60
+i32 tokens_return      := 61
+i32 tokens_endfun      := 62
+i32 tokens_loop        := 70
+i32 tokens_continue    := 71
+i32 tokens_break       := 72
+i32 tokens_endloop     := 73
+i32 tokens_if          := 80
+i32 tokens_then        := 82
+i32 tokens_else        := 83
+i32 tokens_endif       := 84
+i32 tokens_minPrec     := 99
+i32 tokens_assign      := 100  // :=
+i32 tokens_or          := 101
+i32 tokens_and         := 102
+i32 tokens_eq          := 110  // =
+i32 tokens_ne          := 111  // <>
+i32 tokens_lt          := 112  // <
+i32 tokens_le          := 113  // <=
+i32 tokens_gt          := 114  // >
+i32 tokens_ge          := 115  // >=
+i32 tokens_add         := 118  // +
+i32 tokens_sub         := 119  // -
+i32 tokens_mul         := 120  // *
+i32 tokens_div         := 121  // /
+i32 tokens_mod         := 122
+i32 tokens_not         := 123
+i32 tokens_f64         := 124  // 0x7c
+i32 tokens_f32         := 125  // 0x7d 
+i32 tokens_i64         := 126  // 0x7e
+i32 tokens_i32         := 127  // 0x7f
 
-// Structs
+// Structs 
+// Bytes 0-7 are reserved for debug information which can be stripped to save maybe 30% memory.
 i32 string_length := 8
 i32 string_Chars  := 12
 
@@ -83,16 +83,16 @@ i32 token_line   := 16
 i32 token_column := 20
 i32 token_size   := 24
 
-i32 node_kind       := 8   // from the nodes_ enum
-i32 node_type       := 12  // from the tokens_ enum
-i32 node_index      := 16  // 0 based index number for funs, variables, parameters
-i32 node_String     := 20  // literal value or fun/var/parameter name
-i32 node_Scope      := 24  // scope for program/block/loop/fun
-i32 node_ANode      := 28  // binary left, call callee, return expression, then block, fun body
-i32 node_BNode      := 32  // binary/unary right, else block, fun return, variable assignment
-i32 node_CNode      := 36  // if statement condition
-i32 node_Nodes      := 40  // node list for program/block/fun locals
-i32 node_ParamNodes := 44  // param node list for call/fun
+i32 node_kind       := 8   // From the nodes_ enum
+i32 node_type       := 12  // From the tokens_ enum
+i32 node_index      := 16  // Zero based index number for funs, variables, parameters
+i32 node_String     := 20  // Literal value, or fun/var/parameter name
+i32 node_Scope      := 24  // Scope for program/block/loop/fun used for name resolution
+i32 node_ANode      := 28  // Binary left, call fun, return expression, then block, or fun body
+i32 node_BNode      := 32  // Binary/unary right, else block, fun return, variable assignment
+i32 node_CNode      := 36  // If statement condition node
+i32 node_Nodes      := 40  // List of child nodes for program/block, or fun locals
+i32 node_ParamNodes := 44  // List of params for call/fun
 i32 node_size       := 48
 
 i32 scope_Node       := 8
@@ -116,11 +116,12 @@ i32 BinaryPointer    := 0
 i32 emitGlobalCount  := 0
 i32 emitFunCount     := 0
 
+// The first function is automatically exported as 'main'
 fun i32 main()
   return compile()
 endfun
 
-// Dummy entries to simplify the parser
+// Dummy entries to simplify the parser - to be removed shortly
 fun store32(i32 Location, i32 value) 
 endfun                               
 
@@ -140,50 +141,50 @@ fun i32 Alloc(i32 len)
   i32 r := Heap
   Heap := Heap + len
   if Heap mod sizeInt then
-    Heap := Heap + sizeInt - Heap mod sizeInt  // fix the alignment
+    Heap := Heap + sizeInt - Heap mod sizeInt  // Fix the alignment
   endif
   return r
 endfun
 
 fun debug(i32 X)
   i32 D := Alloc(8)
-  store32(D, 0 - 557785600)  // Magic number 0x00dec0de
+  store32(D, 0 - 557785600)  // Magic number 0x00dec0de - for debugging
   store32(D + 4, X)
 endfun
 
 // Pascal-style strings: We store the length instead of using a null terminator
 fun i32 NewString(i32 len)
   i32 String := Alloc(string_Chars + len)
-  store32(String, 1 - 557785600)  // Magic number 0x00dec0de
-  store32(String + 4, String)  // this.address
+  store32(String, 1 - 557785600)
+  store32(String + 4, String)  // This struct's address - for debugging
   store32(String + string_length, len)
   return String
 endfun
 
 fun i32 NewList()
   i32 List := Alloc(list_size)
-  store32(List, 2 - 557785600)  // Magic number 0x00dec0de
+  store32(List, 2 - 557785600)
   store32(List + 4, List) 
   return List
 endfun
 
 fun i32 NewItem()
   i32 Item := Alloc(item_size)
-  store32(Item, 3 - 557785600)  // Magic number 0x00dec0de
+  store32(Item, 3 - 557785600)
   store32(Item + 4, Item) 
   return Item
 endfun
 
 fun i32 NewToken()
   i32 Token := Alloc(token_size)
-  store32(Token, 4 - 557785600)  // Magic number 0x00dec0de
+  store32(Token, 4 - 557785600)
   store32(Token + 4, Token)
   return Token
 endfun
 
 fun i32 NewNode()
   i32 Node := Alloc(node_size)
-  store32(Node, 5 - 557785600)  // Magic number 0x00dec0de
+  store32(Node, 5 - 557785600)
   store32(Node + 4, Node)
   store32(Node + node_Scope, CurrentScope)
   return Node
@@ -191,7 +192,7 @@ endfun
 
 fun i32 NewScope()
   i32 Scope := Alloc(scope_size)
-  store32(Scope, 6 - 557785600)  // Magic number 0x00dec0de
+  store32(Scope, 6 - 557785600)
   store32(Scope + 4, Scope)
   store32(Scope + scope_Symbols, NewList())
   return Scope
@@ -254,7 +255,7 @@ fun i32 strcomp1(i32 V, i32 a)
   return r
 endfun
 
-// Crappy helper funs
+// Crappy helper functions
 fun i32 strcomp2(i32 V, i32 a, i32 b)
   i32 r := 1
   if strLen(V) <> 2 then
@@ -1114,7 +1115,7 @@ fun emitUleb(i32 i)  // en.wikipedia.org/wiki/LEB128
   emitByte(i)
 endfun
 
-fun emitSleb(i32 i)  // en.wikipedia.org/wiki/LEB128
+fun emitSleb(i32 i)  // Limitation: Only works on non-negative numbers
   if i >= 0 then 
     loop
       if i < 64 then break endif
@@ -1218,12 +1219,14 @@ fun emitFunctionSection()
   endif
 endfun
 
+// Memory is exported as 'mem' and is a fixed size
+// This program takes at minimum about 1MB to compile
 fun emitMemorySection()
   emitByte(0x05)  // Memory section
-  emitUleb(0x03)  // size in bytes
-  emitByte(0x01)  // count
-  emitByte(0x00)  // resizable flag
-  emitByte(0x70)  // pages (one page = 64kb), 0x70 is about 7MB. This program takes about 1MB to compile
+  emitUleb(0x03)  // Size in bytes
+  emitByte(0x01)  // Sount. A maximum of 1 currently in WebAssembly
+  emitByte(0x00)  // Resizable flag
+  emitByte(0x70)  // Pages (A page is 64kb)
 endfun
 
 fun emitGlobalSection()
@@ -1241,17 +1244,17 @@ fun emitGlobalSection()
       emitByte(0x06)  // Section code
       emitByte(0x00)  // Section size (guess)
       Start := BinaryPointer 
-      emitByte(0x00)  // globals count (guess)
+      emitByte(0x00)  // Globals count (guess)
       Item := load32(BodyList + list_First)
       loop
         Node := load32(Item + item_Object)
         if load32(Node + node_kind) = nodes_variable then
-          emitByte(load32(Node + node_type))  // native type
-          emitByte(1)  // mutable
-          emitByte(65)  // i32_const
+          emitByte(load32(Node + node_type))  // Native type
+          emitByte(0x01)  // Mutable
+          emitByte(0x41)  // i32.const
           Value := load32(load32(Node + node_BNode) + node_String)
           emitSleb(strToI32(Value))
-          emitByte(11)
+          emitByte(0x0b)  // end
           count := count + 1
           emitGlobalCount := emitGlobalCount + 1
         endif
@@ -1282,20 +1285,20 @@ fun emitExportSection()
       emitByte(0x07)  // Export section
       emitByte(0x00)  // Section size (guess)
       Start := BinaryPointer 
-      emitByte(0x02)  // export count - just main fun and memory for now
-      emitByte(0x04)  // string of 4 bytes:
+      emitByte(0x02)  // Export count
+      emitByte(0x04)  // 1: Name length
       emitByte(0x6d)  // m
       emitByte(0x61)  // a
       emitByte(0x69)  // i
       emitByte(0x6e)  // n
-      emitByte(0x00)  // export type: fun
-      emitUleb(0x00)  // export the first function as 'main'
-      emitByte(0x03)  // string of 3 bytes:
+      emitByte(0x00)  // Type: function
+      emitUleb(0x00)  // Function number 0
+      emitByte(0x03)  // 2: Name length
       emitByte(0x6d)  // m
       emitByte(0x65)  // e
       emitByte(0x6d)  // m
-      emitByte(0x02)  // export type: memory
-      emitByte(0x00)  // memory number 0 
+      emitByte(0x02)  // Type: memory
+      emitByte(0x00)  // Memory number 0 
       length := BinaryPointer - Start
       offset := uleblen(length) - 1
       fixUlebGuess(Start, offset)
@@ -1310,9 +1313,9 @@ fun emitAssignment(i32 Node)
   i32 ResolvedNode := ScopeResolve(CurrentScope, load32(load32(Node + node_ANode) + node_String))
   emitNode(load32(Node + node_BNode))
   if load32(ResolvedNode + node_Scope) = GlobalScope then
-    emitByte(0x24)  // set_global
+    emitByte(0x24)  // i32.set_global
   else
-    emitByte(0x21)  // set_local
+    emitByte(0x21)  // i32.set_local
   endif
   emitUleb(load32(ResolvedNode + node_index))
 endfun
@@ -1356,9 +1359,9 @@ fun emitLiteral(i32 Node)
     if type = tokens_identifier then
       ResolvedNode := ScopeResolve(CurrentScope, load32(Node + node_String))
       if load32(ResolvedNode + node_Scope) = GlobalScope then
-        emitByte(0x23)  // get_global
+        emitByte(0x23)  // i32.get_global
       else
-        emitByte(0x20)  // get_local
+        emitByte(0x20)  // i32.get_local
       endif
       emitUleb(load32(ResolvedNode + node_index))
     endif
@@ -1375,22 +1378,22 @@ fun emitCall(i32 Node)
     ParamItem := load32(ParamItem + item_Next)
   endloop
   i32 Name := load32(load32(Node + node_ANode) + node_String)
-  if strcomp7(Name, 115, 116, 111, 114, 101, 51, 50) then  // store32
+  if strcomp7(Name, 115, 116, 111, 114, 101, 51, 50) then  // 'store32'
     emitByte(0x36)  // i32.store32
     emitByte(0x00)  // alignment
     emitByte(0x00)  // offset
   else
-    if strcomp6(Name, 115, 116, 111, 114, 101, 56) then  // store8
+    if strcomp6(Name, 115, 116, 111, 114, 101, 56) then  // 'store8'
       emitByte(0x3a)  // i32.store8
       emitByte(0x00)  // alignment
       emitByte(0x00)  // offset
     else 
-      if strcomp6(Name, 108, 111, 97, 100, 51, 50) then  // load32
+      if strcomp6(Name, 108, 111, 97, 100, 51, 50) then  // 'load32'
         emitByte(0x28)  // i32.load32
         emitByte(0x00)  // alignment
         emitByte(0x00)  // offset
       else
-        if strcomp5(Name, 108, 111, 97, 100, 56) then  // load8
+        if strcomp5(Name, 108, 111, 97, 100, 56) then  // 'load8'
           emitByte(0x2d)  // i32.load8
           emitByte(0x00)  // alignment
           emitByte(0x00)  // offset
@@ -1429,10 +1432,10 @@ fun emitReturn(i32 Node)
 endfun
 
 fun emitIf(i32 Node)
-  emitNode(load32(Node + node_CNode))  // condition
+  emitNode(load32(Node + node_CNode))  // If condition expression
   emitByte(0x04)  // if
   emitByte(0x40)  // void
-  emitNode(load32(Node + node_ANode))  // then block
+  emitNode(load32(Node + node_ANode))  // Then block
   i32 ElseBlock := load32(Node + node_BNode)
   if ElseBlock then
     emitByte(0x05)  // else
@@ -1478,7 +1481,7 @@ endfun
 fun emitNode(i32 Node)
   i32 kind := load32(Node + node_kind)
   i32 type := load32(Node + node_type)
-  if kind = nodes_block then  //0x02
+  if kind = nodes_block then
     emitBlock(Node)
   else
     if kind = nodes_binary then
@@ -1516,7 +1519,7 @@ fun emitNode(i32 Node)
                     else
                       if kind = nodes_variable then
                         emitNode(load32(Node + node_BNode))
-                        emitByte(0x21)  // set_local
+                        emitByte(0x21)  // i32.set_local
                         emitUleb(load32(Node + node_index))
                       endif
                     endif
@@ -1532,7 +1535,7 @@ fun emitNode(i32 Node)
 endfun
 
 fun emitFunCode(i32 Node)
-  emitByte(0x00)  // function size (guess)
+  emitByte(0x00)  // Function size (guess)
   i32 Start := BinaryPointer
   i32 LocalList := load32(Node + node_Nodes)
   emitUleb(load32(LocalList + list_count))
@@ -1543,7 +1546,7 @@ fun emitFunCode(i32 Node)
     emitByte(load32(load32(LocalItem + item_Object) + node_type))
     LocalItem := load32(LocalItem + item_Next)
   endloop
-  emitNode(load32(Node + node_ANode))  // body block node
+  emitNode(load32(Node + node_ANode))  // Body block node
   emitByte(0x0b)  // end
   i32 length := BinaryPointer - Start
   i32 offset := uleblen(length) - 1
@@ -1562,7 +1565,7 @@ fun emitCodeSection()
   i32 offset := 0
   if emitFunCount then
     emitByte(0x0a)  // Code section 
-    emitByte(0x00)  // section size (guess)
+    emitByte(0x00)  // Section size (guess)
     Start := BinaryPointer 
     emitUleb(emitFunCount)
     BodyList := load32(RootNode + node_Nodes)
@@ -1585,21 +1588,21 @@ fun emitCodeSection()
 endfun
 
 fun emit(i32 length)
-  Binary := NewString(length + 256)  // heuristic: binary will be smaller than len(source) + C
+  Binary := NewString(length + 256)  // Heuristic: binary will be smaller than len(source) + 256
   BinaryPointer := Binary + string_Chars
   CurrentScope := load32(RootNode + node_Scope)
-  emitByte(0x00)  // wasm magic 00 61 73 6d
+  emitByte(0x00)  // Wasm magic: 00 61 73 6d
   emitByte(0x61)  // a
   emitByte(0x73)  // s
   emitByte(0x6d)  // m
-  emitI32(1)  // wasm version
+  emitI32(1)  // Wasm version
   emitTypeSection()
   emitFunctionSection()
   emitMemorySection()
   emitGlobalSection()
   emitExportSection()
   emitCodeSection()
-  store32(Binary + string_length, BinaryPointer - (Binary + string_Chars)) 
+  store32(Binary + string_length, BinaryPointer - (Binary + string_Chars))  // Fix up the length
 endfun
 
 fun i32 compile()
