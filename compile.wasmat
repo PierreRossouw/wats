@@ -1467,7 +1467,7 @@ endfun
 
 fun emitBreak(i32 Node)
   emitByte(0x0c)  // br
-  emitUleb(loopLevel() - 1)
+  emitUleb(loopLevel() + 1)
 endfun
 
 fun emitContinue(i32 Node)
