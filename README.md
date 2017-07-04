@@ -10,7 +10,7 @@ Write the length as a 32 bit int in bytes 4-7.
 The compiler will return a memory location for the compiled binary.  
 
 ### Updates
-
+2017-07-04: Wasmat now successfully compiles itself!  
 2017-07-03: Fixed several bugs, improved debugging symbols.  
 2017-06-29: Modified to use https://github.com/dracula/dracula-theme/  
 2017-06-29: Added http://prismjs.com/ syntax highlighting.  
