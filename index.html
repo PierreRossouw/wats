@@ -4,9 +4,14 @@
   <link href="prism.css" rel="stylesheet" />
 </head>
 <body>
-  <pre><code class="language-c">// Compile.wasmat v0.0.20170629 - Self-compiling compiler for a toy language targeting WebAssembly
-
+  <pre><code class="language-c">// Compile.wasmat v0.1.20170704
+// A toy language with self-compiling compiler to WebAssembly
+// A subset of WebAssembly is implemented - enough for self-compilation
+// Most reserved words and built-in functions compile to a single WebAssembly instruction
 // As a convention, pointers and functions returning pointers start with a Capital letter
+// Pierre Rossouw 04 July 2017 https://github.com/PierreRossouw/Wasmat
+
+// Most browsers only support 32bit WASM for now
 i32 sizeInt := 4
 
 // Enums
@@ -25,7 +30,7 @@ i32 nodes_variable   := 12
 i32 nodes_parameter  := 13
 i32 nodes_literal    := 14
 
-i32 tokens_identifier  := 43
+i32 tokens_identifier  := 43 
 i32 tokens_charLiteral := 46
 i32 tokens_numLiteral  := 47
 i32 tokens_lParen      := 50
@@ -56,83 +61,84 @@ i32 tokens_add         := 118  // +
 i32 tokens_sub         := 119  // -
 i32 tokens_mul         := 120  // *
 i32 tokens_div         := 121  // /
-i32 tokens_mod         := 123
+i32 tokens_mod         := 122
 i32 tokens_not         := 123
-i32 tokens_f64         := 124
-i32 tokens_f32         := 125
-i32 tokens_i64         := 126
-i32 tokens_i32         := 127
+i32 tokens_f64         := 124  // 0x7c
+i32 tokens_f32         := 125  // 0x7d 
+i32 tokens_i64         := 126  // 0x7e
+i32 tokens_i32         := 127  // 0x7f
 
-// Structs. Bytes 0-3 are reserved for optional magic numbers used for debugging
-i32 string_length := 4
-i32 string_Chars := 8
+// Structs 
+// Bytes 0-7 are reserved for debug information which can be stripped to save maybe 30% memory.
+i32 string_length := 8
+i32 string_Chars  := 12
 
-i32 list_First := 4
-i32 list_Last  := 8
-i32 list_count := 12
-i32 list_size  := 16
+i32 list_First := 8
+i32 list_Last  := 12
+i32 list_count := 16
+i32 list_size  := 20
 
-i32 listItem_Next := 4 
-i32 listItem_Item := 8
-i32 listItem_size := 12
+i32 item_Next   := 8
+i32 item_Name   := 12
+i32 item_Object := 16
+i32 item_size   := 20
 
-i32 dictItem_Next := 4  // inherited from listItem
-i32 dictItem_Name := 8
-i32 dictItem_Item := 12
-i32 dictItem_size := 16
-
-i32 token_Next   := 4  // inherited from listItem
 i32 token_kind   := 8
 i32 token_Value  := 12
 i32 token_line   := 16
 i32 token_column := 20
 i32 token_size   := 24
 
-i32 node_Next       := 4   // inherited from listItem
-i32 node_kind       := 8   // from the nodes_ enum
-i32 node_type       := 12  // from the tokens_ enum
-i32 node_index      := 16  // 0 based index number for funs, variables, parameters
-i32 node_String     := 20  // literal value or fun/var/parameter name
-i32 node_Scope      := 24  // scope for program/block/loop/fun
-i32 node_ANode      := 28  // binary left, call callee, return expression, then block, fun body
-i32 node_BNode      := 32  // binary/unary right, else block, fun return, variable assignment
-i32 node_CNode      := 36  // if statement condition
-i32 node_Nodes      := 40  // node list for program/block/fun locals
-i32 node_ParamNodes := 44  // param node list for call/fun
+i32 node_kind       := 8   // From the nodes_ enum
+i32 node_type       := 12  // From the tokens_ enum
+i32 node_index      := 16  // Zero based index number for funs, variables, parameters
+i32 node_String     := 20  // Literal value, or fun/var/parameter name
+i32 node_Scope      := 24  // Scope for program/block/loop/fun used for name resolution
+i32 node_ANode      := 28  // Binary left, call fun, return expression, then block, or fun body
+i32 node_BNode      := 32  // Binary/unary right, else block, fun return, variable assignment
+i32 node_CNode      := 36  // If statement condition node
+i32 node_Nodes      := 40  // List of child nodes for program/block, or fun locals
+i32 node_ParamNodes := 44  // List of params for call/fun
 i32 node_size       := 48
 
-i32 scope_Node       := 4
-i32 scope_index      := 8 
-i32 scope_Parent     := 12 
-i32 scope_Symbols    := 16 
-i32 scope_localIndex := 20
-i32 scope_size       := 24
+i32 scope_Node       := 8
+i32 scope_index      := 12 
+i32 scope_Parent     := 16 
+i32 scope_Symbols    := 20 
+i32 scope_localIndex := 24
+i32 scope_size       := 28
 
 // Global variables
-i32 Heap            := 4  // Memory management - reserve 0-3 for null pointers
-i32 TokenList       := 0
-i32 funIndex        := 0  // Next function index number
-i32 CurrentToken    := 0
-i32 CurrentScope    := 0
-i32 GlobalScope     := 0
-i32 RootNode        := 0
-i32 Binary          := 0
-i32 BinaryPointer   := 0
-i32 emitGlobalCount := 0
-i32 emitFunCount    := 0
+i32 Heap             := 4  // Memory management - reserve 0-3 for null pointers
+i32 TokenList        := 0
+i32 funIndex         := 0  // Next function index number
+i32 CurrentTokenItem := 0
+i32 CurrentToken     := 0
+i32 CurrentScope     := 0
+i32 GlobalScope      := 0
+i32 RootNode         := 0
+i32 Binary           := 0
+i32 BinaryPointer    := 0
+i32 emitGlobalCount  := 0
+i32 emitFunCount     := 0
 
-// Dummy entries to simplify the parser
-fun store32(i32 Location, i32 value)  // 0x  09 00 20 00 20 01 36 00 00 0b
-endfun                               
-
-fun store8(i32 Location, i32 value)  // 0x  09 00 20 00 20 01 3a 00 00 0b
+// The first function is automatically exported as 'main'
+fun i32 main()
+  return compile()
 endfun
 
-fun i32 load32(i32 Location)  // 0x  07 00 20 00 28 00 00 0b
+// Dummy entries to simplify the parser - to be removed shortly
+fun store32(i32 Location, i32 value) 
+endfun                               
+
+fun store8(i32 Location, i32 value) 
+endfun
+
+fun i32 load32(i32 Location) 
   return 0
 endfun
 
-fun i32 load8(i32 Location)  // 0x  07 00 20 00 2d 00 00 0b
+fun i32 load8(i32 Location) 
   return 0
 endfun
 
@@ -141,51 +147,61 @@ fun i32 Alloc(i32 len)
   i32 r := Heap
   Heap := Heap + len
   if Heap mod sizeInt then
-    Heap := Heap + sizeInt - Heap mod sizeInt  // fix the alignment
+    Heap := Heap + sizeInt - Heap mod sizeInt  // Fix the alignment
   endif
   return r
 endfun
 
-fun i32 NewListItem()
-  store32(Heap, 2 - 256)  // Magic debugging number to identify structs in memory 
-  return Alloc(listItem_size)
+fun debug(i32 X)
+  i32 D := Alloc(8)
+  store32(D, 0 - 557785600)  // Magic number 0x00dec0de - for debugging
+  store32(D + 4, X)
+endfun
+
+// Pascal-style strings: We store the length instead of using a null terminator
+fun i32 NewString(i32 len)
+  i32 String := Alloc(string_Chars + len)
+  store32(String, 1 - 557785600)
+  store32(String + 4, String)  // This struct's address - for debugging
+  store32(String + string_length, len)
+  return String
 endfun
 
 fun i32 NewList()
-  store32(Heap, 3 - 256)  // Magic number
-  return Alloc(list_size)
+  i32 List := Alloc(list_size)
+  store32(List, 2 - 557785600)
+  store32(List + 4, List) 
+  return List
 endfun
 
-fun i32 NewDictItem()
-  store32(Heap, 4 - 256)  // Magic number
-  return Alloc(dictItem_size)
+fun i32 NewItem()
+  i32 Item := Alloc(item_size)
+  store32(Item, 3 - 557785600)
+  store32(Item + 4, Item) 
+  return Item
 endfun
 
 fun i32 NewToken()
-  store32(Heap, 5 - 256)  // Magic number
-  return Alloc(token_size)
+  i32 Token := Alloc(token_size)
+  store32(Token, 4 - 557785600)
+  store32(Token + 4, Token)
+  return Token
 endfun
 
 fun i32 NewNode()
-  store32(Heap, 6 - 256)  // Magic number
   i32 Node := Alloc(node_size)
+  store32(Node, 5 - 557785600)
+  store32(Node + 4, Node)
   store32(Node + node_Scope, CurrentScope)
   return Node
 endfun
 
 fun i32 NewScope()
-  store32(Heap, 7 - 256)  // Magic number
   i32 Scope := Alloc(scope_size)
+  store32(Scope, 6 - 557785600)
+  store32(Scope + 4, Scope)
   store32(Scope + scope_Symbols, NewList())
   return Scope
-endfun
-
-// Pascal-style strings: We store the length instead of using a null terminator
-fun i32 NewString(i32 len)
-  store32(Heap, 1 - 256)  // Magic number
-  i32 String := Alloc(string_Chars + len)
-  store32(String + string_length, len)
-  return String
 endfun
 
 fun i32 strLen(i32 String)
@@ -245,7 +261,7 @@ fun i32 strcomp1(i32 V, i32 a)
   return r
 endfun
 
-// Crappy helper funs
+// Crappy helper functions
 fun i32 strcomp2(i32 V, i32 a, i32 b)
   i32 r := 1
   if strLen(V) <> 2 then
@@ -329,7 +345,7 @@ endfun
 
 fun i32 strcomp8(i32 V, i32 a, i32 b, i32 c, i32 d, i32 e, i32 f, i32 g, i32 h)
   i32 r := 1
-  if strLen(V) <> 7 then
+  if strLen(V) <> 8 then
     r := 0
   else
     if getchar(V, 0) <> a then r := 0 endif
@@ -345,29 +361,44 @@ fun i32 strcomp8(i32 V, i32 a, i32 b, i32 c, i32 d, i32 e, i32 f, i32 g, i32 h)
 endfun
 
 // Lists
-fun listAdd(i32 List, i32 NewItem)
+fun listAdd(i32 List, i32 Object)
+  i32 Item := NewItem()
+  store32(Item + item_Object, Object)
   if not load32(List + list_First) then
-    store32(List + list_First, NewItem)
+    store32(List + list_First, Item)
   else
-    store32(load32(List + list_Last) + listItem_Next, NewItem) 
+    store32(load32(List + list_Last) + item_Next, Item) 
   endif
-  store32(List + list_Last, NewItem) 
+  store32(List + list_Last, Item) 
+  store32(List + list_count, load32(List + list_count) + 1)
+endfun
+
+fun listAddName(i32 List, i32 Object, i32 Name)
+  i32 Item := NewItem()
+  store32(Item + item_Object, Object)
+  store32(Item + item_Name, Name)
+  if not load32(List + list_First) then
+    store32(List + list_First, Item)
+  else
+    store32(load32(List + list_Last) + item_Next, Item) 
+  endif
+  store32(List + list_Last, Item) 
   store32(List + list_count, load32(List + list_count) + 1)
 endfun
 
 // Find a string in a list
-fun i32 DictSearch(i32 List, i32 FindName)
-  i32 DictItem := load32(List + list_First)
-  i32 Item := 0
+fun i32 ListSearch(i32 List, i32 FindName)
+  i32 Item := load32(List + list_First)
+  i32 Node := 0
   loop
-    if not DictItem then break endif
-    if strCompare(load32(DictItem + dictItem_Name), FindName) then
-      Item := load32(DictItem + dictItem_Item)
+    if not Item then break endif
+    if strCompare(load32(Item + item_Name), FindName) then
+      Node := load32(Item + item_Object)
       break
     endif
-    DictItem := load32(DictItem + listItem_Next)
+    Item := load32(Item + item_Next)
   endloop
-  return Item
+  return Node
 endfun
 
 // XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
@@ -375,14 +406,14 @@ endfun
 // XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
 fun addToken(i32 kind, i32 Value, i32 line, i32 column)
+  if not TokenList then
+    TokenList := NewList()
+  endif
   i32 Token := NewToken()
   store32(Token + token_kind, kind)
   store32(Token + token_Value, Value)
   store32(Token + token_line, line)
   store32(Token + token_column, column)
-  if not TokenList then
-    TokenList := NewList()
-  endif
   listAdd(TokenList, Token)
 endfun
 
@@ -399,6 +430,7 @@ fun processToken(i32 Val, i32 line, i32 column)
   if strcomp5(Val, 98, 114, 101, 97, 107) then kind := tokens_break endif
   if strcomp7(Val, 101, 110, 100, 108, 111, 111, 112) then kind := tokens_endloop endif
   if strcomp2(Val, 105, 102) then kind := tokens_if endif
+  if strcomp4(Val, 116, 104, 101, 110) then kind := tokens_then endif
   if strcomp4(Val, 101, 108, 115, 101)  then kind := tokens_else endif
   if strcomp5(Val, 101, 110, 100, 105, 102) then kind := tokens_endif endif
   if strcomp3(Val, 105, 51, 50) then kind := tokens_i32 endif
@@ -428,11 +460,19 @@ fun i32 isWhitespace(i32 chr)
 endfun
 
 fun i32 isAlpha(i32 chr)
-  return (chr >= 97 and chr <= 122) or (chr >= 97 and chr <= 122) or (chr = 95)
+  return (chr >= 65 and chr <= 90) or (chr >= 97 and chr <= 122) or (chr = 95)
 endfun
 
-fun i32 isNumber(i32 chr)
-  return chr >= 48 and chr <= 57
+fun i32 isNumber(i32 chr, i32 hex)
+  i32 num := 0
+  if chr >= 48 and chr <= 57 then
+    num := 1
+  else
+    if hex and chr >= 97 and chr <= 102 then
+      num := 1
+    endif
+  endif
+  return num
 endfun
 
 fun i32 isPunctuator(i32 chr)
@@ -445,13 +485,14 @@ fun i32 isOperatorChar(i32 chr)
 endfun
 
 fun lexx(i32 Code)
-  i32 pos := -1
+  i32 pos := 0 - 1
   i32 line := 1
   i32 col := 0
   i32 len := strLen(Code)
   i32 chr := 0
   i32 start := 0
   i32 Val := 0
+  i32 hex := 0
   loop
     pos := pos + 1
     col := col + 1
@@ -465,7 +506,7 @@ fun lexx(i32 Code)
     if isAlpha(chr) then  
       start := pos
       loop
-        if (not isAlpha(chr)) and (not isNumber(chr)) then
+        if (not isAlpha(chr)) and (not isNumber(chr, 0)) then
           pos := pos - 1
           col := col - 1
           break
@@ -478,13 +519,18 @@ fun lexx(i32 Code)
       processToken(Val, line, col)
       continue
     endif
-    if isNumber(chr) or ((chr = 45) and isNumber(getchar(Code, pos + 1))) then
+    if isNumber(chr, 0) or ((chr = 45) and isNumber(getchar(Code, pos + 1), 0)) then
       start := pos
+      hex := 0
       loop
-        if (not isNumber(chr)) and (chr <> 45) then
-          pos := pos - 1
-          col := col - 1
-          break
+        if (not isNumber(chr, hex)) and (chr <> 45) then
+          if start + 1 = pos and chr = 120 then
+            hex := 1
+          else
+            pos := pos - 1
+            col := col - 1
+            break
+          endif
         endif
         pos := pos + 1
         col := col + 1
@@ -558,15 +604,14 @@ fun i32 LookupFunctionScope(i32 Scope)
 endfun
 
 fun scopeRegister(i32 Scope, i32 Name, i32 Node)
-  i32 DictItem := NewDictItem()
   i32 nodeKind := load32(Node + node_kind)
   i32 FunScope := 0
-  store32(DictItem + dictItem_Name, Name)
-  store32(DictItem + dictItem_Item, Node)
-  listAdd(load32(Scope + scope_Symbols), DictItem)
+  i32 nextIndex := 0
+  listAddName(load32(Scope + scope_Symbols), Node, Name)
   if nodeKind = nodes_variable or nodeKind = nodes_parameter then
     FunScope := LookupFunctionScope(Scope)
-    i32 nextIndex := load32(FunScope + scope_localIndex)
+    nextIndex := load32(FunScope + scope_localIndex)
+    store32(Node + node_Scope, FunScope)
     store32(Node + node_index, nextIndex)
     store32(FunScope + scope_localIndex, nextIndex + 1)
   endif
@@ -577,7 +622,7 @@ fun i32 ScopeResolve(i32 Scope, i32 Name)
   i32 RecurseScope := Scope
   loop
     if not RecurseScope then break endif
-    Node := DictSearch(load32(RecurseScope + scope_Symbols), Name)
+    Node := ListSearch(load32(RecurseScope + scope_Symbols), Name)
     if Node then break endif
     RecurseScope := load32(RecurseScope + scope_Parent)
   endloop
@@ -589,11 +634,20 @@ endfun
 // XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
 fun next()
-  CurrentToken := load32(CurrentToken + token_Next)
+  CurrentTokenItem := load32(CurrentTokenItem + item_Next)
+  if CurrentTokenItem then
+    CurrentToken := load32(CurrentTokenItem + item_Object)
+  else
+    CurrentToken := 0
+  endif
 endfun
 
 fun i32 isBinaryOperator(i32 Token)
-  return load32(Token + token_kind) = tokens_assign
+  i32 kind := load32(Token + token_kind)
+  return kind = tokens_assign or kind = tokens_add or kind = tokens_sub or kind = tokens_mul or
+         kind = tokens_div or kind = tokens_mod or kind = tokens_or or kind = tokens_and or
+         kind = tokens_lt or kind = tokens_eq or kind = tokens_ne or kind = tokens_lt or
+         kind = tokens_le or kind = tokens_gt or kind = tokens_ge 
 endfun
 
 fun i32 isUnaryOperator(i32 Token)
@@ -615,7 +669,10 @@ fun eatToken(i32 kind)
   if load32(CurrentToken + token_kind) = kind then
     next() 
   else
-    // 0x 00 unreachable
+    debug(0x99)
+    debug(kind)
+    debug(load32(CurrentToken + token_kind))
+    debug(CurrentToken)
   endif
 endfun
 
@@ -623,6 +680,7 @@ fun i32 ParseFunParams()
   i32 Params := NewList()
   i32 type := 0
   i32 FunParamNode := 0
+  i32 Name := 0
   eatToken(tokens_lParen)
   loop
     type := load32(CurrentToken + token_kind)
@@ -631,8 +689,9 @@ fun i32 ParseFunParams()
     FunParamNode := NewNode()
     store32(FunParamNode + node_kind, nodes_parameter)
     store32(FunParamNode + node_type, type)
-    store32(FunParamNode + node_String, load32(CurrentToken + token_Value))
-    listAdd(Params, FunParamNode)
+    Name := load32(CurrentToken + token_Value)
+    store32(FunParamNode + node_String, Name)
+    listAddName(Params, FunParamNode, Name)
     next()
     if load32(CurrentToken + token_kind) <> tokens_comma then break endif
     next()
@@ -663,7 +722,7 @@ fun i32 ParseFunDeclaration(i32 type, i32 Name)
   i32 Locals := NewList()
   i32 ParamList := 0
   i32 ParamName := 0
-  i32 ParamNode := 0
+  i32 ParamItem := 0
   store32(Node + node_kind, nodes_fun)
   store32(Node + node_index, funIndex)
   funIndex := funIndex + 1
@@ -674,12 +733,12 @@ fun i32 ParseFunDeclaration(i32 type, i32 Name)
   ParamList := ParseFunParams()
   store32(Node + node_ParamNodes, ParamList)
   pushScope(Node)
-  ParamNode := load32(ParamList + list_First)
+  ParamItem := load32(ParamList + list_First)
   loop
-    if not ParamNode then break endif
-    ParamName := load32(ParamNode + node_String)
-    scopeRegister(CurrentScope, ParamName, ParamNode)
-    ParamNode := load32(ParamNode + listItem_Next)
+    if not ParamItem then break endif
+    ParamName := load32(ParamItem + item_Name)
+    scopeRegister(CurrentScope, ParamName, load32(ParamItem + item_Object))
+    ParamItem := load32(ParamItem + item_Next)
   endloop
   store32(Node + node_ANode, ParseFunBlock())
   popScope()
@@ -805,10 +864,11 @@ endfun
 fun i32 ParseExpression(i32 level)
   i32 Node := 0
   i32 Expr := 0
-  if load32(CurrentToken + token_kind) = tokens_break then
+  i32 kind := load32(CurrentToken + token_kind)
+  if kind = tokens_break then
     Node := ParseBreak()
   else
-    if load32(CurrentToken + token_kind) = tokens_continue then
+    if kind = tokens_continue then
       Node := ParseContinue()
     else
       Node := ParsePrefix()
@@ -905,6 +965,8 @@ fun i32 ParseLoopStatement()
 endfun
 
 fun i32 ParseDeclaration()
+  i32 FunNode := 0
+  i32 FunLocalsList := 0
   i32 type := load32(CurrentToken + token_kind)
   next()
   i32 Name := load32(CurrentToken + token_Value)
@@ -917,8 +979,8 @@ fun i32 ParseDeclaration()
   eatToken(tokens_assign)
   store32(Node + node_BNode, ParseExpression(tokens_minPrec))
   if load32(CurrentScope + scope_Parent) then
-    i32 FunNode := load32(LookupFunctionScope(CurrentScope) + scope_Node)
-    i32 FunLocalsList := load32(FunNode + node_Nodes)
+    FunNode := load32(LookupFunctionScope(CurrentScope) + scope_Node)
+    FunLocalsList := load32(FunNode + node_Nodes)
     if not FunLocalsList then
       FunLocalsList := NewList()
       store32(FunNode + node_Nodes, FunLocalsList)
@@ -930,20 +992,21 @@ endfun
 
 fun i32 ParseStatement()
   i32 Node := 0
-  if load32(CurrentToken + token_kind) = tokens_fun then
+  i32 kind := load32(CurrentToken + token_kind)
+  if kind = tokens_fun then
     eatToken(tokens_fun)
     Node := ParseFun()
   else
     if isNativeType(CurrentToken) then
       Node := ParseDeclaration()
     else
-      if load32(CurrentToken + token_kind) = tokens_return then
+      if kind = tokens_return then
         Node := ParseReturnStatement()
       else
-        if load32(CurrentToken + token_kind) = tokens_if then
+        if kind = tokens_if then
           Node := ParseIfStatement()
         else
-          if load32(CurrentToken + token_kind) = tokens_loop then
+          if kind = tokens_loop then
             Node := ParseLoopStatement()
           else
             Node := ParseExpression(tokens_minPrec)
@@ -957,7 +1020,8 @@ endfun
 
 fun parse()
   RootNode := NewNode()
-  CurrentToken := load32(TokenList + list_First)
+  CurrentTokenItem := load32(TokenList + list_First)
+  CurrentToken := load32(CurrentTokenItem + item_Object)
   store32(RootNode + node_kind, nodes_program)
   pushScope(RootNode)
   GlobalScope := CurrentScope  
@@ -1057,6 +1121,17 @@ fun emitUleb(i32 i)  // en.wikipedia.org/wiki/LEB128
   emitByte(i)
 endfun
 
+fun emitSleb(i32 i)  // Limitation: Only works on non-negative numbers
+  if i >= 0 then 
+    loop
+      if i < 64 then break endif
+      emitByte(128 + (i mod 128))
+      i := i / 128
+    endloop
+    emitByte(i)
+  endif
+endfun
+
 fun fixUlebGuess(i32 Start, i32 offset)
   i32 Copy := BinaryPointer
   if offset > 0 then
@@ -1072,11 +1147,11 @@ fun emitType(i32 Node)
   i32 ParamList := load32(Node + node_ParamNodes)
   emitByte(0x60)  // fun type
   emitUleb(load32(ParamList + list_count)) 
-  i32 ParamNode := load32(ParamList + list_First)
+  i32 ParamItem := load32(ParamList + list_First)
   loop
-    if not ParamNode then break endif
-    emitByte(load32(ParamNode + node_type))
-    ParamNode := load32(ParamNode + node_Next)
+    if not ParamItem then break endif
+    emitByte(load32(load32(ParamItem + item_Object) + node_type))
+    ParamItem := load32(ParamItem + item_Next)
   endloop
   i32 returnType := load32(Node + node_type)
   if returnType then
@@ -1088,27 +1163,34 @@ fun emitType(i32 Node)
 endfun
 
 fun emitTypeSection()
+  i32 Start := 0
+  i32 count := 0
+  i32 Item := 0
+  i32 Node := 0
+  i32 length := 0
+  i32 offset := 0
   i32 BodyList := load32(RootNode + node_Nodes)
   i32 Skip := BinaryPointer
   if BodyList then
     if load32(BodyList + list_count) then
       emitByte(0x01)  // Type section
       emitByte(0x00)  // section size (guess)
-      i32 Start := BinaryPointer 
+      Start := BinaryPointer 
       emitByte(0x00)  // types count (guess)  
-      i32 count := 0
-      i32 Node := load32(BodyList + list_First)
+      count := 0
+      Item := load32(BodyList + list_First)
       loop
+        Node := load32(Item + item_Object)
         if load32(Node + node_kind) = nodes_fun then
           emitType(Node)
           count := count + 1
           emitFunCount := emitFunCount + 1
         endif
-        Node := load32(Node + node_Next)
-        if not Node then break endif
+        Item := load32(Item + item_Next)
+        if not Item then break endif
       endloop
-      i32 length := BinaryPointer - Start
-      i32 offset := uleblen(count) + uleblen(length) - 2
+      length := BinaryPointer - Start
+      offset := uleblen(count) + uleblen(length) - 2
       fixUlebGuess(Start, offset)
       BinaryPointer := Start - 1
       emitUleb(length)
@@ -1120,19 +1202,22 @@ fun emitTypeSection()
 endfun
 
 fun emitFunctionSection()
+  i32 Start := 0
+  i32 counter := 0
+  i32 length := 0
+  i32 offset := 0
   if emitFunCount then
     emitByte(0x03)  // Function section
     emitByte(0x00)  // section size (guess)
-    i32 Start := BinaryPointer 
+    Start := BinaryPointer 
     emitUleb(emitFunCount)  // types count
-    i32 counter := 0
     loop
       if counter >= emitFunCount then break endif
       emitUleb(counter)
       counter := counter + 1
     endloop
-    i32 length := BinaryPointer - Start
-    i32 offset := uleblen(length) - 1
+    length := BinaryPointer - Start
+    offset := uleblen(length) - 1
     fixUlebGuess(Start, offset)
     BinaryPointer := Start - 1
     emitUleb(length)
@@ -1140,41 +1225,50 @@ fun emitFunctionSection()
   endif
 endfun
 
+// Memory is exported as 'mem' and is a fixed size
+// This program takes at minimum about 1MB to compile
 fun emitMemorySection()
   emitByte(0x05)  // Memory section
-  emitUleb(0x03)  // size in bytes
-  emitByte(0x01)  // count
-  emitByte(0x00)  // resizable flag
-  emitByte(0x01)  // pages (page = 64kb)
+  emitUleb(0x03)  // Size in bytes
+  emitByte(0x01)  // Sount. A maximum of 1 currently in WebAssembly
+  emitByte(0x00)  // Resizable flag
+  emitByte(0x70)  // Pages (A page is 64kb)
 endfun
 
 fun emitGlobalSection()
+  i32 Start := 0
+  i32 count := 0
+  i32 Item := 0
+  i32 Node := 0
+  i32 Value := 0
+  i32 length := 0
+  i32 offset := 0
   i32 BodyList := load32(RootNode + node_Nodes)
   i32 Skip := BinaryPointer
   if BodyList then
     if load32(BodyList + list_count) then
       emitByte(0x06)  // Section code
       emitByte(0x00)  // Section size (guess)
-      i32 Start := BinaryPointer 
-      emitByte(0x00)  // globals count (guess)
-      i32 count := 0
-      i32 Node := load32(BodyList + list_First)
+      Start := BinaryPointer 
+      emitByte(0x00)  // Globals count (guess)
+      Item := load32(BodyList + list_First)
       loop
+        Node := load32(Item + item_Object)
         if load32(Node + node_kind) = nodes_variable then
-          emitByte(load32(Node + node_type))  // native type
-          emitByte(1)  // mutable
-          emitByte(65)  // i32_const
-          i32 Value := load32(load32(Node + node_BNode) + node_String)
-          emitUleb(strToI32(Value))
-          emitByte(11)
+          emitByte(load32(Node + node_type))  // Native type
+          emitByte(0x01)  // Mutable
+          emitByte(0x41)  // i32.const
+          Value := load32(load32(Node + node_BNode) + node_String)
+          emitSleb(strToI32(Value))
+          emitByte(0x0b)  // end
           count := count + 1
           emitGlobalCount := emitGlobalCount + 1
         endif
-        Node := load32(Node + node_Next)
-        if not Node then break endif
+        Item := load32(Item + item_Next)
+        if not Item then break endif
       endloop
-      i32 length := BinaryPointer - Start
-      i32 offset := uleblen(count) + uleblen(length) - 2
+      length := BinaryPointer - Start
+      offset := uleblen(count) + uleblen(length) - 2
       fixUlebGuess(Start, offset)
       BinaryPointer := Start - 1
       emitUleb(length)
@@ -1185,13 +1279,49 @@ fun emitGlobalSection()
   if not emitGlobalCount then BinaryPointer := Skip endif
 endfun
 
+fun emitExportSection()
+  i32 funCount := 0
+  i32 Start := 0
+  i32 length := 0
+  i32 offset := 0
+  i32 BodyList := load32(RootNode + node_Nodes)
+  if BodyList then
+    funCount := load32(BodyList + list_count)
+    if funCount then
+      emitByte(0x07)  // Export section
+      emitByte(0x00)  // Section size (guess)
+      Start := BinaryPointer 
+      emitByte(0x02)  // Export count
+      emitByte(0x04)  // 1: Name length
+      emitByte(0x6d)  // m
+      emitByte(0x61)  // a
+      emitByte(0x69)  // i
+      emitByte(0x6e)  // n
+      emitByte(0x00)  // Type: function
+      emitUleb(0x00)  // Function number 0
+      emitByte(0x03)  // 2: Name length
+      emitByte(0x6d)  // m
+      emitByte(0x65)  // e
+      emitByte(0x6d)  // m
+      emitByte(0x02)  // Type: memory
+      emitByte(0x00)  // Memory number 0 
+      length := BinaryPointer - Start
+      offset := uleblen(length) - 1
+      fixUlebGuess(Start, offset)
+      BinaryPointer := Start - 1
+      emitUleb(length)
+      BinaryPointer := BinaryPointer + length
+    endif
+  endif
+endfun
+
 fun emitAssignment(i32 Node)
   i32 ResolvedNode := ScopeResolve(CurrentScope, load32(load32(Node + node_ANode) + node_String))
   emitNode(load32(Node + node_BNode))
   if load32(ResolvedNode + node_Scope) = GlobalScope then
-    emitByte(0x24)  // set_global
+    emitByte(0x24)  // i32.set_global
   else
-    emitByte(0x21)  // set_local
+    emitByte(0x21)  // i32.set_local
   endif
   emitUleb(load32(ResolvedNode + node_index))
 endfun
@@ -1210,7 +1340,7 @@ fun emitOperator(i32 type)
   if type = tokens_mod then emitByte(0x6f) endif
   if type = tokens_and then emitByte(0x71) endif
   if type = tokens_or then emitByte(0x72) endif
-  if type = tokens_not then emitByte(0x72) endif
+  if type = tokens_not then emitByte(0x45) endif
 endfun
 
 fun emitUnary(i32 Node)
@@ -1226,17 +1356,18 @@ endfun
 fun emitLiteral(i32 Node)
   i32 type := load32(Node + node_type) 
   i32 num := 0
+  i32 ResolvedNode := 0
   if type = tokens_numLiteral then
     emitByte(0x41)  // i32.const
     num := strToI32(load32(Node + node_String))
-    emitUleb(num)
+    emitSleb(num)
   else
     if type = tokens_identifier then
-      i32 ResolvedNode := ScopeResolve(CurrentScope, load32(Node + node_String))
+      ResolvedNode := ScopeResolve(CurrentScope, load32(Node + node_String))
       if load32(ResolvedNode + node_Scope) = GlobalScope then
-        emitByte(0x23)  // get_global
+        emitByte(0x23)  // i32.get_global
       else
-        emitByte(0x20)  // get_local
+        emitByte(0x20)  // i32.get_local
       endif
       emitUleb(load32(ResolvedNode + node_index))
     endif
@@ -1245,34 +1376,35 @@ endfun
 
 fun emitCall(i32 Node)
   i32 ParamList := load32(Node + node_ParamNodes)
-  i32 Param := load32(ParamList + list_First)
+  i32 ParamItem := load32(ParamList + list_First)
+  i32 ResolvedNode := 0
   loop
-    if not Param then break endif
-    emitNode(Param)
-    Param := load32(Param + node_Next)
+    if not ParamItem then break endif
+    emitNode(load32(ParamItem + item_Object))
+    ParamItem := load32(ParamItem + item_Next)
   endloop
-  i32 Name := load32(Node + node_String)
-  if strcomp7(Name, 115, 116, 111, 114, 101, 51, 50) then  // store32
+  i32 Name := load32(load32(Node + node_ANode) + node_String)
+  if strcomp7(Name, 115, 116, 111, 114, 101, 51, 50) then  // 'store32'
     emitByte(0x36)  // i32.store32
     emitByte(0x00)  // alignment
     emitByte(0x00)  // offset
   else
-    if strcomp6(Name, 115, 116, 111, 114, 101, 56) then  // store8
+    if strcomp6(Name, 115, 116, 111, 114, 101, 56) then  // 'store8'
       emitByte(0x3a)  // i32.store8
       emitByte(0x00)  // alignment
       emitByte(0x00)  // offset
     else 
-      if strcomp6(Name, 108, 111, 97, 100, 51, 50) then  // load32
+      if strcomp6(Name, 108, 111, 97, 100, 51, 50) then  // 'load32'
         emitByte(0x28)  // i32.load32
         emitByte(0x00)  // alignment
         emitByte(0x00)  // offset
       else
-        if strcomp5(Name, 108, 111, 97, 100, 56) then  // load8
+        if strcomp5(Name, 108, 111, 97, 100, 56) then  // 'load8'
           emitByte(0x2d)  // i32.load8
           emitByte(0x00)  // alignment
           emitByte(0x00)  // offset
         else
-          i32 ResolvedNode := ScopeResolve(CurrentScope, Name)
+          ResolvedNode := ScopeResolve(CurrentScope, Name)
           emitByte(0x10)  // call
           emitUleb(load32(ResolvedNode + node_index))
         endif
@@ -1289,11 +1421,11 @@ fun emitBlock(i32 Node)
     CurrentScope := Scope
   endif
   i32 BlockList := load32(Node + node_Nodes)
-  i32 ListNode := load32(BlockList + list_First)
+  i32 Item := load32(BlockList + list_First)
   loop
-    if not ListNode then break endif
-    emitNode(ListNode)
-    ListNode := load32(ListNode + node_Next)
+    if not Item then break endif
+    emitNode(load32(Item + item_Object))
+    Item := load32(Item + item_Next)
   endloop
   if Scope then
     CurrentScope := load32(CurrentScope + scope_Parent)
@@ -1306,10 +1438,10 @@ fun emitReturn(i32 Node)
 endfun
 
 fun emitIf(i32 Node)
-  emitNode(load32(Node + node_CNode))  // condition
+  emitNode(load32(Node + node_CNode))  // If condition expression
   emitByte(0x04)  // if
   emitByte(0x40)  // void
-  emitNode(load32(Node + node_ANode))  // then block
+  emitNode(load32(Node + node_ANode))  // Then block
   i32 ElseBlock := load32(Node + node_BNode)
   if ElseBlock then
     emitByte(0x05)  // else
@@ -1344,7 +1476,7 @@ endfun
 
 fun emitBreak(i32 Node)
   emitByte(0x0c)  // br
-  emitUleb(loopLevel() - 1)
+  emitUleb(loopLevel() + 1)
 endfun
 
 fun emitContinue(i32 Node)
@@ -1390,6 +1522,12 @@ fun emitNode(i32 Node)
                   else
                     if kind = nodes_literal then
                       emitLiteral(Node)
+                    else
+                      if kind = nodes_variable then
+                        emitNode(load32(Node + node_BNode))
+                        emitByte(0x21)  // i32.set_local
+                        emitUleb(load32(Node + node_index))
+                      endif
                     endif
                   endif
                 endif
@@ -1403,18 +1541,18 @@ fun emitNode(i32 Node)
 endfun
 
 fun emitFunCode(i32 Node)
-  emitByte(0x00)  // function size (guess)
+  emitByte(0x00)  // Function size (guess)
   i32 Start := BinaryPointer
-  i32 ParamList := load32(Node + node_ParamNodes)
-  emitUleb(load32(ParamList + list_count))
-  i32 Param := load32(ParamList + list_First)
+  i32 LocalList := load32(Node + node_Nodes)
+  emitUleb(load32(LocalList + list_count))
+  i32 LocalItem := load32(LocalList + list_First)
   loop
-    if not Param then break endif
+    if not LocalItem then break endif
     emitByte(0x01)  // count
-    emitByte(load32(Param + node_type))
-    Param := load32(Param + listItem_Next)
+    emitByte(load32(load32(LocalItem + item_Object) + node_type))
+    LocalItem := load32(LocalItem + item_Next)
   endloop
-  emitNode(load32(Node + node_ANode))  // body block node
+  emitNode(load32(Node + node_ANode))  // Body block node
   emitByte(0x0b)  // end
   i32 length := BinaryPointer - Start
   i32 offset := uleblen(length) - 1
@@ -1425,22 +1563,29 @@ fun emitFunCode(i32 Node)
 endfun
 
 fun emitCodeSection()
+  i32 Start := 0
+  i32 BodyList := 0
+  i32 FunItem := 0
+  i32 FunNode := 0
+  i32 length := 0
+  i32 offset := 0
   if emitFunCount then
     emitByte(0x0a)  // Code section 
-    emitByte(0x00)  // section size (guess)
-    i32 Start := BinaryPointer 
+    emitByte(0x00)  // Section size (guess)
+    Start := BinaryPointer 
     emitUleb(emitFunCount)
-    i32 BodyList := load32(RootNode + node_Nodes)
-    i32 FunNode := load32(BodyList + list_First)
+    BodyList := load32(RootNode + node_Nodes)
+    FunItem := load32(BodyList + list_First)
     loop
+      FunNode := load32(FunItem + item_Object)
       if load32(FunNode + node_kind) = nodes_fun then
         emitFunCode(FunNode)
       endif
-      FunNode := load32(FunNode + node_Next)
-      if not FunNode then break endif
+      FunItem := load32(FunItem + item_Next)
+      if not FunItem then break endif
     endloop
-    i32 length := BinaryPointer - Start
-    i32 offset := uleblen(length) - 1
+    length := BinaryPointer - Start
+    offset := uleblen(length) - 1
     fixUlebGuess(Start, offset)
     BinaryPointer := Start - 1
     emitUleb(length)
@@ -1449,479 +1594,31 @@ fun emitCodeSection()
 endfun
 
 fun emit(i32 length)
-  Binary := NewString(length + 256)  // heuristic: binary will be smaller than len(source) + C
+  Binary := NewString(length + 256)  // Heuristic: binary will be smaller than len(source) + 256
   BinaryPointer := Binary + string_Chars
   CurrentScope := load32(RootNode + node_Scope)
-  emitByte(0x00)  // wasm magic 00 61 73 6d
+  emitByte(0x00)  // Wasm magic: 00 61 73 6d
   emitByte(0x61)  // a
   emitByte(0x73)  // s
   emitByte(0x6d)  // m
-  emitI32(1)  // wasm version
+  emitI32(1)  // Wasm version
   emitTypeSection()
   emitFunctionSection()
   emitMemorySection()
   emitGlobalSection()
+  emitExportSection()
   emitCodeSection()
-  store32(Binary + string_length, BinaryPointer - (Binary + string_length)) 
+  store32(Binary + string_length, BinaryPointer - (Binary + string_Chars))  // Fix up the length
 endfun
 
-// XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-// Test compile
-// XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-
-i32 N := 0  // wasmat program string
-i32 o := 0  // next char counter
-
-fun fun_()
-  setchar(N, o, 102)  o := o + 1  // f
-  setchar(N, o, 117)  o := o + 1  // u
-  setchar(N, o, 110)  o := o + 1  // n
-  setchar(N, o, 32)   o := o + 1  //
-endfun
-
-fun endfun_()
-  setchar(N, o, 101)  o := o + 1  // e
-  setchar(N, o, 110)  o := o + 1  // n
-  setchar(N, o, 100)  o := o + 1  // d
-  setchar(N, o, 102)  o := o + 1  // f
-  setchar(N, o, 117)  o := o + 1  // u
-  setchar(N, o, 110)  o := o + 1  // n
-  setchar(N, o, 32)   o := o + 1  //
-endfun
-
-fun i32_()
-  setchar(N, o, 105)  o := o + 1  // i
-  setchar(N, o, 51)   o := o + 1  // 3
-  setchar(N, o, 50)   o := o + 1  // 2
-  setchar(N, o, 32)   o := o + 1  //
-endfun
-
-fun i32 main()
-  N := NewString(100)  // arbitrary  
-  i32_()                          // i32 
-  setchar(N, o, 103)  o := o + 1  // g
-  setchar(N, o, 32)   o := o + 1  //
-  setchar(N, o, 58)   o := o + 1  // :
-  setchar(N, o, 61)   o := o + 1  // =
-  setchar(N, o, 32)   o := o + 1  //
-  setchar(N, o, 51)   o := o + 1  // 3
-  setchar(N, o, 32)   o := o + 1  //
-  i32_()                          // i32 
-  setchar(N, o, 104)  o := o + 1  // h
-  setchar(N, o, 32)   o := o + 1  //
-  setchar(N, o, 58)   o := o + 1  // :
-  setchar(N, o, 61)   o := o + 1  // =
-  setchar(N, o, 32)   o := o + 1  //
-  setchar(N, o, 52)   o := o + 1  // 4
-  setchar(N, o, 32)   o := o + 1  //
-  fun_()                          // fun 
-  setchar(N, o, 120)  o := o + 1  // x
-  setchar(N, o, 40)   o := o + 1  // (
-  setchar(N, o, 41)   o := o + 1  // )
-  setchar(N, o, 32)   o := o + 1  //
-  setchar(N, o, 103)  o := o + 1  // g
-  setchar(N, o, 32)   o := o + 1  //
-  setchar(N, o, 58)   o := o + 1  // :
-  setchar(N, o, 61)   o := o + 1  // =
-  setchar(N, o, 32)   o := o + 1  //
-  setchar(N, o, 45)   o := o + 1  // -
-  setchar(N, o, 104)  o := o + 1  // h
-  setchar(N, o, 32)   o := o + 1  //
-  endfun_()                       // endfun
-  lexx(N)
+fun i32 compile()
+  i32 len := load32(8)
+  i32 ignore := Alloc(8 + len)
+  lexx(0)
   parse()
-  emit(strLen(N))
-  return Binary
+  emit(len)
+  return Binary + string_length
 endfun
-
-// WASM binary for this version
-// 0x 00 61 73 6d 01 00 00 00 01 e3 83 80 80 00 e3 80 80 80 00 60 02 7f 7f 00 60 02 7f 7f 00 60 01 7f 
-// 0x 01 7f 60 01 7f 01 7f 60 01 7f 01 7f 60 00 01 7f 60 00 01 7f 60 00 01 7f 60 00 01 7f 60 00 01 7f 
-// 0x 60 00 01 7f 60 01 7f 01 7f 60 01 7f 01 7f 60 02 7f 7f 01 7f 60 03 7f 7f 7f 00 60 03 7f 7f 7f 01 
-// 0x 7f 60 02 7f 7f 01 7f 60 02 7f 7f 01 7f 60 03 7f 7f 7f 01 7f 60 04 7f 7f 7f 7f 01 7f 60 05 7f 7f 
-// 0x 7f 7f 7f 01 7f 60 06 7f 7f 7f 7f 7f 7f 01 7f 60 07 7f 7f 7f 7f 7f 7f 7f 01 7f 60 08 7f 7f 7f 7f 
-// 0x 7f 7f 7f 7f 01 7f 60 09 7f 7f 7f 7f 7f 7f 7f 7f 7f 01 7f 60 02 7f 7f 00 60 02 7f 7f 01 7f 60 04 
-// 0x 7f 7f 7f 7f 00 60 03 7f 7f 7f 00 60 01 7f 01 7f 60 01 7f 01 7f 60 01 7f 01 7f 60 01 7f 01 7f 60 
-// 0x 01 7f 01 7f 60 01 7f 00 60 01 7f 00 60 00 00 60 01 7f 01 7f 60 03 7f 7f 7f 00 60 02 7f 7f 01 7f 
-// 0x 60 00 00 60 01 7f 01 7f 60 01 7f 01 7f 60 01 7f 01 7f 60 01 7f 01 7f 60 01 7f 00 60 00 01 7f 60 
-// 0x 00 01 7f 60 02 7f 7f 01 7f 60 00 01 7f 60 00 01 7f 60 00 01 7f 60 00 01 7f 60 00 01 7f 60 01 7f 
-// 0x 01 7f 60 00 01 7f 60 00 01 7f 60 02 7f 7f 01 7f 60 02 7f 7f 01 7f 60 01 7f 01 7f 60 00 01 7f 60 
-// 0x 00 01 7f 60 00 01 7f 60 00 01 7f 60 00 01 7f 60 00 01 7f 60 00 01 7f 60 00 00 60 01 7f 01 7f 60 
-// 0x 01 7f 00 60 01 7f 00 60 01 7f 01 7f 60 01 7f 00 60 02 7f 7f 00 60 01 7f 00 60 00 00 60 00 00 60 
-// 0x 00 00 60 00 00 60 01 7f 00 60 01 7f 00 60 01 7f 00 60 01 7f 00 60 01 7f 00 60 01 7f 00 60 01 7f 
-// 0x 00 60 01 7f 00 60 00 01 7f 60 01 7f 00 60 01 7f 00 60 01 7f 00 60 01 7f 00 60 01 7f 00 60 00 00 
-// 0x 60 01 7f 00 60 00 00 60 00 00 60 00 00 60 00 01 7f 03 e8 80 80 80 00 e3 80 80 80 00 00 01 02 03 
-// 0x 04 05 06 07 08 09 0a 0b 0c 0d 0e 0f 10 11 12 13 14 15 16 17 18 19 1a 1b 1c 1d 1e 1f 20 21 22 23 
-// 0x 24 25 26 27 28 29 2a 2b 2c 2d 2e 2f 30 31 32 33 34 35 36 37 38 39 3a 3b 3c 3d 3e 3f 40 41 42 43 
-// 0x 44 45 46 47 48 49 4a 4b 4c 4d 4e 4f 50 51 52 53 54 55 56 57 58 59 5a 5b 5c 5d 5e 5f 60 61 62 05 
-// 0x 83 80 80 80 00 01 00 01 06 9f 84 80 80 00 e6 80 80 80 00 7f 01 41 04 0b 7f 01 41 01 0b 7f 01 41 
-// 0x 02 0b 7f 01 41 03 0b 7f 01 41 04 0b 7f 01 41 05 0b 7f 01 41 06 0b 7f 01 41 07 0b 7f 01 41 08 0b 
-// 0x 7f 01 41 09 0b 7f 01 41 0a 0b 7f 01 41 0b 0b 7f 01 41 0c 0b 7f 01 41 0d 0b 7f 01 41 0e 0b 7f 01 
-// 0x 41 2b 0b 7f 01 41 2e 0b 7f 01 41 2f 0b 7f 01 41 32 0b 7f 01 41 33 0b 7f 01 41 34 0b 7f 01 41 3c 
-// 0x 0b 7f 01 41 3d 0b 7f 01 41 3e 0b 7f 01 41 c6 00 0b 7f 01 41 c7 00 0b 7f 01 41 c8 00 0b 7f 01 41 
-// 0x c9 00 0b 7f 01 41 d0 00 0b 7f 01 41 d2 00 0b 7f 01 41 d3 00 0b 7f 01 41 d4 00 0b 7f 01 41 e3 00 
-// 0x 0b 7f 01 41 e4 00 0b 7f 01 41 e5 00 0b 7f 01 41 e6 00 0b 7f 01 41 ee 00 0b 7f 01 41 ef 00 0b 7f 
-// 0x 01 41 f0 00 0b 7f 01 41 f1 00 0b 7f 01 41 f2 00 0b 7f 01 41 f3 00 0b 7f 01 41 f6 00 0b 7f 01 41 
-// 0x f7 00 0b 7f 01 41 f8 00 0b 7f 01 41 f9 00 0b 7f 01 41 fb 00 0b 7f 01 41 fb 00 0b 7f 01 41 fc 00 
-// 0x 0b 7f 01 41 fd 00 0b 7f 01 41 fe 00 0b 7f 01 41 ff 00 0b 7f 01 41 04 0b 7f 01 41 08 0b 7f 01 41 
-// 0x 04 0b 7f 01 41 08 0b 7f 01 41 0c 0b 7f 01 41 10 0b 7f 01 41 04 0b 7f 01 41 08 0b 7f 01 41 0c 0b 
-// 0x 7f 01 41 04 0b 7f 01 41 08 0b 7f 01 41 0c 0b 7f 01 41 10 0b 7f 01 41 04 0b 7f 01 41 08 0b 7f 01 
-// 0x 41 0c 0b 7f 01 41 10 0b 7f 01 41 14 0b 7f 01 41 18 0b 7f 01 41 04 0b 7f 01 41 08 0b 7f 01 41 0c 
-// 0x 0b 7f 01 41 10 0b 7f 01 41 14 0b 7f 01 41 18 0b 7f 01 41 1c 0b 7f 01 41 20 0b 7f 01 41 24 0b 7f 
-// 0x 01 41 28 0b 7f 01 41 2c 0b 7f 01 41 30 0b 7f 01 41 04 0b 7f 01 41 08 0b 7f 01 41 0c 0b 7f 01 41 
-// 0x 10 0b 7f 01 41 14 0b 7f 01 41 18 0b 7f 01 41 04 0b 7f 01 41 00 0b 7f 01 41 00 0b 7f 01 41 00 0b 
-// 0x 7f 01 41 00 0b 7f 01 41 00 0b 7f 01 41 00 0b 7f 01 41 00 0b 7f 01 41 00 0b 7f 01 41 00 0b 7f 01 
-// 0x 41 00 0b 7f 01 41 00 0b 7f 01 41 00 0b 07 ba 8a 80 80 00 e4 80 80 80 00 07 73 74 6f 72 65 33 32 
-// 0x 00 00 06 73 74 6f 72 65 38 00 01 06 6c 6f 61 64 33 32 00 02 05 6c 6f 61 64 38 00 03 05 41 6c 6c 
-// 0x 6f 63 00 04 0b 4e 65 77 4c 69 73 74 49 74 65 6d 00 05 07 4e 65 77 4c 69 73 74 00 06 0b 4e 65 77 
-// 0x 44 69 63 74 49 74 65 6d 00 07 08 4e 65 77 54 6f 6b 65 6e 00 08 07 4e 65 77 4e 6f 64 65 00 09 08 
-// 0x 4e 65 77 53 63 6f 70 65 00 0a 09 4e 65 77 53 74 72 69 6e 67 00 0b 06 73 74 72 4c 65 6e 00 0c 07 
-// 0x 67 65 74 63 68 61 72 00 0d 07 73 65 74 63 68 61 72 00 0e 09 53 75 62 73 74 72 69 6e 67 00 0f 0a 
-// 0x 73 74 72 43 6f 6d 70 61 72 65 00 10 08 73 74 72 63 6f 6d 70 31 00 11 08 73 74 72 63 6f 6d 70 32 
-// 0x 00 12 08 73 74 72 63 6f 6d 70 33 00 13 08 73 74 72 63 6f 6d 70 34 00 14 08 73 74 72 63 6f 6d 70 
-// 0x 35 00 15 08 73 74 72 63 6f 6d 70 36 00 16 08 73 74 72 63 6f 6d 70 37 00 17 08 73 74 72 63 6f 6d 
-// 0x 70 38 00 18 07 6c 69 73 74 41 64 64 00 19 0a 44 69 63 74 53 65 61 72 63 68 00 1a 08 61 64 64 54 
-// 0x 6f 6b 65 6e 00 1b 0c 70 72 6f 63 65 73 73 54 6f 6b 65 6e 00 1c 0c 69 73 57 68 69 74 65 73 70 61 
-// 0x 63 65 00 1d 07 69 73 41 6c 70 68 61 00 1e 08 69 73 4e 75 6d 62 65 72 00 1f 0c 69 73 50 75 6e 63 
-// 0x 74 75 61 74 6f 72 00 20 0e 69 73 4f 70 65 72 61 74 6f 72 43 68 61 72 00 21 04 6c 65 78 78 00 22 
-// 0x 09 70 75 73 68 53 63 6f 70 65 00 23 08 70 6f 70 53 63 6f 70 65 00 24 13 4c 6f 6f 6b 75 70 46 75 
-// 0x 6e 63 74 69 6f 6e 53 63 6f 70 65 00 25 0d 73 63 6f 70 65 52 65 67 69 73 74 65 72 00 26 0c 53 63 
-// 0x 6f 70 65 52 65 73 6f 6c 76 65 00 27 04 6e 65 78 74 00 28 10 69 73 42 69 6e 61 72 79 4f 70 65 72 
-// 0x 61 74 6f 72 00 29 0f 69 73 55 6e 61 72 79 4f 70 65 72 61 74 6f 72 00 2a 09 69 73 4c 69 74 65 72 
-// 0x 61 6c 00 2b 0c 69 73 4e 61 74 69 76 65 54 79 70 65 00 2c 08 65 61 74 54 6f 6b 65 6e 00 2d 0e 50 
-// 0x 61 72 73 65 46 75 6e 50 61 72 61 6d 73 00 2e 0d 50 61 72 73 65 46 75 6e 42 6c 6f 63 6b 00 2f 13 
-// 0x 50 61 72 73 65 46 75 6e 44 65 63 6c 61 72 61 74 69 6f 6e 00 30 08 50 61 72 73 65 46 75 6e 00 31 
-// 0x 0a 50 61 72 73 65 42 72 65 61 6b 00 32 0d 50 61 72 73 65 43 6f 6e 74 69 6e 75 65 00 33 0c 50 61 
-// 0x 72 73 65 4c 69 74 65 72 61 6c 00 34 0f 50 61 72 73 65 43 61 6c 6c 50 61 72 61 6d 73 00 35 13 50 
-// 0x 61 72 73 65 43 61 6c 6c 45 78 70 72 65 73 73 69 6f 6e 00 36 14 70 61 72 73 65 55 6e 61 72 79 45 
-// 0x 78 70 72 65 73 73 69 6f 6e 00 37 0b 50 61 72 73 65 50 72 65 66 69 78 00 38 15 50 61 72 73 65 42 
-// 0x 69 6e 61 72 79 45 78 70 72 65 73 73 69 6f 6e 00 39 0a 50 61 72 73 65 49 6e 66 69 78 00 3a 0f 50 
-// 0x 61 72 73 65 45 78 70 72 65 73 73 69 6f 6e 00 3b 14 50 61 72 73 65 52 65 74 75 72 6e 53 74 61 74 
-// 0x 65 6d 65 6e 74 00 3c 0c 50 61 72 73 65 49 66 42 6c 6f 63 6b 00 3d 10 50 61 72 73 65 49 66 53 74 
-// 0x 61 74 65 6d 65 6e 74 00 3e 0e 50 61 72 73 65 4c 6f 6f 70 42 6c 6f 63 6b 00 3f 12 50 61 72 73 65 
-// 0x 4c 6f 6f 70 53 74 61 74 65 6d 65 6e 74 00 40 10 50 61 72 73 65 44 65 63 6c 61 72 61 74 69 6f 6e 
-// 0x 00 41 0e 50 61 72 73 65 53 74 61 74 65 6d 65 6e 74 00 42 05 70 61 72 73 65 00 43 08 73 74 72 54 
-// 0x 6f 49 33 32 00 44 08 65 6d 69 74 42 79 74 65 00 45 07 65 6d 69 74 49 33 32 00 46 07 75 6c 65 62 
-// 0x 6c 65 6e 00 47 08 65 6d 69 74 55 6c 65 62 00 48 0c 66 69 78 55 6c 65 62 47 75 65 73 73 00 49 08 
-// 0x 65 6d 69 74 54 79 70 65 00 4a 0f 65 6d 69 74 54 79 70 65 53 65 63 74 69 6f 6e 00 4b 13 65 6d 69 
-// 0x 74 46 75 6e 63 74 69 6f 6e 53 65 63 74 69 6f 6e 00 4c 11 65 6d 69 74 4d 65 6d 6f 72 79 53 65 63 
-// 0x 74 69 6f 6e 00 4d 11 65 6d 69 74 47 6c 6f 62 61 6c 53 65 63 74 69 6f 6e 00 4e 0e 65 6d 69 74 41 
-// 0x 73 73 69 67 6e 6d 65 6e 74 00 4f 0c 65 6d 69 74 4f 70 65 72 61 74 6f 72 00 50 09 65 6d 69 74 55 
-// 0x 6e 61 72 79 00 51 0b 65 6d 69 74 4c 69 74 65 72 61 6c 00 52 08 65 6d 69 74 43 61 6c 6c 00 53 09 
-// 0x 65 6d 69 74 42 6c 6f 63 6b 00 54 0a 65 6d 69 74 52 65 74 75 72 6e 00 55 06 65 6d 69 74 49 66 00 
-// 0x 56 09 6c 6f 6f 70 4c 65 76 65 6c 00 57 08 65 6d 69 74 4c 6f 6f 70 00 58 09 65 6d 69 74 42 72 65 
-// 0x 61 6b 00 59 0c 65 6d 69 74 43 6f 6e 74 69 6e 75 65 00 5a 08 65 6d 69 74 4e 6f 64 65 00 5b 0b 65 
-// 0x 6d 69 74 46 75 6e 43 6f 64 65 00 5c 0f 65 6d 69 74 43 6f 64 65 53 65 63 74 69 6f 6e 00 5d 04 65 
-// 0x 6d 69 74 00 5e 04 66 75 6e 5f 00 5f 07 65 6e 64 66 75 6e 5f 00 60 04 69 33 32 5f 00 61 04 6d 61 
-// 0x 69 6e 00 62 06 6d 65 6d 6f 72 79 02 00 0a d1 c8 80 80 00 e3 80 80 80 00 09 00 20 00 20 01 36 00 
-// 0x 00 0b 09 00 20 00 20 01 3a 00 00 0b 07 00 20 00 28 00 00 0b 07 00 20 00 2d 00 00 0b ab 80 80 80 
-// 0x 00 01 01 7f 41 00 21 01 23 59 21 01 23 59 20 00 6a 24 59 23 59 23 00 6f 04 40 23 59 23 00 23 59 
-// 0x 23 00 6f 6b 6a 24 59 0b 20 01 0f 0b 91 80 80 80 00 00 23 59 41 02 41 80 02 6b 10 00 23 3c 10 04 
-// 0x 0f 0b 91 80 80 80 00 00 23 59 41 03 41 80 02 6b 10 00 23 39 10 04 0f 0b 91 80 80 80 00 00 23 59 
-// 0x 41 04 41 80 02 6b 10 00 23 40 10 04 0f 0b 91 80 80 80 00 00 23 59 41 05 41 80 02 6b 10 00 23 46 
-// 0x 10 04 0f 0b a4 80 80 80 00 01 01 7f 23 59 41 06 41 80 02 6b 10 00 41 00 21 00 23 52 10 04 21 00 
-// 0x 20 00 23 4c 6a 23 5d 10 00 20 00 0f 0b a4 80 80 80 00 01 01 7f 23 59 41 07 41 80 02 6b 10 00 41 
-// 0x 00 21 00 23 58 10 04 21 00 20 00 23 56 6a 10 06 10 00 20 00 0f 0b a7 80 80 80 00 01 01 7f 23 59 
-// 0x 41 01 41 80 02 6b 10 00 41 00 21 01 23 35 20 00 6a 10 04 21 01 20 01 23 34 6a 20 00 10 00 20 01 
-// 0x 0f 0b 8a 80 80 80 00 00 20 00 23 34 6a 10 02 0f 0b 8d 80 80 80 00 00 20 00 23 35 20 01 6a 6a 10 
-// 0x 03 0f 0b 8e 80 80 80 00 00 20 00 23 35 20 01 6a 6a 20 02 10 01 0b df 80 80 80 00 01 01 7f 20 01 
-// 0x 20 00 10 0c 4e 04 40 41 00 21 02 0b 20 01 20 02 6a 20 00 10 0c 4e 04 40 20 00 10 0c 20 01 6b 21 
-// 0x 02 0b 41 00 21 03 20 02 10 0b 21 03 02 40 03 40 20 02 41 00 46 04 40 0c 02 00 0b 20 02 41 01 6b 
-// 0x 21 02 20 03 20 02 20 00 20 01 20 02 6a 10 0d 10 0e 0c 00 00 0b 0b 20 03 0f 0b e6 80 80 80 00 03 
-// 0x 01 7f 01 7f 01 7f 41 00 21 02 20 00 10 0c 21 02 41 00 21 03 41 00 21 03 41 00 21 04 41 01 21 04 
-// 0x 20 02 20 01 10 0c 46 04 40 02 40 03 40 20 00 20 03 10 0d 20 01 20 03 10 0d 47 04 40 41 00 21 04 
-// 0x 0c 02 00 0b 20 03 20 02 4e 04 40 0c 02 00 0b 20 03 41 01 6a 21 03 0c 00 00 0b 0b 05 41 00 21 04 
-// 0x 0b 20 04 0f 0b ae 80 80 80 00 01 01 7f 41 00 21 02 41 01 21 02 20 00 10 0c 41 01 47 04 40 41 00 
-// 0x 21 02 05 20 00 41 00 10 0d 20 01 47 04 40 41 00 21 02 0b 0b 20 02 0f 0b be 80 80 80 00 01 01 7f 
-// 0x 41 00 21 03 41 01 21 03 20 00 10 0c 41 02 47 04 40 41 00 21 03 05 20 00 41 00 10 0d 20 01 47 04 
-// 0x 40 41 00 21 03 0b 20 00 41 01 10 0d 20 02 47 04 40 41 00 21 03 0b 0b 20 03 0f 0b ce 80 80 80 00 
-// 0x 01 01 7f 41 00 21 04 41 01 21 04 20 00 10 0c 41 03 47 04 40 41 00 21 04 05 20 00 41 00 10 0d 20 
-// 0x 01 47 04 40 41 00 21 04 0b 20 00 41 01 10 0d 20 02 47 04 40 41 00 21 04 0b 20 00 41 02 10 0d 20 
-// 0x 03 47 04 40 41 00 21 04 0b 0b 20 04 0f 0b de 80 80 80 00 01 01 7f 41 00 21 05 41 01 21 05 20 00 
-// 0x 10 0c 41 04 47 04 40 41 00 21 05 05 20 00 41 00 10 0d 20 01 47 04 40 41 00 21 05 0b 20 00 41 01 
-// 0x 10 0d 20 02 47 04 40 41 00 21 05 0b 20 00 41 02 10 0d 20 03 47 04 40 41 00 21 05 0b 20 00 41 03 
-// 0x 10 0d 20 04 47 04 40 41 00 21 05 0b 0b 20 05 0f 0b ee 80 80 80 00 01 01 7f 41 00 21 06 41 01 21 
-// 0x 06 20 00 10 0c 41 05 47 04 40 41 00 21 06 05 20 00 41 00 10 0d 20 01 47 04 40 41 00 21 06 0b 20 
-// 0x 00 41 01 10 0d 20 02 47 04 40 41 00 21 06 0b 20 00 41 02 10 0d 20 03 47 04 40 41 00 21 06 0b 20 
-// 0x 00 41 03 10 0d 20 04 47 04 40 41 00 21 06 0b 20 00 41 04 10 0d 20 05 47 04 40 41 00 21 06 0b 0b 
-// 0x 20 06 0f 0b fe 80 80 80 00 01 01 7f 41 00 21 07 41 01 21 07 20 00 10 0c 41 06 47 04 40 41 00 21 
-// 0x 07 05 20 00 41 00 10 0d 20 01 47 04 40 41 00 21 07 0b 20 00 41 01 10 0d 20 02 47 04 40 41 00 21 
-// 0x 07 0b 20 00 41 02 10 0d 20 03 47 04 40 41 00 21 07 0b 20 00 41 03 10 0d 20 04 47 04 40 41 00 21 
-// 0x 07 0b 20 00 41 04 10 0d 20 05 47 04 40 41 00 21 07 0b 20 00 41 05 10 0d 20 06 47 04 40 41 00 21 
-// 0x 07 0b 0b 20 07 0f 0b 8e 81 80 80 00 01 01 7f 41 00 21 08 41 01 21 08 20 00 10 0c 41 07 47 04 40 
-// 0x 41 00 21 08 05 20 00 41 00 10 0d 20 01 47 04 40 41 00 21 08 0b 20 00 41 01 10 0d 20 02 47 04 40 
-// 0x 41 00 21 08 0b 20 00 41 02 10 0d 20 03 47 04 40 41 00 21 08 0b 20 00 41 03 10 0d 20 04 47 04 40 
-// 0x 41 00 21 08 0b 20 00 41 04 10 0d 20 05 47 04 40 41 00 21 08 0b 20 00 41 05 10 0d 20 06 47 04 40 
-// 0x 41 00 21 08 0b 20 00 41 06 10 0d 20 07 47 04 40 41 00 21 08 0b 0b 20 08 0f 0b 9e 81 80 80 00 01 
-// 0x 01 7f 41 00 21 09 41 01 21 09 20 00 10 0c 41 07 47 04 40 41 00 21 09 05 20 00 41 00 10 0d 20 01 
-// 0x 47 04 40 41 00 21 09 0b 20 00 41 01 10 0d 20 02 47 04 40 41 00 21 09 0b 20 00 41 02 10 0d 20 03 
-// 0x 47 04 40 41 00 21 09 0b 20 00 41 03 10 0d 20 04 47 04 40 41 00 21 09 0b 20 00 41 04 10 0d 20 05 
-// 0x 47 04 40 41 00 21 09 0b 20 00 41 05 10 0d 20 06 47 04 40 41 00 21 09 0b 20 00 41 06 10 0d 20 07 
-// 0x 47 04 40 41 00 21 09 0b 20 00 41 07 10 0d 20 08 47 04 40 41 00 21 09 0b 0b 20 09 0f 0b bf 80 80 
-// 0x 80 00 00 20 00 23 36 6a 10 02 45 04 40 20 00 23 36 6a 20 01 10 00 05 20 00 23 37 6a 10 02 23 3a 
-// 0x 6a 20 01 10 00 0b 20 00 23 37 6a 20 01 10 00 20 00 23 38 6a 20 00 23 38 6a 10 02 41 01 6a 10 00 
-// 0x 0b d3 80 80 80 00 02 01 7f 01 7f 41 00 21 02 20 00 23 36 6a 10 02 21 02 41 00 21 03 41 00 21 03 
-// 0x 02 40 03 40 20 02 45 04 40 0c 02 00 0b 20 02 23 3e 6a 10 02 20 01 10 10 04 40 20 02 23 3f 6a 10 
-// 0x 02 21 03 0c 02 00 0b 20 02 23 3a 6a 10 02 21 02 0c 00 00 0b 0b 20 03 0f 0b c0 80 80 80 00 01 01 
-// 0x 7f 41 00 21 04 10 08 21 04 20 04 23 42 6a 20 00 10 00 20 04 23 43 6a 20 01 10 00 20 04 23 44 6a 
-// 0x 20 02 10 00 20 04 23 45 6a 20 03 10 00 23 5a 45 04 40 10 06 24 5a 0b 23 5a 20 04 10 19 0b ed 84 
-// 0x 80 80 00 01 01 7f 41 00 21 03 23 0f 21 03 20 00 41 28 10 11 04 40 23 12 21 03 0b 20 00 41 2c 10 
-// 0x 11 04 40 23 13 21 03 0b 20 00 41 29 10 11 04 40 23 14 21 03 0b 20 00 41 e6 00 41 f5 00 41 ee 00 
-// 0x 10 13 04 40 23 15 21 03 0b 20 00 41 f2 00 41 e5 00 41 f4 00 41 f5 00 41 f2 00 41 ee 00 10 16 04 
-// 0x 40 23 16 21 03 0b 20 00 41 e5 00 41 ee 00 41 e4 00 41 e6 00 41 f5 00 41 ee 00 10 16 04 40 23 17 
-// 0x 21 03 0b 20 00 41 ec 00 41 ef 00 41 ef 00 41 f0 00 10 14 04 40 23 18 21 03 0b 20 00 41 e3 00 41 
-// 0x ef 00 41 ee 00 41 f4 00 41 e9 00 41 ee 00 41 f5 00 41 e5 00 10 18 04 40 23 19 21 03 0b 20 00 41 
-// 0x e2 00 41 f2 00 41 e5 00 41 e1 00 41 eb 00 10 15 04 40 23 1a 21 03 0b 20 00 41 e5 00 41 ee 00 41 
-// 0x e4 00 41 ec 00 41 ef 00 41 ef 00 41 f0 00 10 17 04 40 23 1b 21 03 0b 20 00 41 e9 00 41 e6 00 10 
-// 0x 12 04 40 23 1c 21 03 0b 20 00 41 e5 00 41 ec 00 41 f3 00 41 e5 00 10 14 04 40 23 1e 21 03 0b 20 
-// 0x 00 41 e5 00 41 ee 00 41 e4 00 41 e9 00 41 e6 00 10 15 04 40 23 1f 21 03 0b 20 00 41 e9 00 41 33 
-// 0x 41 32 10 13 04 40 23 33 21 03 0b 20 00 41 e9 00 41 36 41 34 10 13 04 40 23 32 21 03 0b 20 00 41 
-// 0x e6 00 41 33 41 32 10 13 04 40 23 31 21 03 0b 20 00 41 e6 00 41 36 41 34 10 13 04 40 23 30 21 03 
-// 0x 0b 20 00 41 3a 41 3d 10 12 04 40 23 21 21 03 0b 20 00 41 ef 00 41 f2 00 10 12 04 40 23 22 21 03 
-// 0x 0b 20 00 41 e1 00 41 ee 00 41 e4 00 10 13 04 40 23 23 21 03 0b 20 00 41 3d 10 11 04 40 23 24 21 
-// 0x 03 0b 20 00 41 3c 41 3e 10 12 04 40 23 25 21 03 0b 20 00 41 3c 10 11 04 40 23 26 21 03 0b 20 00 
-// 0x 41 3c 41 3d 10 12 04 40 23 27 21 03 0b 20 00 41 3e 10 11 04 40 23 28 21 03 0b 20 00 41 3e 41 3d 
-// 0x 10 12 04 40 23 29 21 03 0b 20 00 41 2b 10 11 04 40 23 2a 21 03 0b 20 00 41 2d 10 11 04 40 23 2b 
-// 0x 21 03 0b 20 00 41 2a 10 11 04 40 23 2c 21 03 0b 20 00 41 2f 10 11 04 40 23 2d 21 03 0b 20 00 41 
-// 0x ed 00 41 ef 00 41 e4 00 10 13 04 40 23 2e 21 03 0b 20 00 41 ee 00 41 ef 00 41 f4 00 10 13 04 40 
-// 0x 23 2f 21 03 0b 20 03 20 00 20 01 20 02 10 1b 0b 9a 80 80 80 00 00 20 00 41 00 46 20 00 41 09 46 
-// 0x 20 00 41 0d 46 20 00 41 20 46 72 72 72 0f 0b a5 80 80 80 00 00 20 00 41 e1 00 4e 20 00 41 fa 00 
-// 0x 4c 71 20 00 41 e1 00 4e 20 00 41 fa 00 4c 71 20 00 41 df 00 46 72 72 0f 0b 8e 80 80 80 00 00 20 
-// 0x 00 41 30 4e 20 00 41 39 4c 71 0f 0b 94 80 80 80 00 00 20 00 41 28 46 20 00 41 29 46 20 00 41 2c 
-// 0x 46 72 72 0f 0b b2 80 80 80 00 00 20 00 41 3d 46 20 00 41 2b 46 20 00 41 2d 46 20 00 41 2f 46 20 
-// 0x 00 41 3c 46 20 00 41 3e 46 20 00 41 2a 46 20 00 41 3a 46 72 72 72 72 72 72 72 0f 0b 9c 84 80 80 
-// 0x 00 07 01 7f 01 7f 01 7f 01 7f 01 7f 01 7f 01 7f 41 00 21 01 41 00 41 01 6b 21 01 41 00 21 02 41 
-// 0x 01 21 02 41 00 21 03 41 00 21 03 41 00 21 04 20 00 10 0c 21 04 41 00 21 05 41 00 21 05 41 00 21 
-// 0x 06 41 00 21 06 41 00 21 07 41 00 21 07 02 40 03 40 20 01 41 01 6a 21 01 20 03 41 01 6a 21 03 20 
-// 0x 00 20 01 10 0d 21 05 20 05 10 1d 04 40 0c 01 00 0b 20 05 41 0a 46 04 40 20 02 41 01 6a 21 02 41 
-// 0x 00 21 03 0c 01 00 0b 20 05 10 1e 04 40 20 01 21 06 02 40 03 40 20 05 10 1e 45 20 05 10 1f 45 71 
-// 0x 04 40 20 01 41 01 6b 21 01 20 03 41 01 6b 21 03 0c 02 00 0b 20 01 41 01 6a 21 01 20 03 41 01 6a 
-// 0x 21 03 20 00 20 01 10 0d 21 05 0c 00 00 0b 0b 20 00 20 06 20 01 20 06 6b 41 01 6a 10 0f 21 07 20 
-// 0x 07 20 02 20 03 10 1c 0c 01 00 0b 20 05 10 1f 20 05 41 2d 46 20 00 20 01 41 01 6a 10 0d 10 1f 71 
-// 0x 72 04 40 20 01 21 06 02 40 03 40 20 05 10 1f 45 20 05 41 2d 47 71 04 40 20 01 41 01 6b 21 01 20 
-// 0x 03 41 01 6b 21 03 0c 02 00 0b 20 01 41 01 6a 21 01 20 03 41 01 6a 21 03 20 00 20 01 10 0d 21 05 
-// 0x 0c 00 00 0b 0b 20 00 20 06 20 01 20 06 6b 41 01 6a 10 0f 21 07 23 11 20 07 20 02 20 03 10 1b 0c 
-// 0x 01 00 0b 20 05 41 2f 46 20 00 20 01 41 01 6a 10 0d 41 2f 46 71 04 40 02 40 03 40 20 05 41 0a 46 
-// 0x 04 40 41 00 21 03 20 02 41 01 6a 21 02 0c 02 00 0b 20 01 41 01 6a 21 01 20 03 41 01 6a 21 03 20 
-// 0x 00 20 01 10 0d 21 05 0c 00 00 0b 0b 0c 01 00 0b 20 05 10 20 04 40 20 00 20 01 41 01 10 0f 21 07 
-// 0x 20 07 20 02 20 03 10 1c 0c 01 00 0b 20 05 10 21 04 40 20 00 20 01 41 01 6a 10 0d 10 21 04 40 20 
-// 0x 00 20 01 41 02 10 0f 21 07 20 01 41 01 6a 21 01 20 03 41 01 6a 21 03 05 20 00 20 01 41 01 10 0f 
-// 0x 21 07 0b 20 07 20 02 20 03 10 1c 0b 20 01 20 04 4e 04 40 0c 02 00 0b 0c 00 00 0b 0b 0b c1 80 80 
-// 0x 80 00 01 01 7f 41 00 21 01 10 0a 21 01 20 01 23 53 6a 20 00 10 00 23 5d 04 40 20 01 23 54 6a 23 
-// 0x 5d 23 54 6a 10 02 41 01 6a 10 00 20 01 23 55 6a 23 5d 10 00 0b 20 00 23 4c 6a 20 01 10 00 20 01 
-// 0x 24 5d 0b 90 80 80 80 00 00 23 5d 04 40 23 5d 23 55 6a 10 02 24 5d 0b 0b bc 80 80 80 00 01 01 7f 
-// 0x 41 00 21 01 20 00 21 01 02 40 03 40 20 01 45 04 40 0c 02 00 0b 20 01 23 53 6a 10 02 23 48 6a 10 
-// 0x 02 04 40 0c 02 00 0b 20 01 23 55 6a 10 02 21 01 0c 00 00 0b 0b 20 01 0f 0b fa 80 80 80 00 04 01 
-// 0x 7f 01 7f 01 7f 01 7f 41 00 21 03 10 07 21 03 41 00 21 04 20 02 23 48 6a 10 02 21 04 41 00 21 05 
-// 0x 41 00 21 05 20 03 23 3e 6a 20 01 10 00 20 03 23 3f 6a 20 02 10 00 20 00 23 56 6a 10 02 20 03 10 
-// 0x 19 20 04 23 0c 46 20 04 23 0d 46 72 04 40 20 00 10 25 21 05 41 00 21 06 20 05 23 57 6a 10 02 21 
-// 0x 06 20 02 23 4a 6a 20 06 10 00 20 05 23 57 6a 20 06 41 01 6a 10 00 0b 0b c9 80 80 80 00 02 01 7f 
-// 0x 01 7f 41 00 21 02 41 00 21 02 41 00 21 03 20 00 21 03 02 40 03 40 20 03 45 04 40 0c 02 00 0b 20 
-// 0x 03 23 56 6a 10 02 20 01 10 1a 21 02 20 02 04 40 0c 02 00 0b 20 03 23 55 6a 10 02 21 03 0c 00 00 
-// 0x 0b 0b 20 02 0f 0b 8b 80 80 80 00 00 23 5c 23 41 6a 10 02 24 5c 0b 8d 80 80 80 00 00 20 00 23 42 
-// 0x 6a 10 02 23 21 46 0f 0b 9d 80 80 80 00 01 01 7f 41 00 21 01 20 00 23 42 6a 10 02 21 01 20 01 23 
-// 0x 2b 46 20 01 23 2f 46 72 0f 0b 9d 80 80 80 00 01 01 7f 41 00 21 01 20 00 23 42 6a 10 02 21 01 20 
-// 0x 01 23 11 46 20 01 23 0f 46 72 0f 0b a9 80 80 80 00 01 01 7f 41 00 21 01 20 00 23 42 6a 10 02 21 
-// 0x 01 20 01 23 33 46 20 01 23 32 46 20 01 23 31 46 20 01 23 30 46 72 72 72 0f 0b 92 80 80 80 00 00 
-// 0x 23 5c 23 42 6a 10 02 20 00 46 04 40 10 28 05 0b 0b 88 81 80 80 00 03 01 7f 01 7f 01 7f 41 00 21 
-// 0x 00 10 06 21 00 41 00 21 01 41 00 21 01 41 00 21 02 41 00 21 02 23 12 10 2d 02 40 03 40 23 5c 23 
-// 0x 42 6a 10 02 21 01 20 01 23 14 46 04 40 0c 02 00 0b 10 28 10 09 21 02 20 02 23 48 6a 23 0d 10 00 
-// 0x 20 02 23 49 6a 20 01 10 00 20 02 23 4b 6a 23 5c 23 43 6a 10 02 10 00 20 00 20 02 10 19 10 28 23 
-// 0x 5c 23 42 6a 10 02 23 13 47 04 40 0c 02 00 0b 10 28 0c 00 00 0b 0b 23 14 10 2d 20 00 0f 0b f3 80 
-// 0x 80 80 00 03 01 7f 01 7f 01 7f 41 00 21 00 10 09 21 00 41 00 21 01 10 06 21 01 41 00 21 02 41 00 
-// 0x 21 02 20 00 23 48 6a 23 02 10 00 20 00 23 50 6a 20 01 10 00 20 00 23 4c 6a 23 5d 10 00 02 40 03 
-// 0x 40 23 5c 45 04 40 0c 02 00 0b 23 5c 23 42 6a 10 02 23 17 46 04 40 0c 02 00 0b 10 42 21 02 20 02 
-// 0x 45 04 40 0c 02 00 0b 20 01 20 02 10 19 0c 00 00 0b 0b 20 00 0f 0b c8 81 80 80 00 05 01 7f 01 7f 
-// 0x 01 7f 01 7f 01 7f 41 00 21 02 10 09 21 02 41 00 21 03 10 06 21 03 41 00 21 04 41 00 21 04 41 00 
-// 0x 21 05 41 00 21 05 41 00 21 06 41 00 21 06 20 02 23 48 6a 23 0b 10 00 20 02 23 4a 6a 23 5b 10 00 
-// 0x 23 5b 41 01 6a 24 5b 20 02 23 49 6a 20 00 10 00 20 02 23 4b 6a 20 01 10 00 20 02 23 50 6a 20 03 
-// 0x 10 00 23 5d 20 01 20 02 10 26 10 2e 21 04 20 02 23 51 6a 20 04 10 00 20 02 10 23 20 04 23 36 6a 
-// 0x 10 02 21 06 02 40 03 40 20 06 45 04 40 0c 02 00 0b 20 06 23 4b 6a 10 02 21 05 23 5d 20 05 20 06 
-// 0x 10 26 20 06 23 3a 6a 10 02 21 06 0c 00 00 0b 0b 20 02 23 4d 6a 10 2f 10 00 10 24 23 17 10 2d 20 
-// 0x 02 0f 0b ba 80 80 80 00 02 01 7f 01 7f 41 00 21 00 41 00 21 00 41 00 21 01 41 00 21 01 23 5c 10 
-// 0x 2c 04 40 23 5c 23 42 6a 10 02 21 00 10 28 0b 23 5c 23 43 6a 10 02 21 01 10 28 20 00 20 01 10 30 
-// 0x 0f 0b 9c 80 80 80 00 01 01 7f 41 00 21 00 10 09 21 00 20 00 23 48 6a 23 09 10 00 23 1a 10 2d 20 
-// 0x 00 0f 0b 9c 80 80 80 00 01 01 7f 41 00 21 00 10 09 21 00 20 00 23 48 6a 23 0a 10 00 23 19 10 2d 
-// 0x 20 00 0f 0b b6 80 80 80 00 01 01 7f 41 00 21 00 10 09 21 00 20 00 23 48 6a 23 0e 10 00 20 00 23 
-// 0x 4b 6a 23 5c 23 43 6a 10 02 10 00 20 00 23 49 6a 23 5c 23 42 6a 10 02 10 00 10 28 20 00 0f 0b cc 
-// 0x 80 80 80 00 01 01 7f 41 00 21 00 10 06 21 00 23 12 10 2d 02 40 03 40 23 5c 23 42 6a 10 02 23 14 
-// 0x 46 04 40 0c 02 00 0b 20 00 23 20 10 3b 10 19 23 5c 23 42 6a 10 02 23 13 47 04 40 0c 02 00 0b 23 
-// 0x 13 10 2d 0c 00 00 0b 0b 23 14 10 2d 20 00 0f 0b aa 80 80 80 00 01 01 7f 41 00 21 01 10 09 21 01 
-// 0x 20 01 23 48 6a 23 05 10 00 20 01 23 4d 6a 20 00 10 00 20 01 23 51 6a 10 35 10 00 20 01 0f 0b c1 
-// 0x 80 80 80 00 01 01 7f 41 00 21 00 10 09 21 00 20 00 23 48 6a 23 04 10 00 20 00 23 49 6a 23 5c 23 
-// 0x 42 6a 10 02 10 00 20 00 23 4b 6a 23 5c 23 43 6a 10 02 10 00 10 28 20 00 23 4e 6a 23 2a 10 3b 10 
-// 0x 00 20 00 0f 0b c0 80 80 80 00 01 01 7f 41 00 21 00 41 00 21 00 23 5c 10 2b 04 40 10 34 21 00 05 
-// 0x 23 5c 23 42 6a 10 02 23 12 46 04 40 10 28 23 20 10 3b 21 00 23 14 10 2d 05 23 5c 10 2a 04 40 10 
-// 0x 37 21 00 0b 0b 0b 20 00 0f 0b ea 80 80 80 00 02 01 7f 01 7f 41 00 21 02 41 00 21 02 41 00 21 03 
-// 0x 23 5c 23 42 6a 10 02 21 03 20 00 20 03 4a 04 40 20 01 21 02 05 10 09 21 02 20 02 23 48 6a 23 03 
-// 0x 10 00 20 02 23 49 6a 23 5c 23 42 6a 10 02 10 00 20 02 23 4b 6a 23 5c 23 43 6a 10 02 10 00 20 02 
-// 0x 23 4d 6a 20 01 10 00 10 28 20 02 23 4e 6a 20 03 10 3b 10 00 0b 20 02 0f 0b b7 80 80 80 00 01 01 
-// 0x 7f 41 00 21 02 41 00 21 02 23 5c 10 29 04 40 20 00 20 01 10 39 21 02 05 23 5c 23 42 6a 10 02 23 
-// 0x 12 46 04 40 20 01 10 36 21 02 05 20 01 21 02 0b 0b 20 02 0f 0b f0 80 80 80 00 02 01 7f 01 7f 41 
-// 0x 00 21 01 41 00 21 01 41 00 21 02 41 00 21 02 23 5c 23 42 6a 10 02 23 1a 46 04 40 10 32 21 01 05 
-// 0x 23 5c 23 42 6a 10 02 23 19 46 04 40 10 33 21 01 05 10 38 21 01 02 40 03 40 23 5c 45 04 40 0c 02 
-// 0x 00 0b 20 00 20 01 10 3a 21 02 20 02 41 00 46 20 02 20 01 46 72 04 40 0c 02 00 0b 20 02 21 01 0c 
-// 0x 00 00 0b 0b 0b 0b 20 01 0f 0b f3 80 80 80 00 02 01 7f 01 7f 41 00 21 00 10 09 21 00 41 00 21 01 
-// 0x 41 00 21 01 23 16 10 2d 20 00 23 48 6a 23 06 10 00 20 00 23 4d 6a 23 20 10 3b 10 00 23 5d 21 01 
-// 0x 02 40 03 40 20 01 45 04 40 0c 02 00 0b 20 01 23 53 6a 10 02 23 48 6a 10 02 23 0b 46 04 40 0c 02 
-// 0x 00 0b 20 01 23 55 6a 10 02 21 01 0c 00 00 0b 0b 20 01 23 53 6a 10 02 23 4d 6a 20 00 10 00 20 00 
-// 0x 0f 0b 83 81 80 80 00 03 01 7f 01 7f 01 7f 41 00 21 00 10 09 21 00 41 00 21 01 10 06 21 01 41 00 
-// 0x 21 02 41 00 21 02 20 00 23 48 6a 23 02 10 00 20 00 23 50 6a 20 01 10 00 20 00 23 4c 6a 23 5d 10 
-// 0x 00 02 40 03 40 23 5c 45 04 40 0c 02 00 0b 23 5c 23 42 6a 10 02 23 1e 46 04 40 0c 02 00 0b 23 5c 
-// 0x 23 42 6a 10 02 23 1f 46 04 40 0c 02 00 0b 10 42 21 02 20 02 45 04 40 0c 02 00 0b 20 01 20 02 10 
-// 0x 19 0c 00 00 0b 0b 20 00 0f 0b de 80 80 80 00 01 01 7f 41 00 21 00 10 09 21 00 23 1c 10 2d 20 00 
-// 0x 23 48 6a 23 07 10 00 20 00 23 4f 6a 23 20 10 3b 10 00 23 1d 10 2d 20 00 10 23 20 00 23 4d 6a 10 
-// 0x 3d 10 00 10 24 23 5c 23 42 6a 10 02 23 1e 46 04 40 23 1e 10 2d 20 00 10 23 20 00 23 4e 6a 10 3d 
-// 0x 10 00 10 24 0b 23 1f 10 2d 20 00 0f 0b f3 80 80 80 00 03 01 7f 01 7f 01 7f 41 00 21 00 10 09 21 
-// 0x 00 41 00 21 01 10 06 21 01 41 00 21 02 41 00 21 02 20 00 23 48 6a 23 02 10 00 20 00 23 50 6a 20 
-// 0x 01 10 00 20 00 23 4c 6a 23 5d 10 00 02 40 03 40 23 5c 45 04 40 0c 02 00 0b 23 5c 23 42 6a 10 02 
-// 0x 23 1b 46 04 40 0c 02 00 0b 10 42 21 02 20 02 45 04 40 0c 02 00 0b 20 01 20 02 10 19 0c 00 00 0b 
-// 0x 0b 20 00 0f 0b af 80 80 80 00 01 01 7f 41 00 21 00 10 09 21 00 23 18 10 2d 20 00 23 48 6a 23 08 
-// 0x 10 00 20 00 10 23 20 00 23 4d 6a 10 3f 10 00 10 24 23 1b 10 2d 20 00 0f 0b a6 81 80 80 00 05 01 
-// 0x 7f 01 7f 01 7f 01 7f 01 7f 41 00 21 00 23 5c 23 42 6a 10 02 21 00 10 28 41 00 21 01 23 5c 23 43 
-// 0x 6a 10 02 21 01 10 28 41 00 21 02 10 09 21 02 20 02 23 48 6a 23 0c 10 00 20 02 23 49 6a 20 00 10 
-// 0x 00 20 02 23 4b 6a 20 01 10 00 23 5d 20 01 20 02 10 26 23 21 10 2d 20 02 23 4e 6a 23 20 10 3b 10 
-// 0x 00 23 5d 23 55 6a 10 02 04 40 41 00 21 03 23 5d 10 25 23 53 6a 10 02 21 03 41 00 21 04 20 03 23 
-// 0x 50 6a 10 02 21 04 20 04 45 04 40 10 06 21 04 20 03 23 50 6a 20 04 10 00 0b 20 04 20 02 10 19 0b 
-// 0x 20 02 0f 0b ed 80 80 80 00 01 01 7f 41 00 21 00 41 00 21 00 23 5c 23 42 6a 10 02 23 15 46 04 40 
-// 0x 23 15 10 2d 10 31 21 00 05 23 5c 10 2c 04 40 10 41 21 00 05 23 5c 23 42 6a 10 02 23 16 46 04 40 
-// 0x 10 3c 21 00 05 23 5c 23 42 6a 10 02 23 1c 46 04 40 10 3e 21 00 05 23 5c 23 42 6a 10 02 23 18 46 
-// 0x 04 40 10 40 21 00 05 23 20 10 3b 21 00 0b 0b 0b 0b 0b 20 00 0f 0b e2 80 80 80 00 02 01 7f 01 7f 
-// 0x 10 09 24 5f 23 5a 23 36 6a 10 02 24 5c 23 5f 23 48 6a 23 01 10 00 23 5f 10 23 23 5d 24 5e 41 00 
-// 0x 21 00 41 00 21 00 41 00 21 01 10 06 21 01 23 5f 23 50 6a 20 01 10 00 02 40 03 40 23 5c 45 04 40 
-// 0x 0c 02 00 0b 10 42 21 00 20 00 45 04 40 0c 02 00 0b 20 01 20 00 10 19 0c 00 00 0b 0b 0b 89 82 80 
-// 0x 80 00 05 01 7f 01 7f 01 7f 01 7f 01 7f 41 00 21 01 41 00 21 01 41 00 21 02 41 00 21 02 41 00 21 
-// 0x 03 20 00 10 0c 21 03 41 00 21 04 41 00 21 04 41 00 21 05 41 00 21 05 20 03 41 03 4e 04 40 20 00 
-// 0x 41 00 10 0d 41 30 46 20 00 41 01 10 0d 41 f8 00 46 71 04 40 41 01 21 01 0b 0b 20 01 04 40 41 02 
-// 0x 21 04 02 40 03 40 20 04 20 03 4e 04 40 0c 02 00 0b 20 02 41 10 6c 21 02 20 00 20 04 10 0d 21 05 
-// 0x 20 05 41 30 4e 20 05 41 39 4c 71 04 40 20 02 20 05 41 30 6b 6a 21 02 05 20 05 41 e1 00 4e 20 05 
-// 0x 41 e6 00 4c 71 04 40 20 02 20 05 41 e1 00 6b 41 0a 6a 6a 21 02 0b 0b 20 04 41 01 6a 21 04 0c 00 
-// 0x 00 0b 0b 05 02 40 03 40 20 04 20 03 4e 04 40 0c 02 00 0b 20 02 41 0a 6c 21 02 20 00 20 04 10 0d 
-// 0x 21 05 20 05 41 30 4e 20 05 41 39 4c 71 04 40 20 02 20 05 41 30 6b 6a 21 02 0b 20 04 41 01 6a 21 
-// 0x 04 0c 00 00 0b 0b 0b 20 02 0f 0b 8f 80 80 80 00 00 23 61 20 00 10 01 23 61 41 01 6a 24 61 0b 8f 
-// 0x 80 80 80 00 00 23 61 20 00 10 00 23 61 41 04 6a 24 61 0b d1 80 80 80 00 01 01 7f 41 00 21 01 41 
-// 0x 00 21 01 20 00 41 ff 00 4c 04 40 41 01 21 01 05 20 00 41 ff ff 00 4c 04 40 41 02 21 01 05 20 00 
-// 0x 41 ff ff ff 00 4c 04 40 41 03 21 01 05 20 00 41 ff ff ff ff 00 4c 04 40 41 04 21 01 05 41 05 21 
-// 0x 01 0b 0b 0b 0b 20 01 0f 0b af 80 80 80 00 00 02 40 03 40 20 00 41 80 01 48 04 40 0c 02 00 0b 41 
-// 0x 80 01 20 00 41 80 01 6f 6a 10 45 20 00 41 80 01 6d 21 00 0c 00 00 0b 0b 20 00 10 45 0b ba 80 80 
-// 0x 80 00 01 01 7f 41 00 21 02 23 61 21 02 20 01 41 00 4a 04 40 02 40 03 40 20 02 41 01 6b 21 02 20 
-// 0x 02 20 00 48 04 40 0c 02 00 0b 20 02 20 01 6a 20 02 10 03 10 01 0c 00 00 0b 0b 0b 0b f3 80 80 80 
-// 0x 00 03 01 7f 01 7f 01 7f 41 00 21 01 20 00 23 51 6a 10 02 21 01 41 e0 00 10 45 20 01 23 38 6a 10 
-// 0x 02 10 48 41 00 21 02 20 01 23 36 6a 10 02 21 02 02 40 03 40 20 02 45 04 40 0c 02 00 0b 20 02 23 
-// 0x 49 6a 10 02 10 45 20 02 23 47 6a 10 02 21 02 0c 00 00 0b 0b 41 00 21 03 20 00 23 49 6a 10 02 21 
-// 0x 03 20 03 04 40 41 01 10 45 20 03 10 45 05 41 00 10 45 0b 0b dd 81 80 80 00 07 01 7f 01 7f 01 7f 
-// 0x 01 7f 01 7f 01 7f 01 7f 41 00 21 00 23 5f 23 50 6a 10 02 21 00 41 00 21 01 23 61 21 01 20 00 04 
-// 0x 40 20 00 23 38 6a 10 02 04 40 41 01 10 45 41 00 10 45 41 00 21 02 23 61 21 02 41 00 10 45 41 00 
-// 0x 21 03 41 00 21 03 41 00 21 04 20 00 23 36 6a 10 02 21 04 02 40 03 40 20 04 23 48 6a 10 02 23 0b 
-// 0x 46 04 40 20 04 10 4a 20 03 41 01 6a 21 03 23 63 41 01 6a 24 63 0b 20 04 23 47 6a 10 02 21 04 20 
-// 0x 04 45 04 40 0c 02 00 0b 0c 00 00 0b 0b 41 00 21 05 23 61 20 02 6b 21 05 41 00 21 06 20 03 10 47 
-// 0x 20 05 10 47 41 02 6b 6a 21 06 20 02 20 06 10 49 20 02 41 01 6b 24 61 20 05 10 48 20 03 10 48 23 
-// 0x 61 20 05 41 01 6b 6a 24 61 0b 0b 23 63 45 04 40 20 01 24 61 0b 0b fa 80 80 80 00 04 01 7f 01 7f 
-// 0x 01 7f 01 7f 23 63 04 40 41 03 10 45 41 00 10 45 41 00 21 00 23 61 21 00 23 63 10 48 41 00 21 01 
-// 0x 41 00 21 01 02 40 03 40 20 01 23 63 4e 04 40 0c 02 00 0b 20 01 10 48 20 01 41 01 6a 21 01 0c 00 
-// 0x 00 0b 0b 41 00 21 02 23 61 20 00 6b 21 02 41 00 21 03 20 02 10 47 41 01 6b 21 03 20 00 20 03 10 
-// 0x 49 20 00 41 01 6b 24 61 20 02 10 48 23 61 20 02 6a 24 61 0b 0b 96 80 80 80 00 00 41 05 10 45 41 
-// 0x 03 10 48 41 01 10 45 41 00 10 45 41 01 10 45 0b 89 82 80 80 00 08 01 7f 01 7f 01 7f 01 7f 01 7f 
-// 0x 01 7f 01 7f 01 7f 41 00 21 00 23 5f 23 50 6a 10 02 21 00 41 00 21 01 23 61 21 01 20 00 04 40 20 
-// 0x 00 23 38 6a 10 02 04 40 41 06 10 45 41 00 10 45 41 00 21 02 23 61 21 02 41 00 10 45 41 00 21 03 
-// 0x 41 00 21 03 41 00 21 04 20 00 23 36 6a 10 02 21 04 02 40 03 40 20 04 23 48 6a 10 02 23 0c 46 04 
-// 0x 40 20 04 23 49 6a 10 02 10 45 41 01 10 45 41 c1 00 10 45 41 00 21 05 20 04 23 4e 6a 10 02 23 4b 
-// 0x 6a 10 02 21 05 20 05 10 44 10 48 41 0b 10 45 20 03 41 01 6a 21 03 23 62 41 01 6a 24 62 0b 20 04 
-// 0x 23 47 6a 10 02 21 04 20 04 45 04 40 0c 02 00 0b 0c 00 00 0b 0b 41 00 21 06 23 61 20 02 6b 21 06 
-// 0x 41 00 21 07 20 03 10 47 20 06 10 47 41 02 6b 6a 21 07 20 02 20 07 10 49 20 02 41 01 6b 24 61 20 
-// 0x 06 10 48 20 03 10 48 23 61 20 06 41 01 6b 6a 24 61 0b 0b 23 62 45 04 40 20 01 24 61 0b 0b c2 80 
-// 0x 80 80 00 01 01 7f 41 00 21 01 23 5d 20 00 23 4d 6a 10 02 23 4b 6a 10 02 10 27 21 01 20 00 23 4e 
-// 0x 6a 10 02 10 5b 20 01 23 4c 6a 10 02 23 5e 46 04 40 41 24 10 45 05 41 21 10 45 0b 20 01 23 4a 6a 
-// 0x 10 02 10 48 0b b8 81 80 80 00 00 20 00 23 24 46 04 40 41 c6 00 10 45 0b 20 00 23 25 46 04 40 41 
-// 0x c7 00 10 45 0b 20 00 23 26 46 04 40 41 c8 00 10 45 0b 20 00 23 27 46 04 40 41 cc 00 10 45 0b 20 
-// 0x 00 23 28 46 04 40 41 ca 00 10 45 0b 20 00 23 29 46 04 40 41 ce 00 10 45 0b 20 00 23 2a 46 04 40 
-// 0x 41 ea 00 10 45 0b 20 00 23 2b 46 04 40 41 eb 00 10 45 0b 20 00 23 2c 46 04 40 41 ec 00 10 45 0b 
-// 0x 20 00 23 2d 46 04 40 41 ed 00 10 45 0b 20 00 23 2e 46 04 40 41 ef 00 10 45 0b 20 00 23 23 46 04 
-// 0x 40 41 f1 00 10 45 0b 20 00 23 22 46 04 40 41 f2 00 10 45 0b 20 00 23 2f 46 04 40 41 f2 00 10 45 
-// 0x 0b 0b af 80 80 80 00 01 01 7f 41 00 21 01 20 00 23 49 6a 10 02 21 01 20 01 23 2b 46 04 40 41 c1 
-// 0x 00 10 45 41 00 10 45 0b 20 00 23 4e 6a 10 02 10 5b 20 01 10 50 0b f2 80 80 80 00 03 01 7f 01 7f 
-// 0x 01 7f 41 00 21 01 20 00 23 49 6a 10 02 21 01 41 00 21 02 41 00 21 02 20 01 23 11 46 04 40 41 c1 
-// 0x 00 10 45 20 00 23 4b 6a 10 02 10 44 21 02 20 02 10 48 05 20 01 23 0f 46 04 40 41 00 21 03 23 5d 
-// 0x 20 00 23 4b 6a 10 02 10 27 21 03 20 03 23 4c 6a 10 02 23 5e 46 04 40 41 23 10 45 05 41 20 10 45 
-// 0x 0b 20 03 23 4a 6a 10 02 10 48 0b 0b 0b fb 81 80 80 00 04 01 7f 01 7f 01 7f 01 7f 41 00 21 01 20 
-// 0x 00 23 51 6a 10 02 21 01 41 00 21 02 20 01 23 36 6a 10 02 21 02 02 40 03 40 20 02 45 04 40 0c 02 
-// 0x 00 0b 20 02 10 5b 20 02 23 47 6a 10 02 21 02 0c 00 00 0b 0b 41 00 21 03 20 00 23 4b 6a 10 02 21 
-// 0x 03 20 03 41 f3 00 41 f4 00 41 ef 00 41 f2 00 41 e5 00 41 33 41 32 10 17 04 40 41 36 10 45 41 00 
-// 0x 10 45 41 00 10 45 05 20 03 41 f3 00 41 f4 00 41 ef 00 41 f2 00 41 e5 00 41 38 10 16 04 40 41 3a 
-// 0x 10 45 41 00 10 45 41 00 10 45 05 20 03 41 ec 00 41 ef 00 41 e1 00 41 e4 00 41 33 41 32 10 16 04 
-// 0x 40 41 28 10 45 41 00 10 45 41 00 10 45 05 20 03 41 ec 00 41 ef 00 41 e1 00 41 e4 00 41 38 10 15 
-// 0x 04 40 41 2d 10 45 41 00 10 45 41 00 10 45 05 41 00 21 04 23 5d 20 03 10 27 21 04 41 10 10 45 20 
-// 0x 04 23 4a 6a 10 02 10 48 0b 0b 0b 0b 0b 83 81 80 80 00 05 01 7f 01 7f 01 7f 01 7f 01 7f 41 00 21 
-// 0x 01 20 00 23 48 6a 10 02 21 01 41 00 21 02 20 00 23 49 6a 10 02 21 02 41 00 21 03 20 00 23 4c 6a 
-// 0x 10 02 21 03 20 03 04 40 20 03 24 5d 0b 41 00 21 04 20 00 23 50 6a 10 02 21 04 41 00 21 05 20 04 
-// 0x 23 36 6a 10 02 21 05 02 40 03 40 20 05 45 04 40 0c 02 00 0b 20 05 10 5b 20 05 23 47 6a 10 02 21 
-// 0x 05 0c 00 00 0b 0b 20 03 04 40 23 5d 23 55 6a 10 02 24 5d 0b 0b 95 80 80 80 00 01 01 7f 41 00 21 
-// 0x 01 20 00 23 4d 6a 10 02 21 01 20 01 10 5b 0b bd 80 80 80 00 01 01 7f 20 00 23 4f 6a 10 02 10 5b 
-// 0x 41 04 10 45 41 c0 00 10 45 20 00 23 4d 6a 10 02 10 5b 41 00 21 01 20 00 23 4e 6a 10 02 21 01 20 
-// 0x 01 04 40 41 05 10 45 20 01 10 5b 0b 41 0b 10 45 0b d0 80 80 80 00 02 01 7f 01 7f 41 00 21 00 23 
-// 0x 5d 21 00 41 00 21 01 41 00 21 01 02 40 03 40 20 00 45 04 40 0c 02 00 0b 20 00 23 53 6a 10 02 23 
-// 0x 48 6a 10 02 23 08 46 04 40 0c 02 00 0b 20 01 41 01 6a 21 01 20 00 23 55 6a 10 02 21 00 0c 00 00 
-// 0x 0b 0b 20 01 0f 0b ad 80 80 80 00 00 41 02 10 45 41 c0 00 10 45 41 03 10 45 41 c0 00 10 45 20 00 
-// 0x 23 4d 6a 10 02 10 5b 41 0c 10 45 41 00 10 45 41 0b 10 45 41 0b 10 45 0b 8d 80 80 80 00 00 41 0c 
-// 0x 10 45 10 57 41 01 6b 10 48 0b 8a 80 80 80 00 00 41 0c 10 45 10 57 10 48 0b c0 81 80 80 00 02 01 
-// 0x 7f 01 7f 41 00 21 01 20 00 23 48 6a 10 02 21 01 41 00 21 02 20 00 23 49 6a 10 02 21 02 20 01 23 
-// 0x 02 46 04 40 20 00 10 54 05 20 01 23 03 46 04 40 20 02 23 21 46 04 40 20 00 10 4f 05 20 00 23 4d 
-// 0x 6a 10 02 10 5b 20 00 23 4e 6a 10 02 10 5b 20 02 10 50 0b 05 20 01 23 04 46 04 40 20 00 10 51 05 
-// 0x 20 01 23 05 46 04 40 20 00 10 53 05 20 01 23 06 46 04 40 20 00 10 55 05 20 01 23 07 46 04 40 20 
-// 0x 00 10 56 05 20 01 23 08 46 04 40 20 00 10 58 05 20 01 23 09 46 04 40 20 00 10 59 05 20 01 23 0a 
-// 0x 46 04 40 20 00 10 5a 05 20 01 23 0e 46 04 40 20 00 10 52 0b 0b 0b 0b 0b 0b 0b 0b 0b 0b 0b a0 81 
-// 0x 80 80 00 05 01 7f 01 7f 01 7f 01 7f 01 7f 41 00 10 45 41 00 21 01 23 61 21 01 41 00 21 02 20 00 
-// 0x 23 51 6a 10 02 21 02 20 02 23 38 6a 10 02 10 48 41 00 21 03 20 02 23 36 6a 10 02 21 03 02 40 03 
-// 0x 40 20 03 45 04 40 0c 02 00 0b 41 01 10 45 20 03 23 49 6a 10 02 10 45 20 03 23 3a 6a 10 02 21 03 
-// 0x 0c 00 00 0b 0b 20 00 23 4d 6a 10 02 10 5b 41 0b 10 45 41 00 21 04 23 61 20 01 6b 21 04 41 00 21 
-// 0x 05 20 04 10 47 41 01 6b 21 05 20 01 20 05 10 49 20 01 41 01 6b 24 61 20 04 10 48 23 61 20 04 6a 
-// 0x 24 61 0b 9b 81 80 80 00 05 01 7f 01 7f 01 7f 01 7f 01 7f 23 63 04 40 41 0a 10 45 41 00 10 45 41 
-// 0x 00 21 00 23 61 21 00 23 63 10 48 41 00 21 01 23 5f 23 50 6a 10 02 21 01 41 00 21 02 20 01 23 36 
-// 0x 6a 10 02 21 02 02 40 03 40 20 02 23 48 6a 10 02 23 0b 46 04 40 20 02 10 5c 0b 20 02 23 47 6a 10 
-// 0x 02 21 02 20 02 45 04 40 0c 02 00 0b 0c 00 00 0b 0b 41 00 21 03 23 61 20 00 6b 21 03 41 00 21 04 
-// 0x 20 03 10 47 41 01 6b 21 04 20 00 20 04 10 49 20 00 41 01 6b 24 61 20 03 10 48 23 61 20 03 6a 24 
-// 0x 61 0b 0b cc 80 80 80 00 00 20 00 41 80 02 6a 10 0b 24 60 23 60 23 35 6a 24 61 23 5f 23 4c 6a 10 
-// 0x 02 24 5d 41 00 10 45 41 e1 00 10 45 41 f3 00 10 45 41 ed 00 10 45 41 01 10 46 10 4b 10 4c 10 4d 
-// 0x 10 4e 10 5d 23 60 23 34 6a 23 61 23 60 23 34 6a 6b 10 00 0b c1 80 80 80 00 00 23 64 23 65 41 e6 
-// 0x 00 10 0e 23 65 41 01 6a 24 65 23 64 23 65 41 f5 00 10 0e 23 65 41 01 6a 24 65 23 64 23 65 41 ee 
-// 0x 00 10 0e 23 65 41 01 6a 24 65 23 64 23 65 41 20 10 0e 23 65 41 01 6a 24 65 0b f1 80 80 80 00 00 
-// 0x 23 64 23 65 41 e5 00 10 0e 23 65 41 01 6a 24 65 23 64 23 65 41 ee 00 10 0e 23 65 41 01 6a 24 65 
-// 0x 23 64 23 65 41 e4 00 10 0e 23 65 41 01 6a 24 65 23 64 23 65 41 e6 00 10 0e 23 65 41 01 6a 24 65 
-// 0x 23 64 23 65 41 f5 00 10 0e 23 65 41 01 6a 24 65 23 64 23 65 41 ee 00 10 0e 23 65 41 01 6a 24 65 
-// 0x 23 64 23 65 41 20 10 0e 23 65 41 01 6a 24 65 0b bf 80 80 80 00 00 23 64 23 65 41 e9 00 10 0e 23 
-// 0x 65 41 01 6a 24 65 23 64 23 65 41 33 10 0e 23 65 41 01 6a 24 65 23 64 23 65 41 32 10 0e 23 65 41 
-// 0x 01 6a 24 65 23 64 23 65 41 20 10 0e 23 65 41 01 6a 24 65 0b ab 83 80 80 00 00 41 e4 00 10 0b 24 
-// 0x 64 10 61 23 64 23 65 41 e7 00 10 0e 23 65 41 01 6a 24 65 23 64 23 65 41 20 10 0e 23 65 41 01 6a 
-// 0x 24 65 23 64 23 65 41 3a 10 0e 23 65 41 01 6a 24 65 23 64 23 65 41 3d 10 0e 23 65 41 01 6a 24 65 
-// 0x 23 64 23 65 41 20 10 0e 23 65 41 01 6a 24 65 23 64 23 65 41 33 10 0e 23 65 41 01 6a 24 65 23 64 
-// 0x 23 65 41 20 10 0e 23 65 41 01 6a 24 65 10 61 23 64 23 65 41 e8 00 10 0e 23 65 41 01 6a 24 65 23 
-// 0x 64 23 65 41 20 10 0e 23 65 41 01 6a 24 65 23 64 23 65 41 3a 10 0e 23 65 41 01 6a 24 65 23 64 23 
-// 0x 65 41 3d 10 0e 23 65 41 01 6a 24 65 23 64 23 65 41 20 10 0e 23 65 41 01 6a 24 65 23 64 23 65 41 
-// 0x 34 10 0e 23 65 41 01 6a 24 65 23 64 23 65 41 20 10 0e 23 65 41 01 6a 24 65 10 5f 23 64 23 65 41 
-// 0x f8 00 10 0e 23 65 41 01 6a 24 65 23 64 23 65 41 28 10 0e 23 65 41 01 6a 24 65 23 64 23 65 41 29 
-// 0x 10 0e 23 65 41 01 6a 24 65 23 64 23 65 41 20 10 0e 23 65 41 01 6a 24 65 23 64 23 65 41 e7 00 10 
-// 0x 0e 23 65 41 01 6a 24 65 23 64 23 65 41 20 10 0e 23 65 41 01 6a 24 65 23 64 23 65 41 3a 10 0e 23 
-// 0x 65 41 01 6a 24 65 23 64 23 65 41 3d 10 0e 23 65 41 01 6a 24 65 23 64 23 65 41 20 10 0e 23 65 41 
-// 0x 01 6a 24 65 23 64 23 65 41 2d 10 0e 23 65 41 01 6a 24 65 23 64 23 65 41 e8 00 10 0e 23 65 41 01 
-// 0x 6a 24 65 23 64 23 65 41 20 10 0e 23 65 41 01 6a 24 65 10 60 23 64 10 22 10 43 23 64 10 0c 10 5e 
-// 0x 23 60 0f 0b
-
-// Input: 
-//   i32 g := 3
-//   i32 h := 4
-//   fun x()
-//     g := -h
-//   endfun
-
-// Output: 
-// 0x 00 61 73 6d 01 00 00 00
-// 0x 01 04 01 60 00 00 
-// 0x 03 02 01 00
-// 0x 05 03 01 00 01
-// 0x 06 0b 02 7f 01 41 03 0b 7f 01 41 0f 0b
-// 0x 0a 0b 01 09 00 41 00 23 01 6b 24 00 0b
-
-// Pierre Rossouw, June 2017
 </code></pre>
   <script src="prism.js"></script>
 </body>
