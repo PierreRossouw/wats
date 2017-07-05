@@ -17,7 +17,7 @@ The compiler will return a memory location for the compiled binary.
 - Decompiler to Wasmat
 
 ### Updates
-2017-07-05: Added a play area to index.html, fixed signed LEB128 output for negative ints.
+2017-07-05: Added a play area to index.html, fixed signed LEB128 output for negative ints.  
 2017-07-04: Wasmat now successfully compiles itself! The output binary matches the source binary.  
 2017-07-03: Fixed several bugs, improved debugging symbols.  
 2017-06-29: Added http://prismjs.com/ syntax highlighting.  
