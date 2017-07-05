@@ -1,7 +1,7 @@
 # Wasmat
 Wasmat is a toy language with a self-compiling compiler to WebAssembly
 
-Check out the wasmat source code at https://pierrerossouw.github.io/Wasmat/
+Try it out at https://pierrerossouw.github.io/Wasmat/
 
 ### Using the compiler
 WebAssembly does not have IO so some JavaScript is needed to use the compiler.  
