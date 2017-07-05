@@ -9,6 +9,12 @@ Write the source code to the shared memory starting at byte 12.
 Write the length as a 32 bit int in bytes 8-11.  
 The compiler will return a memory location for the compiled binary.  
 
+### Roadmap
+- Add support for floats and negative numbers
+- Inline string support
+- Implement rest of WebAssembly spec
+- Decompiler to Wasmat
+
 ### Updates
 2017-07-05: Added a play area to index.html  
 2017-07-04: Wasmat now successfully compiles itself! The output binary matches the source binary.  
