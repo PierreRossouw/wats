@@ -3,9 +3,8 @@
  * prism.js default theme for JavaScript, CSS and HTML
  * Based on dabblet (http://dabblet.com)
  * @author Lea Verou
- * 
- * This file has been modified
  */
+body{font-family:Open Sans,Arial}
 
 code[class*="language-"],
 pre[class*="language-"] {
@@ -75,19 +74,11 @@ pre[class*="language-"] {
 	color: #bbb;
 }
 
-.token.punctuation {
-	color: #999;
-}
-
 .namespace {
 	opacity: .7;
 }
 
-.token.property,
-.token.tag,
-.token.constant,
-.token.symbol,
-.token.deleted {
+.token.constant {
 	font-style: italic;
 	color: #905;
 }
@@ -103,7 +94,13 @@ pre[class*="language-"] {
 	color: #690;
 }
 
-.token.operator,
+.token.property,
+.token.tag,
+.token.symbol,
+.token.deleted {
+	color: #000;; 
+}
+
 .token.entity,
 .token.url,
 .language-css .token.string,
@@ -118,6 +115,8 @@ pre[class*="language-"] {
 	color: #07a;
 }
 
+.token.operator,
+.token.punctuation,
 .token.keyword {
 	color: #DD4A68;
 }
@@ -138,4 +137,3 @@ pre[class*="language-"] {
 .token.entity {
 	cursor: help;
 }
-
