@@ -121,21 +121,6 @@ fun i32 main()
   return compile()
 endfun
 
-// Dummy entries to simplify the parser - to be removed shortly
-fun store32(i32 Location, i32 value) 
-endfun                               
-
-fun store8(i32 Location, i32 value) 
-endfun
-
-fun i32 load32(i32 Location) 
-  return 0
-endfun
-
-fun i32 load8(i32 Location) 
-  return 0
-endfun
-
 // Memory management
 fun i32 Alloc(i32 len)
   i32 r := Heap
