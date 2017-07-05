@@ -1617,7 +1617,11 @@ endfun
         <td>Code to compile</td>
         <td>Compiled binary</td>
       </tr><tr>
-        <td><textarea id="code"></textarea></td>
+        <td><textarea id="code">i32 GlobalVar1 := 42
+
+fun i32 main()
+  return GlobalVar1 + 5
+endfun</textarea></td>
         <td><textarea id="binary"></textarea></td>
       </tr>
     </table>
