@@ -1,22 +1,24 @@
-/* http://prismjs.com/download.html?themes=prism-okaidia&languages=clike+javascript+ada+c+coffeescript */
+/* http://prismjs.com/download.html?themes=prism&languages=markup+css+clike+javascript */
 /**
- * okaidia theme for JavaScript, CSS and HTML
- * Loosely based on Monokai textmate theme by http://www.monokai.nl/
- * @author ocodia
+ * prism.js default theme for JavaScript, CSS and HTML
+ * Based on dabblet (http://dabblet.com)
+ * @author Lea Verou
+ * 
+ * This file has been modified
  */
 
 code[class*="language-"],
 pre[class*="language-"] {
-	color: #f8f8f2;
+	color: black;
 	background: none;
-	text-shadow: 0 1px rgba(0, 0, 0, 0.3);
+	text-shadow: 0 1px white;
 	font-family: Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', monospace;
 	text-align: left;
 	white-space: pre;
 	word-spacing: normal;
 	word-break: normal;
 	word-wrap: normal;
-	line-height: 1.5;
+	line-height: 1.3;
 
 	-moz-tab-size: 4;
 	-o-tab-size: 4;
@@ -28,17 +30,35 @@ pre[class*="language-"] {
 	hyphens: none;
 }
 
+pre[class*="language-"]::-moz-selection, pre[class*="language-"] ::-moz-selection,
+code[class*="language-"]::-moz-selection, code[class*="language-"] ::-moz-selection {
+	text-shadow: none;
+	background: #b3d4fc;
+}
+
+pre[class*="language-"]::selection, pre[class*="language-"] ::selection,
+code[class*="language-"]::selection, code[class*="language-"] ::selection {
+	text-shadow: none;
+	background: #b3d4fc;
+}
+
+@media print {
+	code[class*="language-"],
+	pre[class*="language-"] {
+		text-shadow: none;
+	}
+}
+
 /* Code blocks */
 pre[class*="language-"] {
 	padding: 1em;
 	margin: .5em 0;
 	overflow: auto;
-	border-radius: 0.3em;
 }
 
 :not(pre) > code[class*="language-"],
 pre[class*="language-"] {
-	background: #282a36;
+	background: #fff;
 }
 
 /* Inline code */
@@ -52,13 +72,11 @@ pre[class*="language-"] {
 .token.prolog,
 .token.doctype,
 .token.cdata {
-	color: #6272a4;
+	color: #bbb;
 }
 
-
-.token.operator,
 .token.punctuation {
-	color: #ff79c6;
+	color: #999;
 }
 
 .namespace {
@@ -70,46 +88,43 @@ pre[class*="language-"] {
 .token.constant,
 .token.symbol,
 .token.deleted {
-	color: #8be9fd;
 	font-style: italic;
-
+	color: #905;
 }
 
 .token.boolean,
-.token.number {
-	color: #ae81ff;
-}
-
+.token.number,
 .token.selector,
 .token.attr-name,
 .token.string,
 .token.char,
 .token.builtin,
 .token.inserted {
-	color: #a6e22e;
+	color: #690;
 }
 
+.token.operator,
 .token.entity,
 .token.url,
 .language-css .token.string,
 .style .token.string,
 .token.variable {
-	color: #f8f8f2;
+	color: #a67f59;
 }
 
 .token.atrule,
 .token.attr-value,
 .token.function {
-	color: #50fa7b;
+	color: #07a;
 }
 
 .token.keyword {
-	color: #ff79c6;
+	color: #DD4A68;
 }
 
 .token.regex,
 .token.important {
-	color: #fd971f;
+	color: #e90;
 }
 
 .token.important,
@@ -123,3 +138,4 @@ pre[class*="language-"] {
 .token.entity {
 	cursor: help;
 }
+
