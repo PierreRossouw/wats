@@ -10,16 +10,16 @@ Write the length as a 32 bit int in bytes 8-11.
 The compiler will return a memory location for the compiled binary.  
 
 ### Roadmap
+- Better playground
 - Add support for floats and negative numbers
 - Inline string support
 - Implement rest of WebAssembly spec
 - Decompiler to Wasmat
 
 ### Updates
-2017-07-05: Added a play area to index.html  
+2017-07-05: Added a play area to index.html, fixed signed LEB128 output for negative ints.
 2017-07-04: Wasmat now successfully compiles itself! The output binary matches the source binary.  
 2017-07-03: Fixed several bugs, improved debugging symbols.  
-2017-06-29: Modified to use https://github.com/dracula/dracula-theme/  
 2017-06-29: Added http://prismjs.com/ syntax highlighting.  
 
 The wasmat compiler is based on https://github.com/maierfelix/momo by Felix Maier http://www.felixmaier.info/
