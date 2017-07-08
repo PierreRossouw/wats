@@ -1,9 +1,9 @@
-// Compile.wasmat v0.1.20170704
+// Compile.wasmat v0.1.20170708
 // A toy language with self-compiling compiler to WebAssembly
 // A subset of WebAssembly is implemented - enough for self-compilation
 // Most reserved words and built-in functions compile to a single WebAssembly instruction
 // As a convention, pointers and functions returning pointers start with a Capital letter
-// Pierre Rossouw 04 July 2017 https://github.com/PierreRossouw/Wasmat
+// Pierre Rossouw 05 July 2017 https://github.com/PierreRossouw/Wasmat
 
 // Most browsers only support 32bit WASM for now
 i32 sizeInt := 4
@@ -51,6 +51,8 @@ i32 tokens_lt          := 112  // <
 i32 tokens_le          := 113  // <=
 i32 tokens_gt          := 114  // >
 i32 tokens_ge          := 115  // >=
+i32 tokens_shl         := 116  // <<
+i32 tokens_shr         := 117  // >>
 i32 tokens_add         := 118  // +
 i32 tokens_sub         := 119  // -
 i32 tokens_mul         := 120  // *
@@ -230,111 +232,25 @@ fun i32 strCompare(i32 A, i32 B)
   return r
 endfun
 
-fun i32 strcomp1(i32 V, i32 a)
+fun i32 strcomp32(i32 V, i32 a)
   i32 r := 1
-  if strLen(V) <> 1 then
+  i32 l := strLen(V)
+  if l = 0 or l > 4 then
     r := 0
   else
-    if getchar(V, 0) <> a then r := 0 endif
+    if load32(V + string_Chars) <> a then r := 0 endif
   endif
   return r
 endfun
 
-// Crappy helper functions
-fun i32 strcomp2(i32 V, i32 a, i32 b)
+fun i32 strcomp64(i32 V, i32 a, i32 b)
   i32 r := 1
-  if strLen(V) <> 2 then
+  i32 l := strLen(V)
+  if l < 5 or l > 8 then
     r := 0
   else
-    if getchar(V, 0) <> a then r := 0 endif
-    if getchar(V, 1) <> b then r := 0 endif
-  endif
-  return r
-endfun
-
-fun i32 strcomp3(i32 V, i32 a, i32 b, i32 c) 
-  i32 r := 1
-  if strLen(V) <> 3 then
-    r := 0
-  else
-    if getchar(V, 0) <> a then r := 0 endif
-    if getchar(V, 1) <> b then r := 0 endif
-    if getchar(V, 2) <> c then r := 0 endif
-  endif
-  return r
-endfun
-
-fun i32 strcomp4(i32 V, i32 a, i32 b, i32 c, i32 d)
-  i32 r := 1
-  if strLen(V) <> 4 then
-    r := 0
-  else
-    if getchar(V, 0) <> a then r := 0 endif
-    if getchar(V, 1) <> b then r := 0 endif
-    if getchar(V, 2) <> c then r := 0 endif
-    if getchar(V, 3) <> d then r := 0 endif
-  endif
-  return r
-endfun
-
-fun i32 strcomp5(i32 V, i32 a, i32 b, i32 c, i32 d, i32 e)
-  i32 r := 1
-  if strLen(V) <> 5 then
-    r := 0
-  else
-    if getchar(V, 0) <> a then r := 0 endif
-    if getchar(V, 1) <> b then r := 0 endif
-    if getchar(V, 2) <> c then r := 0 endif
-    if getchar(V, 3) <> d then r := 0 endif
-    if getchar(V, 4) <> e then r := 0 endif
-  endif
-  return r
-endfun
-
-fun i32 strcomp6(i32 V, i32 a, i32 b, i32 c, i32 d, i32 e, i32 f)
-  i32 r := 1
-  if strLen(V) <> 6 then
-    r := 0
-  else
-    if getchar(V, 0) <> a then r := 0 endif
-    if getchar(V, 1) <> b then r := 0 endif
-    if getchar(V, 2) <> c then r := 0 endif
-    if getchar(V, 3) <> d then r := 0 endif
-    if getchar(V, 4) <> e then r := 0 endif
-    if getchar(V, 5) <> f then r := 0 endif
-  endif
-  return r
-endfun
-
-fun i32 strcomp7(i32 V, i32 a, i32 b, i32 c, i32 d, i32 e, i32 f, i32 g)
-  i32 r := 1
-  if strLen(V) <> 7 then
-    r := 0
-  else
-    if getchar(V, 0) <> a then r := 0 endif
-    if getchar(V, 1) <> b then r := 0 endif
-    if getchar(V, 2) <> c then r := 0 endif
-    if getchar(V, 3) <> d then r := 0 endif
-    if getchar(V, 4) <> e then r := 0 endif
-    if getchar(V, 5) <> f then r := 0 endif
-    if getchar(V, 6) <> g then r := 0 endif
-  endif
-  return r
-endfun
-
-fun i32 strcomp8(i32 V, i32 a, i32 b, i32 c, i32 d, i32 e, i32 f, i32 g, i32 h)
-  i32 r := 1
-  if strLen(V) <> 8 then
-    r := 0
-  else
-    if getchar(V, 0) <> a then r := 0 endif
-    if getchar(V, 1) <> b then r := 0 endif
-    if getchar(V, 2) <> c then r := 0 endif
-    if getchar(V, 3) <> d then r := 0 endif
-    if getchar(V, 4) <> e then r := 0 endif
-    if getchar(V, 5) <> f then r := 0 endif
-    if getchar(V, 6) <> g then r := 0 endif
-    if getchar(V, 7) <> h then r := 0 endif
+    if load32(V + string_Chars) <> a then r := 0 endif
+    if load32(V + string_Chars + 4) <> b then r := 0 endif
   endif
   return r
 endfun
@@ -398,39 +314,41 @@ endfun
 
 fun processToken(i32 Val, i32 line, i32 column)
   i32 kind := tokens_identifier 
-  if strcomp1(Val, 40) then kind := tokens_lParen endif
-  if strcomp1(Val, 44) then kind := tokens_comma endif
-  if strcomp1(Val, 41) then kind := tokens_rParen endif
-  if strcomp3(Val, 102, 117, 110) then kind := tokens_fun endif
-  if strcomp6(Val, 114, 101, 116, 117, 114, 110) then kind := tokens_return endif
-  if strcomp6(Val, 101, 110, 100, 102, 117, 110) then kind := tokens_endfun endif
-  if strcomp4(Val, 108, 111, 111, 112) then kind := tokens_loop endif
-  if strcomp8(Val, 99, 111, 110, 116, 105, 110, 117, 101) then kind := tokens_continue endif
-  if strcomp5(Val, 98, 114, 101, 97, 107) then kind := tokens_break endif
-  if strcomp7(Val, 101, 110, 100, 108, 111, 111, 112) then kind := tokens_endloop endif
-  if strcomp2(Val, 105, 102) then kind := tokens_if endif
-  if strcomp4(Val, 116, 104, 101, 110) then kind := tokens_then endif
-  if strcomp4(Val, 101, 108, 115, 101)  then kind := tokens_else endif
-  if strcomp5(Val, 101, 110, 100, 105, 102) then kind := tokens_endif endif
-  if strcomp3(Val, 105, 51, 50) then kind := tokens_i32 endif
-  if strcomp3(Val, 105, 54, 52) then kind := tokens_i64 endif
-  if strcomp3(Val, 102, 51, 50) then kind := tokens_f32 endif
-  if strcomp3(Val, 102, 54, 52) then kind := tokens_f64 endif
-  if strcomp2(Val, 58, 61) then kind := tokens_assign endif
-  if strcomp2(Val, 111, 114) then kind := tokens_or endif
-  if strcomp3(Val, 97, 110, 100) then kind := tokens_and endif
-  if strcomp1(Val, 61) then kind := tokens_eq endif
-  if strcomp2(Val, 60, 62) then kind := tokens_ne endif
-  if strcomp1(Val, 60) then kind := tokens_lt endif
-  if strcomp2(Val, 60, 61) then kind := tokens_le endif
-  if strcomp1(Val, 62) then kind := tokens_gt endif
-  if strcomp2(Val, 62, 61) then kind := tokens_ge endif
-  if strcomp1(Val, 43) then kind := tokens_add endif
-  if strcomp1(Val, 45) then kind := tokens_sub endif
-  if strcomp1(Val, 42) then kind := tokens_mul endif
-  if strcomp1(Val, 47) then kind := tokens_div endif
-  if strcomp3(Val, 109, 111, 100) then kind := tokens_mod endif
-  if strcomp3(Val, 110, 111, 116) then kind := tokens_not endif
+  if strcomp32(Val, '(') then kind := tokens_lParen endif
+  if strcomp32(Val, ',') then kind := tokens_comma endif
+  if strcomp32(Val, ')') then kind := tokens_rParen endif
+  if strcomp32(Val, 'fun') then kind := tokens_fun endif
+  if strcomp64(Val, 'retu', 'rn') then kind := tokens_return endif
+  if strcomp64(Val, 'endf', 'un') then kind := tokens_endfun endif
+  if strcomp32(Val, 'loop') then kind := tokens_loop endif
+  if strcomp64(Val, 'cont', 'inue') then kind := tokens_continue endif
+  if strcomp64(Val, 'brea', 'k') then kind := tokens_break endif
+  if strcomp64(Val, 'endl', 'oop') then kind := tokens_endloop endif
+  if strcomp32(Val, 'if') then kind := tokens_if endif
+  if strcomp32(Val, 'then') then kind := tokens_then endif
+  if strcomp32(Val, 'else')  then kind := tokens_else endif
+  if strcomp64(Val, 'endi', 'f') then kind := tokens_endif endif
+  if strcomp32(Val, 'i32') then kind := tokens_i32 endif
+  if strcomp32(Val, 'i64') then kind := tokens_i64 endif
+  if strcomp32(Val, 'f32') then kind := tokens_f32 endif
+  if strcomp32(Val, 'f64') then kind := tokens_f64 endif
+  if strcomp32(Val, ':=') then kind := tokens_assign endif
+  if strcomp32(Val, 'or') then kind := tokens_or endif
+  if strcomp32(Val, 'and') then kind := tokens_and endif
+  if strcomp32(Val, '=') then kind := tokens_eq endif
+  if strcomp32(Val, '<>') then kind := tokens_ne endif
+  if strcomp32(Val, '<') then kind := tokens_lt endif
+  if strcomp32(Val, '<=') then kind := tokens_le endif
+  if strcomp32(Val, '>') then kind := tokens_gt endif
+  if strcomp32(Val, '>=') then kind := tokens_ge endif
+  if strcomp32(Val, '<<') then kind := tokens_shl endif
+  if strcomp32(Val, '>>') then kind := tokens_shr endif
+  if strcomp32(Val, '+') then kind := tokens_add endif
+  if strcomp32(Val, '-') then kind := tokens_sub endif
+  if strcomp32(Val, '*') then kind := tokens_mul endif
+  if strcomp32(Val, '/') then kind := tokens_div endif
+  if strcomp32(Val, 'mod') then kind := tokens_mod endif
+  if strcomp32(Val, 'not') then kind := tokens_not endif
   addToken(kind, Val, line, column)
 endfun
 
@@ -439,7 +357,7 @@ fun i32 isWhitespace(i32 chr)
 endfun
 
 fun i32 isAlpha(i32 chr)
-  return (chr >= 65 and chr <= 90) or (chr >= 97 and chr <= 122) or (chr = 95)
+  return (chr >= 'a' and chr <= 'z') or (chr >= 'A' and chr <= 'Z') or (chr = '_')
 endfun
 
 fun i32 isNumber(i32 chr, i32 hex)
@@ -496,6 +414,21 @@ fun lexx(i32 Code)
       endloop
       Val := Substring(Code, start, pos - start + 1)
       processToken(Val, line, col)
+      continue
+    endif
+    if chr = 39 then  
+      pos := pos + 1
+      col := col + 1
+      chr := getchar(Code, pos)
+      start := pos
+      loop
+        if chr = 39 then break endif
+        pos := pos + 1
+        col := col + 1
+        chr := getchar(Code, pos)
+      endloop
+      Val := Substring(Code, start, pos - start)
+      addToken(tokens_charLiteral, Val, line, col)
       continue
     endif
     if isNumber(chr, 0) or ((chr = 45) and isNumber(getchar(Code, pos + 1), 0)) then
@@ -626,7 +559,8 @@ fun i32 isBinaryOperator(i32 Token)
   return kind = tokens_assign or kind = tokens_add or kind = tokens_sub or kind = tokens_mul or
          kind = tokens_div or kind = tokens_mod or kind = tokens_or or kind = tokens_and or
          kind = tokens_lt or kind = tokens_eq or kind = tokens_ne or kind = tokens_lt or
-         kind = tokens_le or kind = tokens_gt or kind = tokens_ge 
+         kind = tokens_le or kind = tokens_gt or kind = tokens_ge or kind = tokens_shl or
+         kind = tokens_shr
 endfun
 
 fun i32 isUnaryOperator(i32 Token)
@@ -636,7 +570,7 @@ endfun
 
 fun i32 isLiteral(i32 Token)
   i32 kind := load32(Token + token_kind)
-  return kind = tokens_numLiteral or kind = tokens_identifier
+  return kind = tokens_numLiteral or kind = tokens_identifier or kind = tokens_charLiteral
 endfun
 
 fun i32 isNativeType(i32 Token)
@@ -1100,7 +1034,7 @@ fun emitUleb(i32 i)  // en.wikipedia.org/wiki/LEB128
   emitByte(i)
 endfun
 
-fun emitSleb(i32 i)  // Limitation: Only works on non-negative numbers
+fun emitSleb(i32 i)
   if i >= 0 then 
     loop
       if i < 64 then break endif
@@ -1108,6 +1042,13 @@ fun emitSleb(i32 i)  // Limitation: Only works on non-negative numbers
       i := i / 128
     endloop
     emitByte(i)
+  else
+    loop
+      if i >= (0 - 64) then break endif
+      emitByte((i mod 128) - 128)
+      i := i / 128
+    endloop
+    emitByte(i - 128)
   endif
 endfun
 
@@ -1320,6 +1261,8 @@ fun emitOperator(i32 type)
   if type = tokens_and then emitByte(0x71) endif
   if type = tokens_or then emitByte(0x72) endif
   if type = tokens_not then emitByte(0x45) endif
+  if type = tokens_shl then emitByte(0x74) endif
+  if type = tokens_shr then emitByte(0x75) endif
 endfun
 
 fun emitUnary(i32 Node)
@@ -1349,6 +1292,12 @@ fun emitLiteral(i32 Node)
         emitByte(0x20)  // i32.get_local
       endif
       emitUleb(load32(ResolvedNode + node_index))
+    else
+      if type = tokens_charLiteral then
+        emitByte(0x41)  // i32.const
+        num := load32(load32(Node + node_String) + string_Chars)
+        emitSleb(num)
+      endif
     endif
   endif
 endfun
@@ -1363,22 +1312,22 @@ fun emitCall(i32 Node)
     ParamItem := load32(ParamItem + item_Next)
   endloop
   i32 Name := load32(load32(Node + node_ANode) + node_String)
-  if strcomp7(Name, 115, 116, 111, 114, 101, 51, 50) then  // 'store32'
+  if strcomp64(Name, 'stor', 'e32') then
     emitByte(0x36)  // i32.store32
     emitByte(0x00)  // alignment
     emitByte(0x00)  // offset
   else
-    if strcomp6(Name, 115, 116, 111, 114, 101, 56) then  // 'store8'
+    if strcomp64(Name, 'stor', 'e8') then
       emitByte(0x3a)  // i32.store8
       emitByte(0x00)  // alignment
       emitByte(0x00)  // offset
     else 
-      if strcomp6(Name, 108, 111, 97, 100, 51, 50) then  // 'load32'
+      if strcomp64(Name, 'load', '32') then
         emitByte(0x28)  // i32.load32
         emitByte(0x00)  // alignment
         emitByte(0x00)  // offset
       else
-        if strcomp5(Name, 108, 111, 97, 100, 56) then  // 'load8'
+        if strcomp64(Name, 'load', '8') then
           emitByte(0x2d)  // i32.load8
           emitByte(0x00)  // alignment
           emitByte(0x00)  // offset
