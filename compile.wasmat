@@ -3,7 +3,7 @@
 // A subset of WebAssembly is implemented - enough for self-compilation
 // Most reserved words and built-in functions compile to a single WebAssembly instruction
 // As a convention, pointers and functions returning pointers start with a Capital letter
-// Pierre Rossouw 05 July 2017 https://github.com/PierreRossouw/Wasmat
+// Pierre Rossouw 2017 https://github.com/PierreRossouw/Wasmat
 
 // Most browsers only support 32bit WASM for now
 i32 sizeInt := 4
