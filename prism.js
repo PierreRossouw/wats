@@ -556,7 +556,7 @@ Prism.languages.clike = {
 			punctuation: /(\.|\\)/
 		}
 	},
-	'keyword': /\b(if|then|else|endif|loop|endloop|return|fun|endfun|break|continue|not|mod)\b/,
+	'keyword': /\b(if|then|else|elseif|endif|loop|endloop|return|fun|endfun|break|continue|not|mod)\b/,
 	'boolean': /\b(true|false)\b/,
 	'function': /[a-z0-9_]+(?=\()/i,
 	'number': /\b-?(?:0x[\da-f]+|\d*\.?\d+(?:e[+-]?\d+)?)\b/i,
