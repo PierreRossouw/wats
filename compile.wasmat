@@ -1,4 +1,4 @@
-// Compile.wasmat v0.1.20170708
+// Compile.wasmat v0.1.20170709
 // A toy language with self-compiling compiler to WebAssembly
 // A subset of WebAssembly is implemented - enough for self-compilation
 // Most reserved words and built-in functions compile to a single WebAssembly instruction
@@ -24,7 +24,7 @@ i32 nodes_variable   := 12
 i32 nodes_parameter  := 13
 i32 nodes_literal    := 14
 
-i32 tokens_identifier  := 43 
+i32 tokens_identifier  := 43
 i32 tokens_charLiteral := 46
 i32 tokens_numLiteral  := 47
 i32 tokens_lParen      := 50
@@ -38,7 +38,8 @@ i32 tokens_continue    := 71
 i32 tokens_break       := 72
 i32 tokens_endloop     := 73
 i32 tokens_if          := 80
-i32 tokens_then        := 82
+i32 tokens_then        := 81
+i32 tokens_elseif      := 82
 i32 tokens_else        := 83
 i32 tokens_endif       := 84
 i32 tokens_minPrec     := 99
@@ -64,8 +65,7 @@ i32 tokens_f32         := 125  // 0x7d
 i32 tokens_i64         := 126  // 0x7e
 i32 tokens_i32         := 127  // 0x7f
 
-// Structs 
-// Bytes 0-7 are reserved for debug information which can be stripped to save maybe 30% memory.
+// Structs
 i32 string_length := 8
 i32 string_Chars  := 12
 
@@ -98,9 +98,9 @@ i32 node_ParamNodes := 44  // List of params for call/fun
 i32 node_size       := 48
 
 i32 scope_Node       := 8
-i32 scope_index      := 12 
-i32 scope_Parent     := 16 
-i32 scope_Symbols    := 20 
+i32 scope_index      := 12
+i32 scope_Parent     := 16
+i32 scope_Symbols    := 20
 i32 scope_localIndex := 24
 i32 scope_size       := 28
 
@@ -119,14 +119,19 @@ i32 emitGlobalCount  := 0
 i32 emitFunCount     := 0
 
 // The first function is automatically exported as 'main'
-fun i32 main()
-  return compile()
+fun i32 Compile()
+  i32 length := load32(8)
+  i32 ignore := Alloc(8 + length)
+  lexx(0)
+  parse()
+  emit(length)
+  return Binary + string_length
 endfun
 
 // Memory management
-fun i32 Alloc(i32 len)
+fun i32 Alloc(i32 length)
   i32 r := Heap
-  Heap := Heap + len
+  Heap := Heap + length
   if Heap mod sizeInt then
     Heap := Heap + sizeInt - Heap mod sizeInt  // Fix the alignment
   endif
@@ -140,49 +145,10 @@ fun debug(i32 X)
 endfun
 
 // Pascal-style strings: We store the length instead of using a null terminator
-fun i32 NewString(i32 len)
-  i32 String := Alloc(string_Chars + len)
-  store32(String, 1 - 557785600)
-  store32(String + 4, String)  // This struct's address - for debugging
-  store32(String + string_length, len)
+fun i32 NewString(i32 length)
+  i32 String := Alloc(string_Chars + length)
+  store32(String + string_length, length)
   return String
-endfun
-
-fun i32 NewList()
-  i32 List := Alloc(list_size)
-  store32(List, 2 - 557785600)
-  store32(List + 4, List) 
-  return List
-endfun
-
-fun i32 NewItem()
-  i32 Item := Alloc(item_size)
-  store32(Item, 3 - 557785600)
-  store32(Item + 4, Item) 
-  return Item
-endfun
-
-fun i32 NewToken()
-  i32 Token := Alloc(token_size)
-  store32(Token, 4 - 557785600)
-  store32(Token + 4, Token)
-  return Token
-endfun
-
-fun i32 NewNode()
-  i32 Node := Alloc(node_size)
-  store32(Node, 5 - 557785600)
-  store32(Node + 4, Node)
-  store32(Node + node_Scope, CurrentScope)
-  return Node
-endfun
-
-fun i32 NewScope()
-  i32 Scope := Alloc(scope_size)
-  store32(Scope, 6 - 557785600)
-  store32(Scope + 4, Scope)
-  store32(Scope + scope_Symbols, NewList())
-  return Scope
 endfun
 
 fun i32 strLen(i32 String)
@@ -214,16 +180,16 @@ fun i32 Substring(i32 String, i32 offset, i32 length)
 endfun
 
 fun i32 strCompare(i32 A, i32 B)
-  i32 len := strLen(A)
+  i32 length := strLen(A)
   i32 offset := 0
   i32 r := 1
-  if len = strLen(B) then
+  if length = strLen(B) then
     loop
       if getchar(A, offset) <> getchar(B, offset) then
         r := 0
         break
       endif
-      if offset >= len then break endif
+      if offset >= length then break endif
       offset := offset + 1
     endloop
   else
@@ -234,8 +200,8 @@ endfun
 
 fun i32 strcomp32(i32 V, i32 a)
   i32 r := 1
-  i32 l := strLen(V)
-  if l = 0 or l > 4 then
+  i32 length := strLen(V)
+  if length = 0 or length > 4 then
     r := 0
   else
     if load32(V + string_Chars) <> a then r := 0 endif
@@ -245,8 +211,8 @@ endfun
 
 fun i32 strcomp64(i32 V, i32 a, i32 b)
   i32 r := 1
-  i32 l := strLen(V)
-  if l < 5 or l > 8 then
+  i32 length := strLen(V)
+  if length < 5 or length > 8 then
     r := 0
   else
     if load32(V + string_Chars) <> a then r := 0 endif
@@ -257,7 +223,7 @@ endfun
 
 // Lists
 fun listAdd(i32 List, i32 Object)
-  i32 Item := NewItem()
+  i32 Item := Alloc(item_size)
   store32(Item + item_Object, Object)
   if not load32(List + list_First) then
     store32(List + list_First, Item)
@@ -269,13 +235,13 @@ fun listAdd(i32 List, i32 Object)
 endfun
 
 fun listAddName(i32 List, i32 Object, i32 Name)
-  i32 Item := NewItem()
+  i32 Item := Alloc(item_size)
   store32(Item + item_Object, Object)
   store32(Item + item_Name, Name)
   if not load32(List + list_First) then
     store32(List + list_First, Item)
   else
-    store32(load32(List + list_Last) + item_Next, Item) 
+    store32(load32(List + list_Last) + item_Next, Item)
   endif
   store32(List + list_Last, Item) 
   store32(List + list_count, load32(List + list_count) + 1)
@@ -296,15 +262,13 @@ fun i32 ListSearch(i32 List, i32 FindName)
   return Node
 endfun
 
-// XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-// Lexer
-// XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+// Lexer XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
 fun addToken(i32 kind, i32 Value, i32 line, i32 column)
   if not TokenList then
-    TokenList := NewList()
+    TokenList := Alloc(list_size)
   endif
-  i32 Token := NewToken()
+  i32 Token := Alloc(token_size)
   store32(Token + token_kind, kind)
   store32(Token + token_Value, Value)
   store32(Token + token_line, line)
@@ -313,7 +277,7 @@ fun addToken(i32 kind, i32 Value, i32 line, i32 column)
 endfun
 
 fun processToken(i32 Val, i32 line, i32 column)
-  i32 kind := tokens_identifier 
+  i32 kind := tokens_identifier
   if strcomp32(Val, '(') then kind := tokens_lParen endif
   if strcomp32(Val, ',') then kind := tokens_comma endif
   if strcomp32(Val, ')') then kind := tokens_rParen endif
@@ -326,7 +290,8 @@ fun processToken(i32 Val, i32 line, i32 column)
   if strcomp64(Val, 'endl', 'oop') then kind := tokens_endloop endif
   if strcomp32(Val, 'if') then kind := tokens_if endif
   if strcomp32(Val, 'then') then kind := tokens_then endif
-  if strcomp32(Val, 'else')  then kind := tokens_else endif
+  if strcomp32(Val, 'else') then kind := tokens_else endif
+  if strcomp64(Val, 'else', 'if') then kind := tokens_elseif endif
   if strcomp64(Val, 'endi', 'f') then kind := tokens_endif endif
   if strcomp32(Val, 'i32') then kind := tokens_i32 endif
   if strcomp32(Val, 'i64') then kind := tokens_i64 endif
@@ -353,7 +318,7 @@ fun processToken(i32 Val, i32 line, i32 column)
 endfun
 
 fun i32 isWhitespace(i32 chr)
-  return chr = 0 or chr = 9 or chr = 13 or chr = 32  // tab, cr, space
+  return chr = 0 or chr = 9 or chr = 13 or chr = ' '  // tab, cr, space
 endfun
 
 fun i32 isAlpha(i32 chr)
@@ -362,30 +327,28 @@ endfun
 
 fun i32 isNumber(i32 chr, i32 hex)
   i32 num := 0
-  if chr >= 48 and chr <= 57 then
+  if chr >= '0' and chr <= '9' then
     num := 1
-  else
-    if hex and chr >= 97 and chr <= 102 then
-      num := 1
-    endif
+  elseif hex and chr >= 'a' and chr <= 'f' then
+    num := 1
   endif
   return num
 endfun
 
 fun i32 isPunctuator(i32 chr)
-  return chr = 40 or chr = 41 or chr = 44
+  return chr = '(' or chr = ')' or chr = ','
 endfun
 
 fun i32 isOperatorChar(i32 chr)
-  return chr = 61 or chr = 43 or chr = 45 or chr = 47 or 
-         chr = 60 or chr = 62 or chr = 42 or chr = 58 
+  return chr = '=' or chr = '+' or chr = '-' or chr = '/' or
+         chr = '<' or chr = '>' or chr = '*' or chr = ':'
 endfun
 
 fun lexx(i32 Code)
   i32 pos := 0 - 1
   i32 line := 1
   i32 col := 0
-  i32 len := strLen(Code)
+  i32 length := strLen(Code)
   i32 chr := 0
   i32 start := 0
   i32 Val := 0
@@ -394,13 +357,12 @@ fun lexx(i32 Code)
     pos := pos + 1
     col := col + 1
     chr := getchar(Code, pos) 
-    if isWhitespace(chr) then continue endif
-    if chr = 10 then  // newline
+    if isWhitespace(chr) then 
+      continue 
+    elseif chr = 10 then  // newline
       line := line + 1
       col := 0
-      continue
-    endif
-    if isAlpha(chr) then  
+    elseif isAlpha(chr) then
       start := pos
       loop
         if (not isAlpha(chr)) and (not isNumber(chr, 0)) then
@@ -414,9 +376,7 @@ fun lexx(i32 Code)
       endloop
       Val := Substring(Code, start, pos - start + 1)
       processToken(Val, line, col)
-      continue
-    endif
-    if chr = 39 then  
+    elseif chr = 39 then  // single quote '
       pos := pos + 1
       col := col + 1
       chr := getchar(Code, pos)
@@ -429,9 +389,7 @@ fun lexx(i32 Code)
       endloop
       Val := Substring(Code, start, pos - start)
       addToken(tokens_charLiteral, Val, line, col)
-      continue
-    endif
-    if isNumber(chr, 0) or ((chr = 45) and isNumber(getchar(Code, pos + 1), 0)) then
+    elseif isNumber(chr, 0) or ((chr = '-') and isNumber(getchar(Code, pos + 1), 0)) then
       start := pos
       hex := 0
       loop
@@ -450,11 +408,9 @@ fun lexx(i32 Code)
       endloop
       Val := Substring(Code, start, pos - start + 1)
       addToken(tokens_numLiteral, Val, line, col)
-      continue
-    endif
-    if (chr = 47) and (getchar(Code, pos + 1) = 47) then
+    elseif (chr = '/') and (getchar(Code, pos + 1) = '/') then
       loop
-        if chr = 10 then
+        if chr = 10 or chr = 13 then  // LF or CR
           col := 0
           line := line + 1
           break
@@ -463,14 +419,10 @@ fun lexx(i32 Code)
         col := col + 1
         chr := getchar(Code, pos)
       endloop
-      continue
-    endif
-    if isPunctuator(chr) then
+    elseif isPunctuator(chr) then
       Val := Substring(Code, pos, 1)
       processToken(Val, line, col)
-      continue
-    endif
-    if isOperatorChar(chr) then
+    elseif isOperatorChar(chr) then
       if isOperatorChar(getchar(Code, pos + 1)) then
         Val := Substring(Code, pos, 2)
         pos := pos + 1
@@ -480,16 +432,15 @@ fun lexx(i32 Code)
       endif
       processToken(Val, line, col)
     endif
-    if pos >= len then break endif
+    if pos >= length then break endif
   endloop
 endfun
 
-// XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-// Scoper
-// XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+// Scoper XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
 fun pushScope(i32 Node)
-  i32 Scope := NewScope()
+  i32 Scope := Alloc(scope_size)
+  store32(Scope + scope_Symbols, Alloc(list_size))
   store32(Scope + scope_Node, Node)
   if CurrentScope then
     store32(Scope + scope_index, load32(CurrentScope + scope_index) + 1)
@@ -541,9 +492,13 @@ fun i32 ScopeResolve(i32 Scope, i32 Name)
   return Node
 endfun
 
-// XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-// Parser
-// XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+// Parser XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+
+fun i32 NewNode()
+  i32 Node := Alloc(node_size)
+  store32(Node + node_Scope, CurrentScope)
+  return Node
+endfun
 
 fun next()
   CurrentTokenItem := load32(CurrentTokenItem + item_Next)
@@ -580,7 +535,7 @@ endfun
 
 fun eatToken(i32 kind)
   if load32(CurrentToken + token_kind) = kind then
-    next() 
+    next()
   else
     debug(0x99)
     debug(kind)
@@ -590,7 +545,7 @@ fun eatToken(i32 kind)
 endfun
 
 fun i32 ParseFunParams()
-  i32 Params := NewList()
+  i32 Params := Alloc(list_size)
   i32 type := 0
   i32 FunParamNode := 0
   i32 Name := 0
@@ -615,7 +570,7 @@ endfun
 
 fun i32 ParseFunBlock()
   i32 Node := NewNode()
-  i32 BodyList := NewList()
+  i32 BodyList := Alloc(list_size)
   i32 ChildNode := 0
   store32(Node + node_kind, nodes_block)
   store32(Node + node_Nodes, BodyList)
@@ -632,7 +587,7 @@ endfun
 
 fun i32 ParseFunDeclaration(i32 type, i32 Name)
   i32 Node := NewNode()
-  i32 Locals := NewList()
+  i32 Locals := Alloc(list_size)
   i32 ParamList := 0
   i32 ParamName := 0
   i32 ParamItem := 0
@@ -695,7 +650,7 @@ fun i32 ParseLiteral()
 endfun
 
 fun i32 ParseCallParams()
-  i32 ParamList := NewList()
+  i32 ParamList := Alloc(list_size)
   eatToken(tokens_lParen)
   loop
     if load32(CurrentToken + token_kind) = tokens_rParen then break endif
@@ -729,16 +684,12 @@ fun i32 ParsePrefix()
   i32 Node := 0
   if isLiteral(CurrentToken) then
     Node := ParseLiteral()
-  else
-    if load32(CurrentToken + token_kind) = tokens_lParen then
-      next()
-      Node := ParseExpression(tokens_minPrec)
-      eatToken(tokens_rParen)
-    else
-      if isUnaryOperator(CurrentToken) then
-        Node := parseUnaryExpression()
-      endif
-    endif
+  elseif load32(CurrentToken + token_kind) = tokens_lParen then
+    next()
+    Node := ParseExpression(tokens_minPrec)
+    eatToken(tokens_rParen)
+  elseif isUnaryOperator(CurrentToken) then
+    Node := parseUnaryExpression()
   endif
   return Node
 endfun
@@ -764,12 +715,10 @@ fun i32 ParseInfix(i32 level, i32 Left)
   i32 Node := 0
   if isBinaryOperator(CurrentToken) then
     Node := ParseBinaryExpression(level, Left)
+  elseif load32(CurrentToken + token_kind) = tokens_lParen then
+    Node := ParseCallExpression(Left)
   else
-    if load32(CurrentToken + token_kind) = tokens_lParen then
-      Node := ParseCallExpression(Left)
-    else
-      Node := Left
-    endif
+    Node := Left
   endif
   return Node
 endfun
@@ -780,18 +729,16 @@ fun i32 ParseExpression(i32 level)
   i32 kind := load32(CurrentToken + token_kind)
   if kind = tokens_break then
     Node := ParseBreak()
+  elseif kind = tokens_continue then
+    Node := ParseContinue()
   else
-    if kind = tokens_continue then
-      Node := ParseContinue()
-    else
-      Node := ParsePrefix()
-      loop
-        if not CurrentToken then break endif
-        Expr := ParseInfix(level, Node)
-        if Expr = 0 or Expr = Node then break endif
-        Node := Expr
-      endloop
-    endif
+    Node := ParsePrefix()
+    loop
+      if not CurrentToken then break endif
+      Expr := ParseInfix(level, Node)
+      if Expr = 0 or Expr = Node then break endif
+      Node := Expr
+    endloop
   endif
   return Node
 endfun
@@ -814,7 +761,7 @@ endfun
 
 fun i32 ParseIfBlock()
   i32 Node := NewNode()
-  i32 BodyList := NewList()
+  i32 BodyList := Alloc(list_size)
   i32 ChildNode := 0
   store32(Node + node_kind, nodes_block)
   store32(Node + node_Nodes, BodyList)
@@ -822,6 +769,7 @@ fun i32 ParseIfBlock()
   loop
     if not CurrentToken then break endif
     if load32(CurrentToken + token_kind) = tokens_else then break endif
+    if load32(CurrentToken + token_kind) = tokens_elseif then break endif
     if load32(CurrentToken + token_kind) = tokens_endif then break endif
     ChildNode := ParseStatement()
     if not ChildNode then break endif
@@ -830,28 +778,34 @@ fun i32 ParseIfBlock()
   return Node
 endfun
 
-fun i32 ParseIfStatement()
+fun i32 ParseIfStatement(i32 isElseif)
   i32 Node := NewNode()
-  eatToken(tokens_if)
+  if not isElseif then eatToken(tokens_if) endif
   store32(Node + node_kind, nodes_if)
   store32(Node + node_CNode, ParseExpression(tokens_minPrec))
   eatToken(tokens_then)
   pushScope(Node)
   store32(Node + node_ANode, ParseIfBlock())
   popScope()
+  if load32(CurrentToken + token_kind) = tokens_elseif then
+    eatToken(tokens_elseif)
+    pushScope(Node)
+    store32(Node + node_BNode, ParseIfStatement(1))
+    popScope()
+  endif
   if load32(CurrentToken + token_kind) = tokens_else then
     eatToken(tokens_else)
     pushScope(Node)
     store32(Node + node_BNode, ParseIfBlock())
     popScope()
   endif
-  eatToken(tokens_endif)
+  if not isElseif then eatToken(tokens_endif) endif
   return Node
 endfun
 
 fun i32 ParseLoopBlock()
   i32 Node := NewNode()
-  i32 BodyList := NewList()
+  i32 BodyList := Alloc(list_size)
   i32 ChildNode := 0
   store32(Node + node_kind, nodes_block)
   store32(Node + node_Nodes, BodyList)
@@ -895,7 +849,7 @@ fun i32 ParseDeclaration()
     FunNode := load32(LookupFunctionScope(CurrentScope) + scope_Node)
     FunLocalsList := load32(FunNode + node_Nodes)
     if not FunLocalsList then
-      FunLocalsList := NewList()
+      FunLocalsList := Alloc(list_size)
       store32(FunNode + node_Nodes, FunLocalsList)
     endif
     listAdd(FunLocalsList, Node)
@@ -909,24 +863,16 @@ fun i32 ParseStatement()
   if kind = tokens_fun then
     eatToken(tokens_fun)
     Node := ParseFun()
+  elseif isNativeType(CurrentToken) then
+    Node := ParseDeclaration()
+  elseif kind = tokens_return then
+    Node := ParseReturnStatement()
+  elseif kind = tokens_if then
+    Node := ParseIfStatement(0)
+  elseif kind = tokens_loop then
+    Node := ParseLoopStatement()
   else
-    if isNativeType(CurrentToken) then
-      Node := ParseDeclaration()
-    else
-      if kind = tokens_return then
-        Node := ParseReturnStatement()
-      else
-        if kind = tokens_if then
-          Node := ParseIfStatement()
-        else
-          if kind = tokens_loop then
-            Node := ParseLoopStatement()
-          else
-            Node := ParseExpression(tokens_minPrec)
-          endif
-        endif
-      endif
-    endif
+    Node := ParseExpression(tokens_minPrec)
   endif
   return Node
 endfun
@@ -939,7 +885,7 @@ fun parse()
   pushScope(RootNode)
   GlobalScope := CurrentScope  
   i32 Child := 0
-  i32 BodyList := NewList()
+  i32 BodyList := Alloc(list_size)
   store32(RootNode + node_Nodes, BodyList)
   loop
     if not CurrentToken then break endif
@@ -949,47 +895,44 @@ fun parse()
   endloop
 endfun
 
-// XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-// Compiler
-// XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+// Compiler XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
-fun i32 strToI32(i32 V)  // works on non-negative ints and 0x0-style hex with lowercase a-f
+fun i32 strToI32(i32 V)  // Supports ints and lowercase 0x hex
   i32 hex := 0
   i32 i := 0
-  i32 l := strLen(V)
+  i32 length := strLen(V)
   i32 offset := 0
   i32 c := 0
-  if l >= 3 then
-    if getchar(V, 0) = 48 and getchar(V, 1) = 120 then
+  if length >= 3 then
+    if getchar(V, 0) = '0' and getchar(V, 1) = 'x' then
       hex := 1
     endif
   endif
   if hex then
     offset := 2
     loop
-      if offset >= l then break endif
+      if offset >= length then break endif
       i := i * 16
       c := getchar(V, offset)
-      if c >= 48 and c <= 57 then  // 0-9
-        i := i + c - 48
-      else
-        if c >= 97 and c <= 102 then  // a-f
-          i := i + c - 97 + 10
-        endif
+      if c >= '0' and c <= '9' then  // 0-9
+        i := i + c - '0'
+      elseif c >= 'a' and c <= 'f' then  // a-f
+        i := i + c - 'a' + 10
       endif
       offset := offset + 1
     endloop
   else
     loop
-      if offset >= l then break endif
+      if offset >= length then break endif
       i := i * 10
       c := getchar(V, offset)
-      if c >= 48 and c <= 57 then  // 0-9
-        i := i + c - 48
+      if c >= '0' and c <= '9' then  // 0-9
+        i := i + c - '0'
       endif
       offset := offset + 1
     endloop
   endif
+  if getchar(V, 0) = '-' then i := 0 - i endif
   return i
 endfun
 
@@ -1003,26 +946,20 @@ fun emitI32(i32 byte)
   BinaryPointer := BinaryPointer + 4
 endfun
 
-fun i32 uleblen(i32 i)
-  i32 len := 0
+fun i32 uLebLen(i32 i)
+  i32 length := 0
   if i <= 127 then
-    len := 1
+    length := 1
+  elseif i <= 16383 then
+    length := 2
+  elseif i <= 2097151 then
+    length := 3
+  elseif i <= 268435455 then
+    length := 4
   else
-    if i <= 16383 then
-      len := 2
-    else
-      if i <= 2097151 then
-        len := 3
-      else
-        if i <= 268435455 then
-          len := 4
-        else
-          len := 5
-        endif
-      endif
-    endif
+    length := 5
   endif
-  return len
+  return length
 endfun
 
 fun emitUleb(i32 i)  // en.wikipedia.org/wiki/LEB128
@@ -1110,7 +1047,7 @@ fun emitTypeSection()
         if not Item then break endif
       endloop
       length := BinaryPointer - Start
-      offset := uleblen(count) + uleblen(length) - 2
+      offset := uLebLen(count) + uLebLen(length) - 2
       fixUlebGuess(Start, offset)
       BinaryPointer := Start - 1
       emitUleb(length)
@@ -1137,7 +1074,7 @@ fun emitFunctionSection()
       counter := counter + 1
     endloop
     length := BinaryPointer - Start
-    offset := uleblen(length) - 1
+    offset := uLebLen(length) - 1
     fixUlebGuess(Start, offset)
     BinaryPointer := Start - 1
     emitUleb(length)
@@ -1146,7 +1083,7 @@ fun emitFunctionSection()
 endfun
 
 // Memory is exported as 'mem' and is a fixed size
-// This program takes at minimum about 1MB to compile
+// This compiler takes about 1MB to compile
 fun emitMemorySection()
   emitByte(0x05)  // Memory section
   emitUleb(0x03)  // Size in bytes
@@ -1188,7 +1125,7 @@ fun emitGlobalSection()
         if not Item then break endif
       endloop
       length := BinaryPointer - Start
-      offset := uleblen(count) + uleblen(length) - 2
+      offset := uLebLen(count) + uLebLen(length) - 2
       fixUlebGuess(Start, offset)
       BinaryPointer := Start - 1
       emitUleb(length)
@@ -1226,7 +1163,7 @@ fun emitExportSection()
       emitByte(0x02)  // Type: memory
       emitByte(0x00)  // Memory number 0 
       length := BinaryPointer - Start
-      offset := uleblen(length) - 1
+      offset := uLebLen(length) - 1
       fixUlebGuess(Start, offset)
       BinaryPointer := Start - 1
       emitUleb(length)
@@ -1316,28 +1253,22 @@ fun emitCall(i32 Node)
     emitByte(0x36)  // i32.store32
     emitByte(0x00)  // alignment
     emitByte(0x00)  // offset
+  elseif strcomp64(Name, 'stor', 'e8') then
+    emitByte(0x3a)  // i32.store8
+    emitByte(0x00)  // alignment
+    emitByte(0x00)  // offset
+  elseif strcomp64(Name, 'load', '32') then
+    emitByte(0x28)  // i32.load32
+    emitByte(0x00)  // alignment
+    emitByte(0x00)  // offset
+  elseif strcomp64(Name, 'load', '8') then
+    emitByte(0x2d)  // i32.load8
+    emitByte(0x00)  // alignment
+    emitByte(0x00)  // offset
   else
-    if strcomp64(Name, 'stor', 'e8') then
-      emitByte(0x3a)  // i32.store8
-      emitByte(0x00)  // alignment
-      emitByte(0x00)  // offset
-    else 
-      if strcomp64(Name, 'load', '32') then
-        emitByte(0x28)  // i32.load32
-        emitByte(0x00)  // alignment
-        emitByte(0x00)  // offset
-      else
-        if strcomp64(Name, 'load', '8') then
-          emitByte(0x2d)  // i32.load8
-          emitByte(0x00)  // alignment
-          emitByte(0x00)  // offset
-        else
-          ResolvedNode := ScopeResolve(CurrentScope, Name)
-          emitByte(0x10)  // call
-          emitUleb(load32(ResolvedNode + node_index))
-        endif
-      endif
-    endif
+    ResolvedNode := ScopeResolve(CurrentScope, Name)
+    emitByte(0x10)  // call
+    emitUleb(load32(ResolvedNode + node_index))
   endif
 endfun
 
@@ -1358,11 +1289,6 @@ fun emitBlock(i32 Node)
   if Scope then
     CurrentScope := load32(CurrentScope + scope_Parent)
   endif
-endfun
-
-fun emitReturn(i32 Node)
-  i32 ExprNode := load32(Node + node_ANode)
-  emitNode(ExprNode)
 endfun
 
 fun emitIf(i32 Node)
@@ -1402,69 +1328,41 @@ fun emitLoop(i32 Node)
   emitByte(0x0b)  // end
 endfun
 
-fun emitBreak(i32 Node)
-  emitByte(0x0c)  // br
-  emitUleb(loopLevel() + 1)
-endfun
-
-fun emitContinue(i32 Node)
-  emitByte(0x0c)  // br
-  emitUleb(loopLevel())
-endfun
-
 fun emitNode(i32 Node)
   i32 kind := load32(Node + node_kind)
   i32 type := load32(Node + node_type)
   if kind = nodes_block then
     emitBlock(Node)
-  else
-    if kind = nodes_binary then
-      if type = tokens_assign then
-        emitAssignment(Node)
-      else
-        emitNode(load32(Node + node_ANode))
-        emitNode(load32(Node + node_BNode))
-        emitOperator(type)
-      endif
+  elseif kind = nodes_binary then
+    if type = tokens_assign then
+      emitAssignment(Node)
     else
-      if kind = nodes_unary then
-        emitUnary(Node)
-      else
-        if kind = nodes_call then
-          emitCall(Node)
-        else
-          if kind = nodes_return then
-            emitReturn(Node)
-          else
-            if kind = nodes_if then
-              emitIf(Node)
-            else
-              if kind = nodes_loop then
-                emitLoop(Node)
-              else
-                if kind = nodes_break then
-                  emitBreak(Node)
-                else
-                  if kind = nodes_continue then
-                    emitContinue(Node)
-                  else
-                    if kind = nodes_literal then
-                      emitLiteral(Node)
-                    else
-                      if kind = nodes_variable then
-                        emitNode(load32(Node + node_BNode))
-                        emitByte(0x21)  // i32.set_local
-                        emitUleb(load32(Node + node_index))
-                      endif
-                    endif
-                  endif
-                endif
-              endif
-            endif
-          endif
-        endif
-      endif
+      emitNode(load32(Node + node_ANode))
+      emitNode(load32(Node + node_BNode))
+      emitOperator(type)
     endif
+  elseif kind = nodes_unary then
+    emitUnary(Node)
+  elseif kind = nodes_call then
+    emitCall(Node)
+  elseif kind = nodes_return then
+    emitNode(load32(Node + node_ANode))
+  elseif kind = nodes_if then
+    emitIf(Node)
+  elseif kind = nodes_loop then
+    emitLoop(Node)
+  elseif kind = nodes_break then
+    emitByte(0x0c)  // br
+    emitUleb(loopLevel() + 1)
+  elseif kind = nodes_continue then
+    emitByte(0x0c)  // br
+    emitUleb(loopLevel())
+  elseif kind = nodes_literal then
+    emitLiteral(Node)
+  elseif kind = nodes_variable then
+    emitNode(load32(Node + node_BNode))
+    emitByte(0x21)  // i32.set_local
+    emitUleb(load32(Node + node_index))
   endif
 endfun
 
@@ -1483,7 +1381,7 @@ fun emitFunCode(i32 Node)
   emitNode(load32(Node + node_ANode))  // Body block node
   emitByte(0x0b)  // end
   i32 length := BinaryPointer - Start
-  i32 offset := uleblen(length) - 1
+  i32 offset := uLebLen(length) - 1
   fixUlebGuess(Start, offset)
   BinaryPointer := Start - 1
   emitUleb(length)
@@ -1498,7 +1396,7 @@ fun emitCodeSection()
   i32 length := 0
   i32 offset := 0
   if emitFunCount then
-    emitByte(0x0a)  // Code section 
+    emitByte(0x0a)  // Code section
     emitByte(0x00)  // Section size (guess)
     Start := BinaryPointer 
     emitUleb(emitFunCount)
@@ -1513,7 +1411,7 @@ fun emitCodeSection()
       if not FunItem then break endif
     endloop
     length := BinaryPointer - Start
-    offset := uleblen(length) - 1
+    offset := uLebLen(length) - 1
     fixUlebGuess(Start, offset)
     BinaryPointer := Start - 1
     emitUleb(length)
@@ -1522,14 +1420,14 @@ fun emitCodeSection()
 endfun
 
 fun emit(i32 length)
-  Binary := NewString(length + 256)  // Heuristic: binary will be smaller than len(source) + 256
+  Binary := NewString(length + 256)  // Heuristic: binary will be smaller than length(source) + 256
   BinaryPointer := Binary + string_Chars
   CurrentScope := load32(RootNode + node_Scope)
   emitByte(0x00)  // Wasm magic: 00 61 73 6d
   emitByte(0x61)  // a
   emitByte(0x73)  // s
   emitByte(0x6d)  // m
-  emitI32(1)  // Wasm version
+  emitI32(1)      // Wasm version
   emitTypeSection()
   emitFunctionSection()
   emitMemorySection()
@@ -1537,13 +1435,4 @@ fun emit(i32 length)
   emitExportSection()
   emitCodeSection()
   store32(Binary + string_length, BinaryPointer - (Binary + string_Chars))  // Fix up the length
-endfun
-
-fun i32 compile()
-  i32 len := load32(8)
-  i32 ignore := Alloc(8 + len)
-  lexx(0)
-  parse()
-  emit(len)
-  return Binary + string_length
 endfun
