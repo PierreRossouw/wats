@@ -3,6 +3,7 @@
  * prism.js default theme for JavaScript, CSS and HTML
  * Based on dabblet (http://dabblet.com)
  * @author Lea Verou
+ * PLEASE NOTE: This file has been modified from the original
  */
 body{font-family:Open Sans,Arial}
 
@@ -10,7 +11,7 @@ code[class*="language-"],
 pre[class*="language-"] {
 	color: black;
 	background: none;
-	text-shadow: 0 1px white;
+	text-shadow: 0 1px #ddd;
 	font-family: Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', monospace;
 	text-align: left;
 	white-space: pre;
@@ -57,7 +58,7 @@ pre[class*="language-"] {
 
 :not(pre) > code[class*="language-"],
 pre[class*="language-"] {
-	background: #fff;
+	background: #eee;
 }
 
 /* Inline code */
@@ -71,7 +72,7 @@ pre[class*="language-"] {
 .token.prolog,
 .token.doctype,
 .token.cdata {
-	color: #bbb;
+	color: #aaa;
 }
 
 .namespace {
@@ -137,3 +138,4 @@ pre[class*="language-"] {
 .token.entity {
 	cursor: help;
 }
+
