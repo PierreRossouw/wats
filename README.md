@@ -23,4 +23,7 @@ The compiler will return a memory location for the compiled binary.
 2017-07-03: Fixed several bugs, improved debugging symbols.  
 2017-06-29: Added http://prismjs.com/ syntax highlighting.  
 
+### Useful links
+WebAssembly binary specification: https://github.com/WebAssembly/design/blob/master/BinaryEncoding.md  
+The WebAssembly Binary Toolkit https://github.com/WebAssembly/wabt  
 The wasmat compiler is based on https://github.com/maierfelix/momo by Felix Maier http://www.felixmaier.info/
