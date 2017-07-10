@@ -1,4 +1,4 @@
-// Compile.wasmat v0.1.20170709
+// Compile.wasmat v0.1.20170710
 // A toy language with self-compiling compiler to WebAssembly
 // A subset of WebAssembly is implemented - enough for self-compilation
 // Most reserved words and built-in functions compile to a single WebAssembly instruction
@@ -9,20 +9,21 @@
 i32 sizeInt := 4
 
 // Enums
-i32 nodes_program    := 1
-i32 nodes_block      := 2
-i32 nodes_binary     := 3
-i32 nodes_unary      := 4
-i32 nodes_call       := 5
-i32 nodes_return     := 6
-i32 nodes_if         := 7
-i32 nodes_loop       := 8
-i32 nodes_break      := 9
-i32 nodes_continue   := 10
-i32 nodes_fun        := 11
-i32 nodes_variable   := 12
-i32 nodes_parameter  := 13
-i32 nodes_literal    := 14
+i32 nodes_program     := 1
+i32 nodes_block       := 2
+i32 nodes_binary      := 3
+i32 nodes_unary       := 4
+i32 nodes_call        := 5
+i32 nodes_return      := 6
+i32 nodes_if          := 7
+i32 nodes_loop        := 8
+i32 nodes_break       := 9
+i32 nodes_continue    := 10
+i32 nodes_fun         := 11
+i32 nodes_variable    := 12
+i32 nodes_parameter   := 13
+i32 nodes_literal     := 14
+i32 nodes_hexwasm     := 15
 
 i32 tokens_identifier  := 43
 i32 tokens_charLiteral := 46
@@ -33,6 +34,7 @@ i32 tokens_rParen      := 52
 i32 tokens_fun         := 60
 i32 tokens_return      := 61
 i32 tokens_endfun      := 62
+i32 tokens_hexwasm     := 63
 i32 tokens_loop        := 70
 i32 tokens_continue    := 71
 i32 tokens_break       := 72
@@ -198,7 +200,7 @@ fun i32 strCompare(i32 A, i32 B)
   return r
 endfun
 
-fun i32 strcomp32(i32 V, i32 a)
+fun i32 stringCompare4(i32 V, i32 a)
   i32 r := 1
   i32 length := strLen(V)
   if length = 0 or length > 4 then
@@ -209,7 +211,7 @@ fun i32 strcomp32(i32 V, i32 a)
   return r
 endfun
 
-fun i32 strcomp64(i32 V, i32 a, i32 b)
+fun i32 stringCompare8(i32 V, i32 a, i32 b)
   i32 r := 1
   i32 length := strLen(V)
   if length < 5 or length > 8 then
@@ -278,47 +280,43 @@ endfun
 
 fun processToken(i32 Val, i32 line, i32 column)
   i32 kind := tokens_identifier
-  if strcomp32(Val, '(') then kind := tokens_lParen endif
-  if strcomp32(Val, ',') then kind := tokens_comma endif
-  if strcomp32(Val, ')') then kind := tokens_rParen endif
-  if strcomp32(Val, 'fun') then kind := tokens_fun endif
-  if strcomp64(Val, 'retu', 'rn') then kind := tokens_return endif
-  if strcomp64(Val, 'endf', 'un') then kind := tokens_endfun endif
-  if strcomp32(Val, 'loop') then kind := tokens_loop endif
-  if strcomp64(Val, 'cont', 'inue') then kind := tokens_continue endif
-  if strcomp64(Val, 'brea', 'k') then kind := tokens_break endif
-  if strcomp64(Val, 'endl', 'oop') then kind := tokens_endloop endif
-  if strcomp32(Val, 'if') then kind := tokens_if endif
-  if strcomp32(Val, 'then') then kind := tokens_then endif
-  if strcomp32(Val, 'else') then kind := tokens_else endif
-  if strcomp64(Val, 'else', 'if') then kind := tokens_elseif endif
-  if strcomp64(Val, 'endi', 'f') then kind := tokens_endif endif
-  if strcomp32(Val, 'i32') then kind := tokens_i32 endif
-  if strcomp32(Val, 'i64') then kind := tokens_i64 endif
-  if strcomp32(Val, 'f32') then kind := tokens_f32 endif
-  if strcomp32(Val, 'f64') then kind := tokens_f64 endif
-  if strcomp32(Val, ':=') then kind := tokens_assign endif
-  if strcomp32(Val, 'or') then kind := tokens_or endif
-  if strcomp32(Val, 'and') then kind := tokens_and endif
-  if strcomp32(Val, '=') then kind := tokens_eq endif
-  if strcomp32(Val, '<>') then kind := tokens_ne endif
-  if strcomp32(Val, '<') then kind := tokens_lt endif
-  if strcomp32(Val, '<=') then kind := tokens_le endif
-  if strcomp32(Val, '>') then kind := tokens_gt endif
-  if strcomp32(Val, '>=') then kind := tokens_ge endif
-  if strcomp32(Val, '<<') then kind := tokens_shl endif
-  if strcomp32(Val, '>>') then kind := tokens_shr endif
-  if strcomp32(Val, '+') then kind := tokens_add endif
-  if strcomp32(Val, '-') then kind := tokens_sub endif
-  if strcomp32(Val, '*') then kind := tokens_mul endif
-  if strcomp32(Val, '/') then kind := tokens_div endif
-  if strcomp32(Val, 'mod') then kind := tokens_mod endif
-  if strcomp32(Val, 'not') then kind := tokens_not endif
+  if stringCompare4(Val, '(') then kind := tokens_lParen endif
+  if stringCompare4(Val, ',') then kind := tokens_comma endif
+  if stringCompare4(Val, ')') then kind := tokens_rParen endif
+  if stringCompare4(Val, 'fun') then kind := tokens_fun endif
+  if stringCompare8(Val, 'retu', 'rn') then kind := tokens_return endif
+  if stringCompare8(Val, 'endf', 'un') then kind := tokens_endfun endif
+  if stringCompare4(Val, 'loop') then kind := tokens_loop endif
+  if stringCompare8(Val, 'cont', 'inue') then kind := tokens_continue endif
+  if stringCompare8(Val, 'brea', 'k') then kind := tokens_break endif
+  if stringCompare8(Val, 'endl', 'oop') then kind := tokens_endloop endif
+  if stringCompare4(Val, 'if') then kind := tokens_if endif
+  if stringCompare4(Val, 'then') then kind := tokens_then endif
+  if stringCompare4(Val, 'else') then kind := tokens_else endif
+  if stringCompare8(Val, 'else', 'if') then kind := tokens_elseif endif
+  if stringCompare8(Val, 'endi', 'f') then kind := tokens_endif endif
+  if stringCompare4(Val, 'i32') then kind := tokens_i32 endif
+  if stringCompare4(Val, 'i64') then kind := tokens_i64 endif
+  if stringCompare4(Val, 'f32') then kind := tokens_f32 endif
+  if stringCompare4(Val, 'f64') then kind := tokens_f64 endif
+  if stringCompare4(Val, ':=') then kind := tokens_assign endif
+  if stringCompare4(Val, 'or') then kind := tokens_or endif
+  if stringCompare4(Val, 'and') then kind := tokens_and endif
+  if stringCompare4(Val, '=') then kind := tokens_eq endif
+  if stringCompare4(Val, '<>') then kind := tokens_ne endif
+  if stringCompare4(Val, '<') then kind := tokens_lt endif
+  if stringCompare4(Val, '<=') then kind := tokens_le endif
+  if stringCompare4(Val, '>') then kind := tokens_gt endif
+  if stringCompare4(Val, '>=') then kind := tokens_ge endif
+  if stringCompare4(Val, '<<') then kind := tokens_shl endif
+  if stringCompare4(Val, '>>') then kind := tokens_shr endif
+  if stringCompare4(Val, '+') then kind := tokens_add endif
+  if stringCompare4(Val, '-') then kind := tokens_sub endif
+  if stringCompare4(Val, '*') then kind := tokens_mul endif
+  if stringCompare4(Val, '/') then kind := tokens_div endif
+  if stringCompare4(Val, 'mod') then kind := tokens_mod endif
+  if stringCompare4(Val, 'not') then kind := tokens_not endif
   addToken(kind, Val, line, column)
-endfun
-
-fun i32 isWhitespace(i32 chr)
-  return chr = 0 or chr = 9 or chr = 13 or chr = ' '  // tab, cr, space
 endfun
 
 fun i32 isAlpha(i32 chr)
@@ -333,6 +331,10 @@ fun i32 isNumber(i32 chr, i32 hex)
     num := 1
   endif
   return num
+endfun
+
+fun i32 isHexwasm(i32 chr1, i32 chr2, i32 chr3)
+  return chr1 = 'x' and isNumber(chr2, 1) and isNumber(chr3, 1)
 endfun
 
 fun i32 isPunctuator(i32 chr)
@@ -360,6 +362,12 @@ fun lexx(i32 Code)
     if chr = 10 then  // newline
       line := line + 1
       col := 0
+    elseif isHexwasm(chr, getchar(Code, pos + 1), getchar(Code, pos + 2)) then
+      Val := Substring(Code, pos - 1, 4)
+      setchar(Val, 0, '0')
+      addToken(tokens_hexwasm, Val, line, col)
+      pos := pos + 2
+      col := col + 2
     elseif isAlpha(chr) then
       start := pos
       loop
@@ -741,6 +749,16 @@ fun i32 ParseExpression(i32 level)
   return Node
 endfun
 
+fun i32 ParseHexwasmStatement()
+  i32 Node := NewNode()
+  i32 Scope := 0
+  store32(Node + node_kind, nodes_hexwasm)
+  i32 Wasm := strToI32(load32(CurrentToken + token_Value))
+  store32(Node + node_type, Wasm)
+  eatToken(tokens_hexwasm)
+  return Node
+endfun
+
 fun i32 ParseReturnStatement()
   i32 Node := NewNode()
   i32 Scope := 0
@@ -865,6 +883,8 @@ fun i32 ParseStatement()
     Node := ParseDeclaration()
   elseif kind = tokens_return then
     Node := ParseReturnStatement()
+  elseif kind = tokens_hexwasm then
+    Node := ParseHexwasmStatement()
   elseif kind = tokens_if then
     Node := ParseIfStatement(0)
   elseif kind = tokens_loop then
@@ -1247,22 +1267,26 @@ fun emitCall(i32 Node)
     ParamItem := load32(ParamItem + item_Next)
   endloop
   i32 Name := load32(load32(Node + node_ANode) + node_String)
-  if strcomp64(Name, 'stor', 'e32') then
-    emitByte(0x36)  // i32.store32
+  if stringCompare8(Name, 'stor', 'e32') then
+    emitByte(0x36)  // i32.store
     emitByte(0x00)  // alignment
     emitByte(0x00)  // offset
-  elseif strcomp64(Name, 'stor', 'e8') then
+  elseif stringCompare8(Name, 'stor', 'e64') then
+    emitByte(0x37)  // i64.store
+    emitByte(0x00) 
+    emitByte(0x00)
+  elseif stringCompare8(Name, 'stor', 'e8') then
     emitByte(0x3a)  // i32.store8
-    emitByte(0x00)  // alignment
-    emitByte(0x00)  // offset
-  elseif strcomp64(Name, 'load', '32') then
-    emitByte(0x28)  // i32.load32
-    emitByte(0x00)  // alignment
-    emitByte(0x00)  // offset
-  elseif strcomp64(Name, 'load', '8') then
+    emitByte(0x00)  
+    emitByte(0x00)  
+  elseif stringCompare8(Name, 'load', '32') then
+    emitByte(0x28)  // i32.load
+    emitByte(0x00)  
+    emitByte(0x00) 
+  elseif stringCompare8(Name, 'load', '8') then
     emitByte(0x2d)  // i32.load8
-    emitByte(0x00)  // alignment
-    emitByte(0x00)  // offset
+    emitByte(0x00) 
+    emitByte(0x00)
   else
     ResolvedNode := ScopeResolve(CurrentScope, Name)
     emitByte(0x10)  // call
@@ -1349,6 +1373,8 @@ fun emitNode(i32 Node)
     emitIf(Node)
   elseif kind = nodes_loop then
     emitLoop(Node)
+  elseif kind = nodes_hexwasm then
+    emitByte(load32(Node + node_type))
   elseif kind = nodes_break then
     emitByte(0x0c)  // br
     emitUleb(loopLevel() + 1)
