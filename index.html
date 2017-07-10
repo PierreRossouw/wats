@@ -81,7 +81,7 @@
       }
 
       compile.onclick = (e) => {
-        var bytes = compilerBinary.value;
+        var bytes = compilerBinary.value.trim();
         bytes = hexStringToByte(bytes.replace(/,/g, ""));
         WebAssembly.instantiate(bytes).then(results => {
           let main = results.instance.exports.main;
