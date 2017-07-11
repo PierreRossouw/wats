@@ -1,4 +1,4 @@
-// Compile.wasmat v0.1.20170710
+// Compile.wasmat v0.1.20170711
 // A toy language with self-compiling compiler to WebAssembly
 // A subset of WebAssembly is implemented - enough for self-compilation
 // Most reserved words and built-in functions compile to a single WebAssembly instruction
@@ -347,9 +347,9 @@ fun i32 isOperatorChar(i32 chr)
 endfun
 
 fun lexx(i32 Code)
-  i32 pos := 0 - 1
+  i32 pos := -1
   i32 line := 1
-  i32 col := 0
+  i32 column := 0
   i32 length := strLen(Code)
   i32 chr := 0
   i32 start := 0
@@ -357,44 +357,44 @@ fun lexx(i32 Code)
   i32 hex := 0
   loop
     pos := pos + 1
-    col := col + 1
+    column := column + 1
     chr := getchar(Code, pos) 
     if chr = 10 then  // newline
       line := line + 1
-      col := 0
+      column := 0
     elseif isHexwasm(chr, getchar(Code, pos + 1), getchar(Code, pos + 2)) then
       Val := Substring(Code, pos - 1, 4)
       setchar(Val, 0, '0')
-      addToken(tokens_hexwasm, Val, line, col)
+      addToken(tokens_hexwasm, Val, line, column)
       pos := pos + 2
-      col := col + 2
+      column := column + 2
     elseif isAlpha(chr) then
       start := pos
       loop
         if (not isAlpha(chr)) and (not isNumber(chr, 0)) then
           pos := pos - 1
-          col := col - 1
+          column := column - 1
           break
         endif
         pos := pos + 1
-        col := col + 1
+        column := column + 1
         chr := getchar(Code, pos)
       endloop
       Val := Substring(Code, start, pos - start + 1)
-      processToken(Val, line, col)
+      processToken(Val, line, column)
     elseif chr = 39 then  // single quote '
       pos := pos + 1
-      col := col + 1
+      column := column + 1
       chr := getchar(Code, pos)
       start := pos
       loop
         if chr = 39 then break endif
         pos := pos + 1
-        col := col + 1
+        column := column + 1
         chr := getchar(Code, pos)
       endloop
       Val := Substring(Code, start, pos - start)
-      addToken(tokens_charLiteral, Val, line, col)
+      addToken(tokens_charLiteral, Val, line, column)
     elseif isNumber(chr, 0) or ((chr = '-') and isNumber(getchar(Code, pos + 1), 0)) then
       start := pos
       hex := 0
@@ -404,39 +404,39 @@ fun lexx(i32 Code)
             hex := 1
           else
             pos := pos - 1
-            col := col - 1
+            column := column - 1
             break
           endif
         endif
         pos := pos + 1
-        col := col + 1
+        column := column + 1
         chr := getchar(Code, pos)
       endloop
       Val := Substring(Code, start, pos - start + 1)
-      addToken(tokens_numLiteral, Val, line, col)
+      addToken(tokens_numLiteral, Val, line, column)
     elseif (chr = '/') and (getchar(Code, pos + 1) = '/') then
       loop
         if chr = 10 or chr = 13 then  // LF or CR
-          col := 0
+          column := 0
           line := line + 1
           break
         endif
         pos := pos + 1
-        col := col + 1
+        column := column + 1
         chr := getchar(Code, pos)
       endloop
     elseif isPunctuator(chr) then
       Val := Substring(Code, pos, 1)
-      processToken(Val, line, col)
+      processToken(Val, line, column)
     elseif isOperatorChar(chr) then
       if isOperatorChar(getchar(Code, pos + 1)) then
         Val := Substring(Code, pos, 2)
         pos := pos + 1
-        col := col + 1
+        column := column + 1
       else
         Val := Substring(Code, pos, 1)
       endif
-      processToken(Val, line, col)
+      processToken(Val, line, column)
     endif
     if pos >= length then break endif
   endloop
@@ -999,7 +999,7 @@ fun emitSleb(i32 i)
     emitByte(i)
   else
     loop
-      if i >= (0 - 64) then break endif
+      if i >= -64 then break endif
       emitByte((i mod 128) - 128)
       i := i / 128
     endloop
