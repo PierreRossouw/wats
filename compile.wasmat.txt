@@ -9,25 +9,27 @@
 i32 sizeInt := 4
 
 // Enums
-i32 nodes_program     := 1
-i32 nodes_block       := 2
-i32 nodes_binary      := 3
-i32 nodes_unary       := 4
-i32 nodes_call        := 5
-i32 nodes_return      := 6
-i32 nodes_if          := 7
-i32 nodes_loop        := 8
-i32 nodes_break       := 9
-i32 nodes_continue    := 10
-i32 nodes_fun         := 11
-i32 nodes_variable    := 12
-i32 nodes_parameter   := 13
-i32 nodes_literal     := 14
-i32 nodes_hexwasm     := 15
+i32 nodes_program   := 1
+i32 nodes_block     := 2
+i32 nodes_binary    := 3
+i32 nodes_unary     := 4
+i32 nodes_call      := 5
+i32 nodes_return    := 6
+i32 nodes_if        := 7
+i32 nodes_loop      := 8
+i32 nodes_break     := 9
+i32 nodes_continue  := 10
+i32 nodes_fun       := 11
+i32 nodes_variable  := 12
+i32 nodes_parameter := 13
+i32 nodes_literal   := 14
+i32 nodes_hexwasm   := 15
 
 i32 tokens_identifier  := 43
 i32 tokens_charLiteral := 46
 i32 tokens_numLiteral  := 47
+i32 tokens_true        := 48
+i32 tokens_false       := 49
 i32 tokens_lParen      := 50
 i32 tokens_comma       := 51
 i32 tokens_rParen      := 52
@@ -283,6 +285,8 @@ fun processToken(i32 Val, i32 line, i32 column)
   if stringCompare4(Val, '(') then kind := tokens_lParen endif
   if stringCompare4(Val, ',') then kind := tokens_comma endif
   if stringCompare4(Val, ')') then kind := tokens_rParen endif
+  if stringCompare4(Val, 'true') then kind := tokens_true endif
+  if stringCompare8(Val, 'fals', 'e') then kind := tokens_false endif
   if stringCompare4(Val, 'fun') then kind := tokens_fun endif
   if stringCompare8(Val, 'retu', 'rn') then kind := tokens_return endif
   if stringCompare8(Val, 'endf', 'un') then kind := tokens_endfun endif
@@ -531,7 +535,8 @@ endfun
 
 fun i32 isLiteral(i32 Token)
   i32 kind := load32(Token + token_kind)
-  return kind = tokens_numLiteral or kind = tokens_identifier or kind = tokens_charLiteral
+  return kind = tokens_numLiteral or kind = tokens_identifier or kind = tokens_charLiteral or 
+         kind = tokens_true or kind = tokens_false
 endfun
 
 fun i32 isNativeType(i32 Token)
@@ -1238,22 +1243,24 @@ fun emitLiteral(i32 Node)
     emitByte(0x41)  // i32.const
     num := strToI32(load32(Node + node_String))
     emitSleb(num)
-  else
-    if type = tokens_identifier then
-      ResolvedNode := ScopeResolve(CurrentScope, load32(Node + node_String))
-      if load32(ResolvedNode + node_Scope) = GlobalScope then
-        emitByte(0x23)  // i32.get_global
-      else
-        emitByte(0x20)  // i32.get_local
-      endif
-      emitUleb(load32(ResolvedNode + node_index))
+  elseif type = tokens_identifier then
+    ResolvedNode := ScopeResolve(CurrentScope, load32(Node + node_String))
+    if load32(ResolvedNode + node_Scope) = GlobalScope then
+      emitByte(0x23)  // i32.get_global
     else
-      if type = tokens_charLiteral then
-        emitByte(0x41)  // i32.const
-        num := load32(load32(Node + node_String) + string_Chars)
-        emitSleb(num)
-      endif
+      emitByte(0x20)  // i32.get_local
     endif
+    emitUleb(load32(ResolvedNode + node_index))
+  elseif type = tokens_charLiteral then
+    emitByte(0x41)  // i32.const
+    num := load32(load32(Node + node_String) + string_Chars)
+    emitSleb(num)
+  elseif type = tokens_true then
+    emitByte(0x41)  // i32.const
+    emitByte(0x01)  // 1
+  elseif type = tokens_false then
+    emitByte(0x41)  // i32.const
+    emitByte(0x00)  // 0
   endif
 endfun
 
