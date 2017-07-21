@@ -1,15 +1,15 @@
-// Compile.wasmat v0.1.20170721
+// Compile.wasmat v0.1.20170722
 // A toy language with self-compiling compiler to WebAssembly
 // A subset of WebAssembly is implemented - enough for self-compilation
 // Most reserved words and built-in functions compile to a single WebAssembly instruction
 // As a convention, pointers and functions returning pointers start with a Capital letter
-// Pierre Rossouw 2017 https://github.com/PierreRossouw/Wasmat
 
-// Most browsers only support 32bit WASM for now
-i32 sizeInt := 4
+// Constants
+i32 sizeInt := 4  // Most browsers only support 32bit WASM for now
+i32 dec0de := 557785600  // Magic number 0x00dec0de - for debugging
 
 // Enums
-i32 nodes_program   := 1
+i32 nodes_program   := 1  // root node
 i32 nodes_block     := 2
 i32 nodes_binary    := 3
 i32 nodes_unary     := 4
@@ -23,7 +23,7 @@ i32 nodes_fun       := 11
 i32 nodes_variable  := 12
 i32 nodes_parameter := 13
 i32 nodes_literal   := 14
-i32 nodes_hexwasm   := 15
+i32 nodes_hexwasm   := 15  // WebAssembly code binary literal
 
 i32 tokens_identifier  := 43
 i32 tokens_charLiteral := 46
@@ -70,6 +70,8 @@ i32 tokens_i64         := 126  // 0x7e
 i32 tokens_i32         := 127  // 0x7f
 i32 tokens_bool        := 128  // synonym for i32
 
+i32 error_eatToken := 1
+
 // Structs
 i32 string_length := 0
 i32 string_Chars  := 4
@@ -90,8 +92,8 @@ i32 token_line   := 8
 i32 token_column := 12
 i32 token_size   := 16
 
-i32 node_kind       := 0   // From the nodes_ enum
-i32 node_type       := 4   // From the tokens_ enum
+i32 node_1          := 0   // debugging marker
+i32 node_kind       := 4   // From the nodes_ enum
 i32 node_index      := 8   // Zero based index number for funs, variables, parameters
 i32 node_String     := 12  // Literal value, or fun/var/parameter name
 i32 node_Scope      := 16  // Scope for program/block/loop/fun used for name resolution
@@ -100,7 +102,10 @@ i32 node_BNode      := 24  // Binary/unary right, else block, fun return, variab
 i32 node_CNode      := 28  // If statement condition node
 i32 node_Nodes      := 32  // List of child nodes for program/block, or fun locals
 i32 node_ParamNodes := 36  // List of params for call/fun
-i32 node_size       := 40
+i32 node_2          := 40  // debugging marker
+i32 node_type       := 44  // From the tokens_ enum
+i32 node_dataType   := 48  // inferred data type
+i32 node_size       := 52
 
 i32 scope_Node       := 0
 i32 scope_index      := 4
@@ -129,6 +134,7 @@ fun i32 Compile()
   i32 i := Alloc(string_Chars + length)
   lexx(8)
   parse()
+  typing()
   emit(length)
   return Binary + string_length
 endfun
@@ -144,9 +150,10 @@ fun i32 Alloc(i32 length)
 endfun
 
 fun debug(i32 X)
-  i32 D := Alloc(8)
-  store32(D, 0 - 557785600)  // Magic number 0x00dec0de - for debugging
-  store32(D + 4, X)
+  i32 D := Alloc(12)
+  store32(D + 0, -dec0de)
+  store32(D + 4, -dec0de)
+  store32(D + 8, X)
 endfun
 
 // Pascal-style strings: We store the length instead of using a null terminator
@@ -390,7 +397,7 @@ fun lexx(i32 Code)
       endloop
       Val := Substring(Code, start, pos - start + 1)
       processToken(Val, line, column)
-    elseif chr = 39 then  // single quote '
+    elseif chr = 39 then  // single quote
       pos := pos + 1
       column := column + 1
       chr := getchar(Code, pos)
@@ -407,7 +414,7 @@ fun lexx(i32 Code)
       start := pos
       hex := false
       loop
-        if (not isNumber(chr, hex)) and (chr <> 45) then
+        if (not isNumber(chr, hex)) and (chr <> '-') then
           if start + 1 = pos and chr = 'x' then
             hex := true
           else
@@ -511,6 +518,8 @@ endfun
 fun i32 NewNode()
   i32 Node := Alloc(node_size)
   store32(Node + node_Scope, CurrentScope)
+  store32(Node + node_1, -dec0de)
+  store32(Node + node_2, -dec0de)
   return Node
 endfun
 
@@ -545,14 +554,15 @@ endfun
 
 fun bool isNativeType(i32 Token)
   i32 kind := load32(Token + token_kind)
-  return kind = tokens_i32 or kind = tokens_i64 or kind = tokens_f32 or kind = tokens_f64 or kind = tokens_bool
+  return kind = tokens_i32 or kind = tokens_i64 or kind = tokens_f32 or kind = tokens_f64 or 
+         kind = tokens_bool
 endfun
 
 fun eatToken(i32 kind)
   if load32(CurrentToken + token_kind) = kind then
     next()
   else
-    debug(0x99)
+    debug(error_eatToken)  // error number
     debug(kind)
     debug(load32(CurrentToken + token_kind))
     debug(CurrentToken)
@@ -922,6 +932,12 @@ fun parse()
   endloop
 endfun
 
+// Type checker XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+
+fun typing()
+  
+endfun
+
 // Compiler XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
 fun i32 strToI32(i32 V)  // Supports ints and 0x-prefixed hex
@@ -961,7 +977,7 @@ fun i32 strToI32(i32 V)  // Supports ints and 0x-prefixed hex
       offset := offset + 1
     endloop
   endif
-  if getchar(V, 0) = '-' then i := 0 - i endif
+  if getchar(V, 0) = '-' then i := -i endif
   return i
 endfun
 
@@ -1125,18 +1141,46 @@ fun emitMemorySection()
   emitByte(0x70)  // Pages (A page is 64kb)
 endfun
 
+fun emitNativeGlobal(i32 Node)
+  i32 dataType := load32(Node + node_type)  // Native type
+  if dataType = tokens_f64 then 
+    emitByte(dataType)
+    emitByte(0x01)  // Mutable
+    emitByte(0x44)  // f64.const
+  elseif dataType = tokens_f32 then 
+    emitByte(dataType)
+    emitByte(0x01)  // Mutable
+    emitByte(0x43)  // f32.const
+  elseif dataType = tokens_i64 then
+    emitByte(dataType)
+    emitByte(0x01)  // Mutable
+    emitByte(0x42)  // i64.const
+  else  // i32 or bool
+    emitByte(tokens_i32)
+    emitByte(0x01)  // Mutable
+    emitByte(0x41)  // i32.const
+  endif
+  i32 Value := load32(load32(Node + node_BNode) + node_String)
+  i32 nodeType := load32(load32(Node + node_BNode) + node_type) 
+  if nodeType = tokens_true then 
+    emitByte(0x01) 
+  elseif nodeType = tokens_false then 
+    emitByte(0x00) 
+  else
+    emitSleb(strToI32(Value))
+  endif
+  emitByte(0x0b)  // end
+endfun
+
 fun emitGlobalSection()
   i32 Start := 0
   i32 count := 0
   i32 Item := 0
   i32 Node := 0
-  i32 nodeType := 0
-  i32 Value := 0
   i32 length := 0
   i32 offset := 0
   i32 BodyList := load32(RootNode + node_Nodes)
   i32 Skip := BinaryPointer
-  i32 dataType := 0
   if BodyList then
     if load32(BodyList + list_count) then
       emitByte(0x06)  // Section code
@@ -1147,21 +1191,7 @@ fun emitGlobalSection()
       loop
         Node := load32(Item + item_Object)
         if load32(Node + node_kind) = nodes_variable then
-          dataType := load32(Node + node_type)  // Native type
-          if dataType = tokens_bool then dataType := tokens_i32 endif
-          emitByte(dataType)
-          emitByte(0x01)  // Mutable
-          emitByte(0x41)  // i32.const
-          Value := load32(load32(Node + node_BNode) + node_String)
-          nodeType := load32(load32(Node + node_BNode) + node_type) 
-          if nodeType = tokens_true then 
-            emitByte(0x01) 
-          elseif nodeType = tokens_false then 
-            emitByte(0x00) 
-          else
-            emitSleb(strToI32(Value))
-          endif
-          emitByte(0x0b)  // end
+          emitNativeGlobal(Node
           count := count + 1
           emitGlobalCount := emitGlobalCount + 1
         endif
@@ -1489,3 +1519,6 @@ fun emit(i32 length)
   emitCodeSection()
   store32(Binary + string_length, BinaryPointer - (Binary + string_Chars))  // Fix up the length
 endfun
+
+// Pierre Rossouw 2017 
+// https://github.com/PierreRossouw/Wasmat
