@@ -556,7 +556,7 @@ Prism.languages.clike = {
 			punctuation: /(\.|\\)/
 		}
 	},
-	'keyword': /\b(if|then|else|elseif|endif|loop|endloop|return|fun|endfun|break|continue|not|mod)\b/,
+	'keyword': /\b(elseif|if|then|else|elseif|endif|loop|endloop|return|fun|endfun|break|continue|not|mod)\b/,
 	'boolean': /\b(true|false)\b/,
 	'function': /[a-z0-9_]+(?=\()/i,
 	'number': /\b-?(?:0x[\da-f]+|\d*\.?\d+(?:e[+-]?\d+)?)\b/i,
@@ -565,7 +565,7 @@ Prism.languages.clike = {
 };
 
 Prism.languages.c = Prism.languages.extend('clike', {
-	'keyword': /\b(if|then|else|endif|loop|endloop|return|fun|endfun|break|continue|not|mod)\b/,
+	'keyword': /\b(elseif|if|then|else|endif|loop|endloop|return|fun|endfun|break|continue|not|mod)\b/,
 	'operator': /\-[>-]?|\+\+?|!=?|<<?=?|>>?=?|==?|&&?|\|?\||[~^%?*\/]/,
 	'number': /\b-?(?:0x[\da-f]+|\d*\.?\d+(?:e[+-]?\d+)?)[ful]*\b/i
 });
@@ -586,9 +586,8 @@ Prism.languages.insertBefore('c', 'string', {
 		}
 	},
 	// highlight predefined macros as constants
-	'constant': /\b(i32|i64|f32|f64)\b/
+	'constant': /\b(bool|i32|i64|f32|f64)\b/
 });
 
 delete Prism.languages.c['class-name'];
 delete Prism.languages.c['boolean'];
-
