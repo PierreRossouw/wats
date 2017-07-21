@@ -9,8 +9,8 @@
         <td width="70%">Compiler source code</td>
         <td>Compiler WebAssembly binary</td>
       </tr><tr>
-        <td height="500px"><pre><code id="compilerSource" class="language-c"></code></pre></td>
-        <td><textarea id="compilerBinary" style="height: 500px" ></textarea></td>
+        <td><textarea id="compilerBinary"></textarea></td>
+        <td><textarea id="compilerLog"></textarea></td>
       </tr><tr>
         <td colspan="2" align="center"><button id="compile">Compile</button></td>
       </tr><tr>
@@ -30,6 +30,7 @@
         <td><textarea id="execResultString"></textarea></td>
       </tr>
     </table>
+    <pre><code id="compilerSource" class="language-c"></code></pre>
     <style>
       textarea {
         height: 300px;
@@ -92,6 +93,7 @@
           let out = main();
           let binLen = mem[out] + 256*mem[out + 1] + 256*256*mem[out + 2] + 256*256*256*mem[out + 3];
           out = out + 4;
+          compilerLog.value = byteToHexString(mem.slice(0, out + binLen));
           binary.value = byteToHexString(mem.slice(out, out + binLen));
         });
       };
