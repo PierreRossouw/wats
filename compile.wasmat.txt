@@ -184,44 +184,44 @@ fun i32 Substring(i32 String, i32 offset, i32 length)
   return R
 endfun
 
-fun i32 strCompare(i32 A, i32 B)
+fun bool strCompare(i32 A, i32 B)
   i32 length := strLen(A)
   i32 offset := 0
-  i32 r := 1
+  bool r := true
   if length = strLen(B) then
     loop
       if getchar(A, offset) <> getchar(B, offset) then
-        r := 0
+        r := false
         break
       endif
       if offset >= length then break endif
       offset := offset + 1
     endloop
   else
-    r := 0
+    r := false
   endif
   return r
 endfun
 
-fun i32 stringCompare4(i32 V, i32 a)
-  i32 r := 1
+fun bool stringCompare4(i32 V, i32 a)
+  bool r := true
   i32 length := strLen(V)
   if length = 0 or length > 4 then
-    r := 0
+    r := false
   else
-    if load32(V + string_Chars) <> a then r := 0 endif
+    if load32(V + string_Chars) <> a then r := false endif
   endif
   return r
 endfun
 
-fun i32 stringCompare8(i32 V, i32 a, i32 b)
-  i32 r := 1
+fun bool stringCompare8(i32 V, i32 a, i32 b)
+  bool r := true
   i32 length := strLen(V)
   if length < 5 or length > 8 then
-    r := 0
+    r := false
   else
-    if load32(V + string_Chars) <> a then r := 0 endif
-    if load32(V + string_Chars + 4) <> b then r := 0 endif
+    if load32(V + string_Chars) <> a then r := false endif
+    if load32(V + string_Chars + 4) <> b then r := false endif
   endif
   return r
 endfun
