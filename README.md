@@ -17,6 +17,7 @@ The compiler will return a memory location for the compiled binary.
 - Decompiler to Wasmat
 
 ### Updates
+2017-07-21: Support bool as a synonym for i32, added true and false keywords  
 2017-07-10: Inline hex binary literals - for example use x00 to trap or x01 for NOP  
 2017-07-09: Support elseif and negative integers.  
 2017-07-05: Added a play area to index.html, fixed signed LEB128 output for negative ints.  
