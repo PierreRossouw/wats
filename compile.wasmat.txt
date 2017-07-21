@@ -1,4 +1,4 @@
-// Compile.wasmat v0.1.20170711
+// Compile.wasmat v0.1.20170721
 // A toy language with self-compiling compiler to WebAssembly
 // A subset of WebAssembly is implemented - enough for self-compilation
 // Most reserved words and built-in functions compile to a single WebAssembly instruction
@@ -339,15 +339,15 @@ fun bool isNumber(i32 chr, i32 hex)
   return num
 endfun
 
-fun i32 isHexwasm(i32 chr1, i32 chr2, i32 chr3)
+fun bool isHexwasm(i32 chr1, i32 chr2, i32 chr3)
   return chr1 = 'x' and isNumber(chr2, 1) and isNumber(chr3, 1)
 endfun
 
-fun i32 isPunctuator(i32 chr)
+fun bool isPunctuator(i32 chr)
   return chr = '(' or chr = ')' or chr = ','
 endfun
 
-fun i32 isOperatorChar(i32 chr)
+fun bool isOperatorChar(i32 chr)
   return chr = '=' or chr = '+' or chr = '-' or chr = '/' or
          chr = '<' or chr = '>' or chr = '*' or chr = ':'
 endfun
@@ -360,7 +360,7 @@ fun lexx(i32 Code)
   i32 chr := 0
   i32 start := 0
   i32 Val := 0
-  i32 hex := 0
+  bool hex := false
   loop
     pos := pos + 1
     column := column + 1
@@ -403,11 +403,11 @@ fun lexx(i32 Code)
       addToken(tokens_charLiteral, Val, line, column)
     elseif isNumber(chr, 0) or ((chr = '-') and isNumber(getchar(Code, pos + 1), 0)) then
       start := pos
-      hex := 0
+      hex := false
       loop
         if (not isNumber(chr, hex)) and (chr <> 45) then
           if start + 1 = pos and chr = 120 then
-            hex := 1
+            hex := true
           else
             pos := pos - 1
             column := column - 1
@@ -521,7 +521,7 @@ fun next()
   endif
 endfun
 
-fun i32 isBinaryOperator(i32 Token)
+fun bool isBinaryOperator(i32 Token)
   i32 kind := load32(Token + token_kind)
   return kind = tokens_assign or kind = tokens_add or kind = tokens_sub or kind = tokens_mul or
          kind = tokens_div or kind = tokens_mod or kind = tokens_or or kind = tokens_and or
@@ -530,18 +530,18 @@ fun i32 isBinaryOperator(i32 Token)
          kind = tokens_shr
 endfun
 
-fun i32 isUnaryOperator(i32 Token)
+fun bool isUnaryOperator(i32 Token)
   i32 kind := load32(Token + token_kind)
   return kind = tokens_sub or kind = tokens_not
 endfun
 
-fun i32 isLiteral(i32 Token)
+fun bool isLiteral(i32 Token)
   i32 kind := load32(Token + token_kind)
   return kind = tokens_numLiteral or kind = tokens_identifier or kind = tokens_charLiteral or 
          kind = tokens_true or kind = tokens_false
 endfun
 
-fun i32 isNativeType(i32 Token)
+fun bool isNativeType(i32 Token)
   i32 kind := load32(Token + token_kind)
   return kind = tokens_i32 or kind = tokens_i64 or kind = tokens_f32 or kind = tokens_f64 or kind = tokens_bool
 endfun
@@ -801,7 +801,7 @@ fun i32 ParseIfBlock()
   return Node
 endfun
 
-fun i32 ParseIfStatement(i32 isElseif)
+fun i32 ParseIfStatement(bool isElseif)
   i32 Node := NewNode()
   if not isElseif then eatToken(tokens_if) endif
   store32(Node + node_kind, nodes_if)
@@ -813,7 +813,7 @@ fun i32 ParseIfStatement(i32 isElseif)
   if load32(CurrentToken + token_kind) = tokens_elseif then
     eatToken(tokens_elseif)
     pushScope(Node)
-    store32(Node + node_BNode, ParseIfStatement(1))
+    store32(Node + node_BNode, ParseIfStatement(true))
     popScope()
   endif
   if load32(CurrentToken + token_kind) = tokens_else then
@@ -893,7 +893,7 @@ fun i32 ParseStatement()
   elseif kind = tokens_hexwasm then
     Node := ParseHexwasmStatement()
   elseif kind = tokens_if then
-    Node := ParseIfStatement(0)
+    Node := ParseIfStatement(false)
   elseif kind = tokens_loop then
     Node := ParseLoopStatement()
   else
@@ -923,14 +923,14 @@ endfun
 // Compiler XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
 fun i32 strToI32(i32 V)  // Supports ints and lowercase 0x hex
-  i32 hex := 0
+  bool hex := false
   i32 i := 0
   i32 length := strLen(V)
   i32 offset := 0
   i32 c := 0
   if length >= 3 then
     if getchar(V, 0) = '0' and getchar(V, 1) = 'x' then
-      hex := 1
+      hex := true
     endif
   endif
   if hex then
