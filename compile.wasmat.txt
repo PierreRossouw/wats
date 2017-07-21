@@ -68,6 +68,7 @@ i32 tokens_f64         := 124  // 0x7c
 i32 tokens_f32         := 125  // 0x7d 
 i32 tokens_i64         := 126  // 0x7e
 i32 tokens_i32         := 127  // 0x7f
+i32 tokens_bool        := 128  // synonym for i32
 
 // Structs
 i32 string_length := 0
@@ -303,6 +304,7 @@ fun processToken(i32 Val, i32 line, i32 column)
   if stringCompare4(Val, 'i64') then kind := tokens_i64 endif
   if stringCompare4(Val, 'f32') then kind := tokens_f32 endif
   if stringCompare4(Val, 'f64') then kind := tokens_f64 endif
+  if stringCompare4(Val, 'bool') then kind := tokens_bool endif
   if stringCompare4(Val, ':=') then kind := tokens_assign endif
   if stringCompare4(Val, 'or') then kind := tokens_or endif
   if stringCompare4(Val, 'and') then kind := tokens_and endif
@@ -323,16 +325,16 @@ fun processToken(i32 Val, i32 line, i32 column)
   addToken(kind, Val, line, column)
 endfun
 
-fun i32 isAlpha(i32 chr)
+fun bool isAlpha(i32 chr)
   return (chr >= 'a' and chr <= 'z') or (chr >= 'A' and chr <= 'Z') or (chr = '_')
 endfun
 
-fun i32 isNumber(i32 chr, i32 hex)
-  i32 num := 0
+fun bool isNumber(i32 chr, i32 hex)
+  bool num := false
   if chr >= '0' and chr <= '9' then
-    num := 1
+    num := true
   elseif hex and chr >= 'a' and chr <= 'f' then
-    num := 1
+    num := true
   endif
   return num
 endfun
@@ -541,7 +543,7 @@ endfun
 
 fun i32 isNativeType(i32 Token)
   i32 kind := load32(Token + token_kind)
-  return kind = tokens_i32 or kind = tokens_i64 or kind = tokens_f32 or kind = tokens_f64
+  return kind = tokens_i32 or kind = tokens_i64 or kind = tokens_f32 or kind = tokens_f64 or kind = tokens_bool
 endfun
 
 fun eatToken(i32 kind)
@@ -1024,16 +1026,20 @@ fun fixUlebGuess(i32 Start, i32 offset)
 endfun
 
 fun emitType(i32 Node)
+  i32 dataType := 0
   i32 ParamList := load32(Node + node_ParamNodes)
   emitByte(0x60)  // fun type
   emitUleb(load32(ParamList + list_count)) 
   i32 ParamItem := load32(ParamList + list_First)
   loop
     if not ParamItem then break endif
-    emitByte(load32(load32(ParamItem + item_Object) + node_type))
+    dataType := load32(load32(ParamItem + item_Object) + node_type)
+    if dataType = tokens_bool then dataType := tokens_i32 endif
+    emitByte(dataType)
     ParamItem := load32(ParamItem + item_Next)
   endloop
   i32 returnType := load32(Node + node_type)
+  if returnType = tokens_bool then returnType := tokens_i32 endif
   if returnType then
     emitByte(0x01)  // return count
     emitByte(returnType)
@@ -1120,11 +1126,13 @@ fun emitGlobalSection()
   i32 count := 0
   i32 Item := 0
   i32 Node := 0
+  i32 nodeType := 0
   i32 Value := 0
   i32 length := 0
   i32 offset := 0
   i32 BodyList := load32(RootNode + node_Nodes)
   i32 Skip := BinaryPointer
+  i32 dataType := 0
   if BodyList then
     if load32(BodyList + list_count) then
       emitByte(0x06)  // Section code
@@ -1135,11 +1143,20 @@ fun emitGlobalSection()
       loop
         Node := load32(Item + item_Object)
         if load32(Node + node_kind) = nodes_variable then
-          emitByte(load32(Node + node_type))  // Native type
+          dataType := load32(Node + node_type)  // Native type
+          if dataType = tokens_bool then dataType := tokens_i32 endif
+          emitByte(dataType)
           emitByte(0x01)  // Mutable
           emitByte(0x41)  // i32.const
           Value := load32(load32(Node + node_BNode) + node_String)
-          emitSleb(strToI32(Value))
+          nodeType := load32(load32(Node + node_BNode) + node_type) 
+          if nodeType = tokens_true then 
+            emitByte(0x01) 
+          elseif nodeType = tokens_false then 
+            emitByte(0x00) 
+          else
+            emitSleb(strToI32(Value))
+          endif
           emitByte(0x0b)  // end
           count := count + 1
           emitGlobalCount := emitGlobalCount + 1
@@ -1302,8 +1319,6 @@ fun emitCall(i32 Node)
 endfun
 
 fun emitBlock(i32 Node)
-  i32 kind := load32(Node + node_kind)
-  i32 type := load32(Node + node_type)
   i32 Scope := load32(Node + node_Scope)
   if Scope then
     CurrentScope := Scope
@@ -1398,6 +1413,7 @@ fun emitNode(i32 Node)
 endfun
 
 fun emitFunCode(i32 Node)
+  i32 dataType := 0
   emitByte(0x00)  // Function size (guess)
   i32 Start := BinaryPointer
   i32 LocalList := load32(Node + node_Nodes)
@@ -1406,7 +1422,9 @@ fun emitFunCode(i32 Node)
   loop
     if not LocalItem then break endif
     emitByte(0x01)  // count
-    emitByte(load32(load32(LocalItem + item_Object) + node_type))
+    dataType := load32(load32(LocalItem + item_Object) + node_type)
+    if dataType = tokens_bool then dataType := tokens_i32 endif
+    emitByte(dataType)
     LocalItem := load32(LocalItem + item_Next)
   endloop
   emitNode(load32(Node + node_ANode))  // Body block node
