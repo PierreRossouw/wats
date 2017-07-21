@@ -333,8 +333,10 @@ fun bool isNumber(i32 chr, i32 hex)
   bool num := false
   if chr >= '0' and chr <= '9' then
     num := true
-  elseif hex and chr >= 'a' and chr <= 'f' then
-    num := true
+  elseif hex then
+    if (chr >= 'a' and chr <= 'f') or (chr >= 'A' and chr <= 'F') then 
+      num := true 
+    endif
   endif
   return num
 endfun
@@ -406,7 +408,7 @@ fun lexx(i32 Code)
       hex := false
       loop
         if (not isNumber(chr, hex)) and (chr <> 45) then
-          if start + 1 = pos and chr = 120 then
+          if start + 1 = pos and chr = 'x' then
             hex := true
           else
             pos := pos - 1
@@ -922,7 +924,7 @@ endfun
 
 // Compiler XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
-fun i32 strToI32(i32 V)  // Supports ints and lowercase 0x hex
+fun i32 strToI32(i32 V)  // Supports ints and 0x-prefixed hex
   bool hex := false
   i32 i := 0
   i32 length := strLen(V)
@@ -939,10 +941,12 @@ fun i32 strToI32(i32 V)  // Supports ints and lowercase 0x hex
       if offset >= length then break endif
       i := i * 16
       c := getchar(V, offset)
-      if c >= '0' and c <= '9' then  // 0-9
+      if c >= '0' and c <= '9' then
         i := i + c - '0'
-      elseif c >= 'a' and c <= 'f' then  // a-f
+      elseif c >= 'a' and c <= 'f' then
         i := i + c - 'a' + 10
+      elseif c >= 'A' and c <= 'F' then
+        i := i + c - 'A' + 10
       endif
       offset := offset + 1
     endloop
@@ -951,7 +955,7 @@ fun i32 strToI32(i32 V)  // Supports ints and lowercase 0x hex
       if offset >= length then break endif
       i := i * 10
       c := getchar(V, offset)
-      if c >= '0' and c <= '9' then  // 0-9
+      if c >= '0' and c <= '9' then
         i := i + c - '0'
       endif
       offset := offset + 1
@@ -1039,9 +1043,9 @@ fun emitType(i32 Node)
     ParamItem := load32(ParamItem + item_Next)
   endloop
   i32 returnType := load32(Node + node_type)
-  if returnType = tokens_bool then returnType := tokens_i32 endif
   if returnType then
     emitByte(0x01)  // return count
+    if returnType = tokens_bool then returnType := tokens_i32 endif
     emitByte(returnType)
   else
     emitByte(0x00)  // return count
@@ -1116,7 +1120,7 @@ endfun
 fun emitMemorySection()
   emitByte(0x05)  // Memory section
   emitUleb(0x03)  // Size in bytes
-  emitByte(0x01)  // Sount. A maximum of 1 currently in WebAssembly
+  emitByte(0x01)  // Count. A maximum of 1 currently in WebAssembly
   emitByte(0x00)  // Resizable flag
   emitByte(0x70)  // Pages (A page is 64kb)
 endfun
