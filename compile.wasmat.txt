@@ -1280,10 +1280,10 @@ fun emitTypeSection()
         if not Item then break endif
       endloop
       length := BinaryPointer - Start
-      offset := uLebLen(count) + uLebLen(length) - 2
+      offset := uLebLen(count) - 1 + uLebLen(length) - 1
       fixUlebGuess(Start, offset)
       BinaryPointer := Start - 1
-      emitUleb(length)
+      emitUleb(length + uLebLen(count) - 1)
       emitUleb(count)
       BinaryPointer := BinaryPointer + length - 1
     endif
@@ -1389,10 +1389,10 @@ fun emitGlobalSection()
         if not Item then break endif
       endloop
       length := BinaryPointer - Start
-      offset := uLebLen(count) + uLebLen(length) - 2
+      offset := uLebLen(count) - 1 + uLebLen(length) - 1
       fixUlebGuess(Start, offset)
       BinaryPointer := Start - 1
-      emitUleb(length)
+      emitUleb(length + uLebLen(count) - 1)
       emitUleb(count)
       BinaryPointer := BinaryPointer + length - 1
     endif
