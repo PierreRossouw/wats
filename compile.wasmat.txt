@@ -1072,7 +1072,7 @@ fun f32 strToF32(i32 V)
   i32 length := strLen(V)
   i32 offset := 0
   i32 c := 0
-  i32 d := 1    // TODO
+  f32 d := 1
   bool afterDot := false
   loop
     if offset >= length then break endif
@@ -1081,11 +1081,11 @@ fun f32 strToF32(i32 V)
       afterDot := true
     else
       if afterDot then 
-        i := i + i32_f32(c - '0') / i32_f32(d)
+        i := i + i32_f32(c - '0') / d
         d := d * 10
       else
         if c >= '0' and c <= '9' then
-          i := i * i32_f32(10) + i32_f32(c - '0')    // TODO
+          i := i * 10 + i32_f32(c - '0')
         endif
       endif
     endif
@@ -1100,9 +1100,19 @@ fun emitByte(i32 byte)
   BinaryPointer := BinaryPointer + 1
 endfun
 
-fun emitI32(i32 byte)
-  store32(BinaryPointer, byte)
+fun emitI32(i32 i)
+  store32(BinaryPointer, i)
   BinaryPointer := BinaryPointer + 4
+endfun
+
+fun emitF32(f32 f)
+  storeF32(BinaryPointer, f)
+  BinaryPointer := BinaryPointer + 4
+endfun
+
+fun emitF64(f64 f)
+  storeF64(BinaryPointer, f)
+  BinaryPointer := BinaryPointer + 8
 endfun
 
 fun i32 uLebLen(i32 i)
@@ -1524,7 +1534,7 @@ fun emitNumLiteral(i32 Node, i32 dataType)
     // TODO emitF64(strToF64(load32(Node + node_String)))
   elseif dataType = tokens_f32 then
     emitByte(0x43)  // f32.const
-    // TODO emitF32(strToF32(load32(Node + node_String)))
+    emitF32(strToF32(load32(Node + node_String)))
   elseif dataType = tokens_i64 then
     emitByte(0x42)  // i64.const
     emitSleb64(strToI64(load32(Node + node_String)))  // TODO
