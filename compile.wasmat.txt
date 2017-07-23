@@ -1027,6 +1027,47 @@ fun i32 strToI32(i32 V)  // Supports ints and 0x-prefixed hex
   return i
 endfun
 
+fun i64 strToI64(i32 V)
+  bool hex := false
+  i64 i := 0
+  i32 length := strLen(V)
+  i32 offset := 0
+  i32 c := 0
+  if length >= 3 then
+    if getchar(V, 0) = '0' and getchar(V, 1) = 'x' then
+      hex := true
+    endif
+  endif
+  if hex then
+    offset := 2
+    loop
+      if offset >= length then break endif
+      i := i * 16
+      c := getchar(V, offset)
+      if c >= '0' and c <= '9' then
+        i := i + extend64(c) - '0'
+      elseif c >= 'a' and c <= 'f' then
+        i := i + extend64(c) - 'a' + 10
+      elseif c >= 'A' and c <= 'F' then
+        i := i + extend64(c) - 'A' + 10
+      endif
+      offset := offset + 1
+    endloop
+  else
+    loop
+      if offset >= length then break endif
+      i := i * 10
+      c := getchar(V, offset)
+      if c >= '0' and c <= '9' then
+        i := i + extend64(c) - '0'
+      endif
+      offset := offset + 1
+    endloop
+  endif
+  if getchar(V, 0) = '-' then i := -i endif
+  return i
+endfun
+
 fun emitByte(i32 byte)
   store8(BinaryPointer, byte)
   BinaryPointer := BinaryPointer + 1
@@ -1077,6 +1118,24 @@ fun emitSleb(i32 i)
       i := i / 128
     endloop
     emitByte(i - 128)
+  endif
+endfun
+
+fun emitSleb64(i64 i)
+  if i >= 0 then 
+    loop
+      if i < 64 then break endif
+      emitByte(wrap32(128 + (i mod 128)))
+      i := i / 128
+    endloop
+    emitByte(wrap32(i))
+  else
+    loop
+      if i >= -64 then break endif
+      emitByte(wrap32((i mod 128) - 128))
+      i := i / 128
+    endloop
+    emitByte(wrap32(i - 128))
   endif
 endfun
 
@@ -1212,6 +1271,8 @@ fun emitNativeGlobal(i32 Node)
     emitByte(0x01) 
   elseif nodeType = tokens_false then 
     emitByte(0x00) 
+  elseif dataType = tokens_i64 then
+    emitSleb64(strToI64(Value))
   else
     emitSleb(strToI32(Value))
   endif
