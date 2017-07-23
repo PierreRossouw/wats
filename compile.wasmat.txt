@@ -1044,11 +1044,11 @@ fun i64 strToI64(i32 V)
       i := i * 16
       c := getchar(V, offset)
       if c >= '0' and c <= '9' then
-        i := i + extend64(c) - '0'
+        i := i + i32_i64(c) - '0'
       elseif c >= 'a' and c <= 'f' then
-        i := i + extend64(c) - 'a' + 10
+        i := i + i32_i64(c) - 'a' + 10
       elseif c >= 'A' and c <= 'F' then
-        i := i + extend64(c) - 'A' + 10
+        i := i + i32_i64(c) - 'A' + 10
       endif
       offset := offset + 1
     endloop
@@ -1058,7 +1058,7 @@ fun i64 strToI64(i32 V)
       i := i * 10
       c := getchar(V, offset)
       if c >= '0' and c <= '9' then
-        i := i + extend64(c) - '0'
+        i := i + i32_i64(c) - '0'
       endif
       offset := offset + 1
     endloop
@@ -1124,17 +1124,17 @@ fun emitSleb64(i64 i)
   if i >= 0 then 
     loop
       if i < 64 then break endif
-      emitByte(wrap32(128 + (i mod 128)))
+      emitByte(i64_i32(128 + (i mod 128)))
       i := i / 128
     endloop
-    emitByte(wrap32(i))
+    emitByte(i64_i32(i))
   else
     loop
       if i >= -64 then break endif
-      emitByte(wrap32((i mod 128) - 128))
+      emitByte(i64_i32((i mod 128) - 128))
       i := i / 128
     endloop
-    emitByte(wrap32(i - 128))
+    emitByte(i64_i32(i - 128))
   endif
 endfun
 
@@ -1590,7 +1590,7 @@ endfun
 fun emitCall(i32 Node)
   i32 ResolvedNode := 0
   i32 Name := load32(load32(Node + node_ANode) + node_String)
-  if stringCompare8(Name, 'i64_i32') or stringCompare8(Name, 'wrap32') then
+  if stringCompare8(Name, 'i64_i32') then
     emitCallArguments(Node, tokens_i64)
     emitByte(0xa7)  // i32.wrap/i64
   elseif stringCompare8(Name, 'f32_i32') then
@@ -1605,7 +1605,7 @@ fun emitCall(i32 Node)
   elseif stringCompare8(Name, 'f64_i32u') then
     emitCallArguments(Node, tokens_f64)
     emitByte(0xab)  // i32.trunc_u/f64
-  elseif stringCompare8(Name, 'i32_i64') or stringCompare8(Name, 'extend64') then
+  elseif stringCompare8(Name, 'i32_i64') then
     emitCallArguments(Node, tokens_i32)
     emitByte(0xac)  // i64.extend_s/i32
   elseif stringCompare8(Name, 'i32_i64u') then
@@ -1752,8 +1752,6 @@ fun i32 inferCallDataType(i32 Node)
   if stringCompare8(Name, 'load64')       then dataType := tokens_i64
   elseif stringCompare8(Name, 'load32')   then dataType := tokens_i32
   elseif stringCompare8(Name, 'load8')    then dataType := tokens_i32
-  elseif stringCompare8(Name, 'extend64') then dataType := tokens_i64
-  elseif stringCompare8(Name, 'wrap32')   then dataType := tokens_i32
   elseif stringCompare8(Name, 'f32_i32')  then dataType := tokens_i32
   elseif stringCompare8(Name, 'f32_i32u') then dataType := tokens_i32
   elseif stringCompare8(Name, 'f64_i32')  then dataType := tokens_i32
@@ -1949,4 +1947,4 @@ fun emit(i32 length)
 endfun
 
 // Pierre Rossouw 2017 
-// https://github.com/PierreRossouw/Wasmat
+// https://github.com/PierreRossouw/dwasm
