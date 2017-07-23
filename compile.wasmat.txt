@@ -210,42 +210,39 @@ endfun
 fun bool strCompare(i32 A, i32 B)
   i32 length := strLen(A)
   i32 offset := 0
-  bool r := true
   if length = strLen(B) then
     loop
       if getchar(A, offset) <> getchar(B, offset) then
-        r := false
+        return false
         break
       endif
       if offset >= length then break endif
       offset := offset + 1
     endloop
   else
-    r := false
+    return false
   endif
-  return r
+  return true
 endfun
 
 fun bool stringCompare32(i32 V, i32 a)
-  bool r := true
   i32 length := strLen(V)
   if length = 0 or length > 4 then
-    r := false
+    return false
   else
-    if load32(V + string_Chars) <> a then r := false endif
+    if load32(V + string_Chars) <> a then return false endif
   endif
-  return r
+  return true
 endfun
 
 fun bool stringCompare64(i32 V, i64 a)
-  bool r := true
   i32 length := strLen(V)
   if length < 5 or length > 8 then
-    r := false
+    return false
   else
-    if load64(V + string_Chars) <> a then r := false endif
+    if load64(V + string_Chars) <> a then return false endif
   endif
-  return r
+  return true
 endfun
 
 // Lists
@@ -305,59 +302,59 @@ endfun
 
 fun processToken(i32 Val, i32 line, i32 column)
   i32 kind := tokens_identifier
-  if       stringCompare32(Val, '(')        then kind := tokens_lParen 
-    elseif stringCompare32(Val, ',')        then kind := tokens_comma 
-    elseif stringCompare32(Val, ')')        then kind := tokens_rParen 
-    elseif stringCompare32(Val, 'true')     then kind := tokens_true
-    elseif stringCompare64(Val, 'false')    then kind := tokens_false
-    elseif stringCompare32(Val, 'fun')      then kind := tokens_fun
-    elseif stringCompare64(Val, 'return')   then kind := tokens_return
-    elseif stringCompare64(Val, 'endfun')   then kind := tokens_endfun
-    elseif stringCompare32(Val, 'stop')     then kind := tokens_stop
-    elseif stringCompare32(Val, 'nop')      then kind := tokens_nop
-    elseif stringCompare32(Val, 'loop')     then kind := tokens_loop
-    elseif stringCompare64(Val, 'continue') then kind := tokens_continue
-    elseif stringCompare64(Val, 'break')    then kind := tokens_break
-    elseif stringCompare64(Val, 'endloop')  then kind := tokens_endloop
-    elseif stringCompare32(Val, 'if')       then kind := tokens_if
-    elseif stringCompare32(Val, 'then')     then kind := tokens_then
-    elseif stringCompare32(Val, 'else')     then kind := tokens_else
-    elseif stringCompare64(Val, 'elseif')   then kind := tokens_elseif
-    elseif stringCompare64(Val, 'endif')    then kind := tokens_endif
-    elseif stringCompare32(Val, 'i32')      then kind := tokens_i32
-    elseif stringCompare32(Val, 'i64')      then kind := tokens_i64
-    elseif stringCompare32(Val, 'f32')      then kind := tokens_f32
-    elseif stringCompare32(Val, 'f64')      then kind := tokens_f64
-    elseif stringCompare32(Val, 'bool')     then kind := tokens_bool
-    elseif stringCompare32(Val, ':=')       then kind := tokens_assign
-    elseif stringCompare32(Val, 'or')       then kind := tokens_or
-    elseif stringCompare32(Val, 'xor')      then kind := tokens_xor
-    elseif stringCompare32(Val, 'and')      then kind := tokens_and
-    elseif stringCompare32(Val, '=')        then kind := tokens_eq
-    elseif stringCompare32(Val, '<>')       then kind := tokens_ne
-    elseif stringCompare32(Val, '<')        then kind := tokens_lt
-    elseif stringCompare32(Val, '<+')       then kind := tokens_ltu
-    elseif stringCompare32(Val, '<=')       then kind := tokens_le 
-    elseif stringCompare32(Val, '<=+')      then kind := tokens_leu 
-    elseif stringCompare32(Val, '>')        then kind := tokens_gt 
-    elseif stringCompare32(Val, '>+')       then kind := tokens_gtu 
-    elseif stringCompare32(Val, '>=')       then kind := tokens_ge 
-    elseif stringCompare32(Val, '>=+')      then kind := tokens_geu   
-    elseif stringCompare32(Val, '<<')       then kind := tokens_shl 
-    elseif stringCompare32(Val, '>>')       then kind := tokens_shr 
-    elseif stringCompare32(Val, '>>+')      then kind := tokens_shru 
-    elseif stringCompare32(Val, '<-<')      then kind := tokens_rotl 
-    elseif stringCompare32(Val, '>->')      then kind := tokens_rotr 
-    elseif stringCompare32(Val, '+')        then kind := tokens_add 
-    elseif stringCompare32(Val, '-')        then kind := tokens_sub 
-    elseif stringCompare32(Val, '*')        then kind := tokens_mul 
-    elseif stringCompare32(Val, '/')        then kind := tokens_div 
-    elseif stringCompare32(Val, 'mod')      then kind := tokens_mod 
-    elseif stringCompare32(Val, 'modu')     then kind := tokens_modu 
-    elseif stringCompare32(Val, 'not')      then kind := tokens_not 
-    elseif stringCompare32(Val, 'clz')      then kind := tokens_clz 
-    elseif stringCompare32(Val, 'ctz')      then kind := tokens_ctz 
-    elseif stringCompare32(Val, 'cnt')      then kind := tokens_cnt 
+  if     stringCompare32(Val, '(')        then kind := tokens_lParen 
+  elseif stringCompare32(Val, ',')        then kind := tokens_comma 
+  elseif stringCompare32(Val, ')')        then kind := tokens_rParen 
+  elseif stringCompare32(Val, 'true')     then kind := tokens_true
+  elseif stringCompare64(Val, 'false')    then kind := tokens_false
+  elseif stringCompare32(Val, 'fun')      then kind := tokens_fun
+  elseif stringCompare64(Val, 'return')   then kind := tokens_return
+  elseif stringCompare64(Val, 'endfun')   then kind := tokens_endfun
+  elseif stringCompare32(Val, 'stop')     then kind := tokens_stop
+  elseif stringCompare32(Val, 'nop')      then kind := tokens_nop
+  elseif stringCompare32(Val, 'loop')     then kind := tokens_loop
+  elseif stringCompare64(Val, 'continue') then kind := tokens_continue
+  elseif stringCompare64(Val, 'break')    then kind := tokens_break
+  elseif stringCompare64(Val, 'endloop')  then kind := tokens_endloop
+  elseif stringCompare32(Val, 'if')       then kind := tokens_if
+  elseif stringCompare32(Val, 'then')     then kind := tokens_then
+  elseif stringCompare32(Val, 'else')     then kind := tokens_else
+  elseif stringCompare64(Val, 'elseif')   then kind := tokens_elseif
+  elseif stringCompare64(Val, 'endif')    then kind := tokens_endif
+  elseif stringCompare32(Val, 'i32')      then kind := tokens_i32
+  elseif stringCompare32(Val, 'i64')      then kind := tokens_i64
+  elseif stringCompare32(Val, 'f32')      then kind := tokens_f32
+  elseif stringCompare32(Val, 'f64')      then kind := tokens_f64
+  elseif stringCompare32(Val, 'bool')     then kind := tokens_bool
+  elseif stringCompare32(Val, ':=')       then kind := tokens_assign
+  elseif stringCompare32(Val, 'or')       then kind := tokens_or
+  elseif stringCompare32(Val, 'xor')      then kind := tokens_xor
+  elseif stringCompare32(Val, 'and')      then kind := tokens_and
+  elseif stringCompare32(Val, '=')        then kind := tokens_eq
+  elseif stringCompare32(Val, '<>')       then kind := tokens_ne
+  elseif stringCompare32(Val, '<')        then kind := tokens_lt
+  elseif stringCompare32(Val, '<+')       then kind := tokens_ltu
+  elseif stringCompare32(Val, '<=')       then kind := tokens_le 
+  elseif stringCompare32(Val, '<=+')      then kind := tokens_leu 
+  elseif stringCompare32(Val, '>')        then kind := tokens_gt 
+  elseif stringCompare32(Val, '>+')       then kind := tokens_gtu 
+  elseif stringCompare32(Val, '>=')       then kind := tokens_ge 
+  elseif stringCompare32(Val, '>=+')      then kind := tokens_geu   
+  elseif stringCompare32(Val, '<<')       then kind := tokens_shl 
+  elseif stringCompare32(Val, '>>')       then kind := tokens_shr 
+  elseif stringCompare32(Val, '>>+')      then kind := tokens_shru 
+  elseif stringCompare32(Val, '<-<')      then kind := tokens_rotl 
+  elseif stringCompare32(Val, '>->')      then kind := tokens_rotr 
+  elseif stringCompare32(Val, '+')        then kind := tokens_add 
+  elseif stringCompare32(Val, '-')        then kind := tokens_sub 
+  elseif stringCompare32(Val, '*')        then kind := tokens_mul 
+  elseif stringCompare32(Val, '/')        then kind := tokens_div 
+  elseif stringCompare32(Val, 'mod')      then kind := tokens_mod 
+  elseif stringCompare32(Val, 'modu')     then kind := tokens_modu 
+  elseif stringCompare32(Val, 'not')      then kind := tokens_not 
+  elseif stringCompare32(Val, 'clz')      then kind := tokens_clz 
+  elseif stringCompare32(Val, 'ctz')      then kind := tokens_ctz 
+  elseif stringCompare32(Val, 'cnt')      then kind := tokens_cnt 
   endif
   addToken(kind, Val, line, column)
 endfun
@@ -1167,19 +1164,13 @@ fun emitF64(f64 f)
 endfun
 
 fun i32 uLebLen(i32 i)
-  i32 length := 0
-  if i <= 127 then
-    length := 1
-  elseif i <= 16383 then
-    length := 2
-  elseif i <= 2097151 then
-    length := 3
-  elseif i <= 268435455 then
-    length := 4
-  else
-    length := 5
+  if i <= 127 then return 1
+  elseif i <= 16383 then return 2
+  elseif i <= 2097151 then return 3
+  elseif i <= 268435455 then return 4
+  else return 0
   endif
-  return length
+  return 0
 endfun
 
 fun emitUleb(i32 i)  // en.wikipedia.org/wiki/LEB128
@@ -1930,41 +1921,40 @@ fun emitLoop(i32 Node)
 endfun
 
 fun i32 inferCallDataType(i32 Node)
-  i32 dataType := 0
   i32 Name := load32(Node + node_String)
   i32 ResolvedNode := 0
-  if stringCompare64(Name, 'load64')       then dataType := tokens_i64
-  elseif stringCompare64(Name, 'load32')   then dataType := tokens_i32
-  elseif stringCompare64(Name, 'load8')    then dataType := tokens_i32
-  elseif stringCompare64(Name, 'load8u')   then dataType := tokens_i32
-  elseif stringCompare64(Name, 'memsize')  then dataType := tokens_i32
-  elseif stringCompare64(Name, 'loa_f32')  then dataType := tokens_f32
-  elseif stringCompare64(Name, 'loa_f64')  then dataType := tokens_f64
-  elseif stringCompare64(Name, 'f32_i32')  then dataType := tokens_i32
-  elseif stringCompare64(Name, 'f32_i32u') then dataType := tokens_i32
-  elseif stringCompare64(Name, 'f64_i32')  then dataType := tokens_i32
-  elseif stringCompare64(Name, 'f64_i32u') then dataType := tokens_i32
-  elseif stringCompare64(Name, 'i32_i64')  then dataType := tokens_i64
-  elseif stringCompare64(Name, 'i32_i64u') then dataType := tokens_i64
-  elseif stringCompare64(Name, 'f32_i64')  then dataType := tokens_i64
-  elseif stringCompare64(Name, 'f32_i64u') then dataType := tokens_i64
-  elseif stringCompare64(Name, 'f64_i64')  then dataType := tokens_i64
-  elseif stringCompare64(Name, 'f64_i64u') then dataType := tokens_i64
-  elseif stringCompare64(Name, 'i32_f32')  then dataType := tokens_f32
-  elseif stringCompare64(Name, 'i32_f32u') then dataType := tokens_f32
-  elseif stringCompare64(Name, 'i64_f32')  then dataType := tokens_f32
-  elseif stringCompare64(Name, 'i64_f32u') then dataType := tokens_f32
-  elseif stringCompare64(Name, 'f64_f32')  then dataType := tokens_f32
-  elseif stringCompare64(Name, 'i32_f64')  then dataType := tokens_f64
-  elseif stringCompare64(Name, 'i32_f64u') then dataType := tokens_f64
-  elseif stringCompare64(Name, 'i64_f64')  then dataType := tokens_f64
-  elseif stringCompare64(Name, 'i64_f64u') then dataType := tokens_f64
-  elseif stringCompare64(Name, 'f32_f64')  then dataType := tokens_f64
+  if stringCompare64(Name, 'load64')       then return tokens_i64
+  elseif stringCompare64(Name, 'load32')   then return tokens_i32
+  elseif stringCompare64(Name, 'load8')    then return tokens_i32
+  elseif stringCompare64(Name, 'load8u')   then return tokens_i32
+  elseif stringCompare64(Name, 'memsize')  then return tokens_i32
+  elseif stringCompare64(Name, 'loa_f32')  then return tokens_f32
+  elseif stringCompare64(Name, 'loa_f64')  then return tokens_f64
+  elseif stringCompare64(Name, 'f32_i32')  then return tokens_i32
+  elseif stringCompare64(Name, 'f32_i32u') then return tokens_i32
+  elseif stringCompare64(Name, 'f64_i32')  then return tokens_i32
+  elseif stringCompare64(Name, 'f64_i32u') then return tokens_i32
+  elseif stringCompare64(Name, 'i32_i64')  then return tokens_i64
+  elseif stringCompare64(Name, 'i32_i64u') then return tokens_i64
+  elseif stringCompare64(Name, 'f32_i64')  then return tokens_i64
+  elseif stringCompare64(Name, 'f32_i64u') then return tokens_i64
+  elseif stringCompare64(Name, 'f64_i64')  then return tokens_i64
+  elseif stringCompare64(Name, 'f64_i64u') then return tokens_i64
+  elseif stringCompare64(Name, 'i32_f32')  then return tokens_f32
+  elseif stringCompare64(Name, 'i32_f32u') then return tokens_f32
+  elseif stringCompare64(Name, 'i64_f32')  then return tokens_f32
+  elseif stringCompare64(Name, 'i64_f32u') then return tokens_f32
+  elseif stringCompare64(Name, 'f64_f32')  then return tokens_f32
+  elseif stringCompare64(Name, 'i32_f64')  then return tokens_f64
+  elseif stringCompare64(Name, 'i32_f64u') then return tokens_f64
+  elseif stringCompare64(Name, 'i64_f64')  then return tokens_f64
+  elseif stringCompare64(Name, 'i64_f64u') then return tokens_f64
+  elseif stringCompare64(Name, 'f32_f64')  then return tokens_f64
   else
     ResolvedNode := ScopeResolve(CurrentScope, Name)
-    dataType := load32(ResolvedNode + node_dataType)
+    return load32(ResolvedNode + node_dataType)
   endif
-  return dataType
+  return 0
 endfun
 
 fun i32 inferDataType(i32 Node)
