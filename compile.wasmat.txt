@@ -108,16 +108,16 @@ i32 token_column := 12
 i32 token_size   := 16
 
 i32 node_1          := 0   // debugging marker
-i32 node_kind       := 4   // From the nodes_ enum
-i32 node_index      := 8   // Zero based index number for funs, variables, parameters
-i32 node_String     := 12  // Literal value, or fun/var/parameter name
-i32 node_Scope      := 16  // Scope for program/block/loop/fun used for name resolution
-i32 node_ANode      := 20  // Binary left, call fun, return expression, then block, or fun body
-i32 node_BNode      := 24  // Binary/unary right, else block, fun return, variable assignment
-i32 node_CNode      := 28  // If statement condition node
-i32 node_Nodes      := 32  // List of child nodes for program/block, or fun locals
-i32 node_ParamNodes := 36  // List of params for call/fun
-i32 node_2          := 40  // debugging marker
+i32 node_2          := 4   // debugging info
+i32 node_kind       := 8   // From the nodes_ enum
+i32 node_index      := 12   // Zero based index number for funs, variables, parameters
+i32 node_String     := 16  // Literal value, or fun/var/parameter name
+i32 node_Scope      := 20  // Scope for program/block/loop/fun used for name resolution
+i32 node_ANode      := 24  // Binary left, call fun, return expression, then block, or fun body
+i32 node_BNode      := 28  // Binary/unary right, else block, fun return, variable assignment
+i32 node_CNode      := 32  // If statement condition node
+i32 node_Nodes      := 36  // List of child nodes for program/block, or fun locals
+i32 node_ParamNodes := 40  // List of params for call/fun
 i32 node_type       := 44  // From the tokens_ enum
 i32 node_dataType   := 48  // inferred data type
 i32 node_size       := 52
@@ -551,7 +551,7 @@ fun i32 NewNode()
   i32 Node := Alloc(node_size)
   store32(Node + node_Scope, CurrentScope)
   store32(Node + node_1, 2 - DEC0DE)
-  store32(Node + node_2, 3 - DEC0DE)
+  store32(Node + node_2, Node)
   return Node
 endfun
 
@@ -1490,14 +1490,14 @@ fun emitFunCallArguments(i32 CallNode, i32 FunNode)
   endloop
 endfun
 
-fun emitCallArgumentsI32(i32 CallNode)
+fun emitCallArguments(i32 CallNode, i32 data_Type)
   i32 ArgumentList := load32(CallNode + node_ParamNodes)
   i32 ArgumentItem := load32(ArgumentList + list_First)
   i32 ArgumentNode := 0
   loop
     if not ArgumentItem then break endif
     ArgumentNode := load32(ArgumentItem + item_Object)
-    store32(ArgumentNode + node_dataType, tokens_i32)
+    store32(ArgumentNode + node_dataType, data_Type)
     emitNode(ArgumentNode)
     ArgumentItem := load32(ArgumentItem + item_Next)
   endloop
@@ -1526,7 +1526,7 @@ fun emitCall(i32 Node)
   i32 ResolvedNode := 0
   i32 Name := load32(load32(Node + node_ANode) + node_String)
   if stringCompare8(Name, 'stor', 'e32') then
-    emitCallArgumentsI32(Node)
+    emitCallArguments(Node, tokens_i32)
     emitByte(0x36)  // i32.store
     emitByte(0x00)  // alignment
     emitByte(0x00)  // offset
@@ -1536,28 +1536,31 @@ fun emitCall(i32 Node)
     emitByte(0x00) 
     emitByte(0x00)
   elseif stringCompare8(Name, 'stor', 'e8') then
-    emitCallArgumentsI32(Node)
+    emitCallArguments(Node, tokens_i32)
     emitByte(0x3a)  // i32.store8
     emitByte(0x00)  
     emitByte(0x00)  
   elseif stringCompare8(Name, 'load', '64') then
-    emitCallArgumentsI32(Node)
+    emitCallArguments(Node, tokens_i32)
     emitByte(0x29)  // i64.load
     emitByte(0x00)  
     emitByte(0x00) 
   elseif stringCompare8(Name, 'load', '32') then
-    emitCallArgumentsI32(Node)
+    emitCallArguments(Node, tokens_i32)
     emitByte(0x28)  // i32.load
     emitByte(0x00)  
     emitByte(0x00) 
   elseif stringCompare8(Name, 'load', '8') then
-    emitCallArgumentsI32(Node)
+    emitCallArguments(Node, tokens_i32)
     emitByte(0x2d)  // i32.load8
     emitByte(0x00) 
     emitByte(0x00)
   elseif stringCompare8(Name, 'exte', 'nd64') then
-    emitCallArgumentsI32(Node)
+    emitCallArguments(Node, tokens_i32)
     emitByte(0xac)  // i64.extend_s/i32
+  elseif stringCompare8(Name, 'wrap', '32') then
+    emitCallArguments(Node, tokens_i64)
+    emitByte(0xa7)  // i32.wrap/i64
   else
     ResolvedNode := ScopeResolve(CurrentScope, Name)
     emitFunCallArguments(Node, ResolvedNode)
@@ -1623,16 +1626,20 @@ endfun
 fun i32 inferCallDataType(i32 Node)
   i32 dataType := 0
   i32 Name := load32(Node + node_String)
+  i32 ResolvedNode := 0
   if stringCompare8(Name, 'load', '64') then
-    dataType := tokens_i64
-  elseif stringCompare8(Name, 'exte', 'nd64') then
     dataType := tokens_i64
   elseif stringCompare8(Name, 'load', '32') then
     dataType := tokens_i32
   elseif stringCompare8(Name, 'load', '8') then
     dataType := tokens_i32
+  elseif stringCompare8(Name, 'exte', 'nd64') then
+    dataType := tokens_i64
+  elseif stringCompare8(Name, 'wrap', '32') then
+    dataType := tokens_i32
   else
-    dataType := load32(Node + node_dataType)
+    ResolvedNode := ScopeResolve(CurrentScope, Name)
+    dataType := load32(ResolvedNode + node_dataType)
   endif
   return dataType
 endfun
@@ -1640,7 +1647,7 @@ endfun
 fun i32 inferDataType(i32 Node)
   i32 dataType := 0
   i32 ResolvedNode := 0
-  store32(Node + node_2, 4 - DEC0DE)  // TODO: delete this
+  store32(Node + node_1, 4 - DEC0DE)  // TODO: delete this
   i32 kind := load32(Node + node_kind)
   if kind = nodes_binary then
     dataType := inferDataType(load32(Node + node_ANode))
@@ -1653,7 +1660,7 @@ fun i32 inferDataType(i32 Node)
   elseif kind = nodes_unary then
     dataType := inferDataType(load32(Node + node_BNode))
   elseif kind = nodes_call then
-    store32(Node + node_2, 5 - DEC0DE)  // TODO: delete this
+    store32(Node + node_1, 5 - DEC0DE)  // TODO: delete this
     dataType := inferCallDataType(load32(Node + node_ANode))
   endif
   return dataType
