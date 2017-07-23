@@ -1067,6 +1067,34 @@ fun i64 strToI64(i32 V)
   return i
 endfun
 
+fun f32 strToF32(i32 V)
+  f32 i := i  // TODO
+  i32 length := strLen(V)
+  i32 offset := 0
+  i32 c := 0
+  i32 d := 1    // TODO
+  bool afterDot := false
+  loop
+    if offset >= length then break endif
+    c := getchar(V, offset)
+    if c = '.' then
+      afterDot := true
+    else
+      if afterDot then 
+        i := i + i32_f32(c - '0') / i32_f32(d)
+        d := d * 10
+      else
+        if c >= '0' and c <= '9' then
+          i := i * i32_f32(10) + i32_f32(c - '0')    // TODO
+        endif
+      endif
+    endif
+    offset := offset + 1
+  endloop
+  if getchar(V, 0) = '-' then i := -i endif
+  return i
+endfun
+
 fun emitByte(i32 byte)
   store8(BinaryPointer, byte)
   BinaryPointer := BinaryPointer + 1
@@ -1236,13 +1264,13 @@ fun emitFunctionSection()
 endfun
 
 // Memory is exported as 'mem' and is a fixed size
-// This compiler takes about 1MB to compile
+// This compiler takes about 2MB to compile
 fun emitMemorySection()
   emitByte(0x05)  // Memory section
   emitUleb(0x03)  // Size in bytes
   emitByte(0x01)  // Count. A maximum of 1 currently in WebAssembly
   emitByte(0x00)  // Resizable flag
-  emitByte(0x70)  // Pages (A page is 64kb)
+  emitByte(0x7e)  // Pages (A page is 64kb)
 endfun
 
 fun emitNativeGlobal(i32 Node)
