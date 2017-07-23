@@ -25,7 +25,7 @@ i32 nodes_if         := 12
 i32 nodes_loop       := 13
 i32 nodes_break      := 14
 i32 nodes_continue   := 15
-i32 nodes_hexwasm    := 16  // WebAssembly code binary literal
+i32 nodes_hexwasm    := 16  // WebAssembly code byte e.g. tokens_stop (0x00 - trap)
 
 i32 tokens_identifier  := 43
 i32 tokens_charLiteral := 46
@@ -39,6 +39,8 @@ i32 tokens_fun         := 60
 i32 tokens_return      := 61
 i32 tokens_endfun      := 62
 i32 tokens_hexwasm     := 63
+i32 tokens_stop        := 64
+i32 tokens_nop         := 65
 i32 tokens_loop        := 70
 i32 tokens_continue    := 71
 i32 tokens_break       := 72
@@ -56,16 +58,16 @@ i32 tokens_and         := 96
 i32 tokens_eq          := 97   // =
 i32 tokens_ne          := 98   // <>
 i32 tokens_lt          := 99   // <
-i32 tokens_ltu         := 100  // <^
+i32 tokens_ltu         := 100  // <+
 i32 tokens_le          := 101  // <=
-i32 tokens_leu         := 102  // <=^
+i32 tokens_leu         := 102  // <=+
 i32 tokens_gt          := 103  // >
-i32 tokens_gtu         := 104  // >^
+i32 tokens_gtu         := 104  // >+
 i32 tokens_ge          := 105  // >=
-i32 tokens_geu         := 106  // >=^
+i32 tokens_geu         := 106  // >=+
 i32 tokens_shl         := 107  // <<
 i32 tokens_shr         := 108  // >>
-i32 tokens_shru        := 109  // >>^
+i32 tokens_shru        := 109  // >>+
 i32 tokens_rotl        := 110  // <-<
 i32 tokens_rotr        := 111  // >->
 i32 tokens_clz         := 113 
@@ -110,7 +112,7 @@ i32 token_size   := 16
 i32 node_1          := 0   // debugging marker
 i32 node_2          := 4   // debugging info
 i32 node_kind       := 8   // From the nodes_ enum
-i32 node_index      := 12   // Zero based index number for funs, variables, parameters
+i32 node_index      := 12  // Zero based index number for funs, variables, parameters
 i32 node_String     := 16  // Literal value, or fun/var/parameter name
 i32 node_Scope      := 20  // Scope for program/block/loop/fun used for name resolution
 i32 node_ANode      := 24  // Binary left, call fun, return expression, then block, or fun body
@@ -224,7 +226,7 @@ fun bool strCompare(i32 A, i32 B)
   return r
 endfun
 
-fun bool stringCompare4(i32 V, i32 a)
+fun bool stringCompare32(i32 V, i32 a)
   bool r := true
   i32 length := strLen(V)
   if length = 0 or length > 4 then
@@ -235,7 +237,7 @@ fun bool stringCompare4(i32 V, i32 a)
   return r
 endfun
 
-fun bool stringCompare8(i32 V, i64 a)
+fun bool stringCompare64(i32 V, i64 a)
   bool r := true
   i32 length := strLen(V)
   if length < 5 or length > 8 then
@@ -303,57 +305,60 @@ endfun
 
 fun processToken(i32 Val, i32 line, i32 column)
   i32 kind := tokens_identifier
-  if stringCompare4(Val, '(') then kind := tokens_lParen endif
-  if stringCompare4(Val, ',') then kind := tokens_comma endif
-  if stringCompare4(Val, ')') then kind := tokens_rParen endif
-  if stringCompare4(Val, 'true') then kind := tokens_true endif
-  if stringCompare8(Val, 'false') then kind := tokens_false endif
-  if stringCompare4(Val, 'fun') then kind := tokens_fun endif
-  if stringCompare8(Val, 'return') then kind := tokens_return endif
-  if stringCompare8(Val, 'endfun') then kind := tokens_endfun endif
-  if stringCompare4(Val, 'loop') then kind := tokens_loop endif
-  if stringCompare8(Val, 'continue') then kind := tokens_continue endif
-  if stringCompare8(Val, 'break') then kind := tokens_break endif
-  if stringCompare8(Val, 'endloop') then kind := tokens_endloop endif
-  if stringCompare4(Val, 'if') then kind := tokens_if endif
-  if stringCompare4(Val, 'then') then kind := tokens_then endif
-  if stringCompare4(Val, 'else') then kind := tokens_else endif
-  if stringCompare8(Val, 'elseif') then kind := tokens_elseif endif
-  if stringCompare8(Val, 'endif') then kind := tokens_endif endif
-  if stringCompare4(Val, 'i32') then kind := tokens_i32 endif
-  if stringCompare4(Val, 'i64') then kind := tokens_i64 endif
-  if stringCompare4(Val, 'f32') then kind := tokens_f32 endif
-  if stringCompare4(Val, 'f64') then kind := tokens_f64 endif
-  if stringCompare4(Val, 'bool') then kind := tokens_bool endif
-  if stringCompare4(Val, ':=') then kind := tokens_assign endif
-  if stringCompare4(Val, 'or') then kind := tokens_or endif
-  if stringCompare4(Val, 'xor') then kind := tokens_xor endif
-  if stringCompare4(Val, 'and') then kind := tokens_and endif
-  if stringCompare4(Val, '=') then kind := tokens_eq endif
-  if stringCompare4(Val, '<>') then kind := tokens_ne endif
-  if stringCompare4(Val, '<') then kind := tokens_lt endif
-  if stringCompare4(Val, '<^') then kind := tokens_ltu endif
-  if stringCompare4(Val, '<=') then kind := tokens_le endif
-  if stringCompare4(Val, '<=^') then kind := tokens_leu endif
-  if stringCompare4(Val, '>') then kind := tokens_gt endif
-  if stringCompare4(Val, '>^') then kind := tokens_gtu endif
-  if stringCompare4(Val, '>=') then kind := tokens_ge endif
-  if stringCompare4(Val, '>=^') then kind := tokens_geu endif  
-  if stringCompare4(Val, '<<') then kind := tokens_shl endif
-  if stringCompare4(Val, '>>') then kind := tokens_shr endif
-  if stringCompare4(Val, '>>^') then kind := tokens_shru endif
-  if stringCompare4(Val, '<-<') then kind := tokens_rotl endif
-  if stringCompare4(Val, '>->') then kind := tokens_rotr endif
-  if stringCompare4(Val, '+') then kind := tokens_add endif
-  if stringCompare4(Val, '-') then kind := tokens_sub endif
-  if stringCompare4(Val, '*') then kind := tokens_mul endif
-  if stringCompare4(Val, '/') then kind := tokens_div endif
-  if stringCompare4(Val, 'mod') then kind := tokens_mod endif
-  if stringCompare4(Val, 'modu') then kind := tokens_modu endif
-  if stringCompare4(Val, 'not') then kind := tokens_not endif
-  if stringCompare4(Val, 'clz') then kind := tokens_clz endif
-  if stringCompare4(Val, 'ctz') then kind := tokens_ctz endif
-  if stringCompare4(Val, 'cnt') then kind := tokens_cnt endif
+  if       stringCompare32(Val, '(')        then kind := tokens_lParen 
+    elseif stringCompare32(Val, ',')        then kind := tokens_comma 
+    elseif stringCompare32(Val, ')')        then kind := tokens_rParen 
+    elseif stringCompare32(Val, 'true')     then kind := tokens_true
+    elseif stringCompare64(Val, 'false')    then kind := tokens_false
+    elseif stringCompare32(Val, 'fun')      then kind := tokens_fun
+    elseif stringCompare64(Val, 'return')   then kind := tokens_return
+    elseif stringCompare64(Val, 'endfun')   then kind := tokens_endfun
+    elseif stringCompare32(Val, 'stop')     then kind := tokens_stop
+    elseif stringCompare32(Val, 'nop')      then kind := tokens_nop
+    elseif stringCompare32(Val, 'loop')     then kind := tokens_loop
+    elseif stringCompare64(Val, 'continue') then kind := tokens_continue
+    elseif stringCompare64(Val, 'break')    then kind := tokens_break
+    elseif stringCompare64(Val, 'endloop')  then kind := tokens_endloop
+    elseif stringCompare32(Val, 'if')       then kind := tokens_if
+    elseif stringCompare32(Val, 'then')     then kind := tokens_then
+    elseif stringCompare32(Val, 'else')     then kind := tokens_else
+    elseif stringCompare64(Val, 'elseif')   then kind := tokens_elseif
+    elseif stringCompare64(Val, 'endif')    then kind := tokens_endif
+    elseif stringCompare32(Val, 'i32')      then kind := tokens_i32
+    elseif stringCompare32(Val, 'i64')      then kind := tokens_i64
+    elseif stringCompare32(Val, 'f32')      then kind := tokens_f32
+    elseif stringCompare32(Val, 'f64')      then kind := tokens_f64
+    elseif stringCompare32(Val, 'bool')     then kind := tokens_bool
+    elseif stringCompare32(Val, ':=')       then kind := tokens_assign
+    elseif stringCompare32(Val, 'or')       then kind := tokens_or
+    elseif stringCompare32(Val, 'xor')      then kind := tokens_xor
+    elseif stringCompare32(Val, 'and')      then kind := tokens_and
+    elseif stringCompare32(Val, '=')        then kind := tokens_eq
+    elseif stringCompare32(Val, '<>')       then kind := tokens_ne
+    elseif stringCompare32(Val, '<')        then kind := tokens_lt
+    elseif stringCompare32(Val, '<+')       then kind := tokens_ltu
+    elseif stringCompare32(Val, '<=')       then kind := tokens_le 
+    elseif stringCompare32(Val, '<=+')      then kind := tokens_leu 
+    elseif stringCompare32(Val, '>')        then kind := tokens_gt 
+    elseif stringCompare32(Val, '>+')       then kind := tokens_gtu 
+    elseif stringCompare32(Val, '>=')       then kind := tokens_ge 
+    elseif stringCompare32(Val, '>=+')      then kind := tokens_geu   
+    elseif stringCompare32(Val, '<<')       then kind := tokens_shl 
+    elseif stringCompare32(Val, '>>')       then kind := tokens_shr 
+    elseif stringCompare32(Val, '>>+')      then kind := tokens_shru 
+    elseif stringCompare32(Val, '<-<')      then kind := tokens_rotl 
+    elseif stringCompare32(Val, '>->')      then kind := tokens_rotr 
+    elseif stringCompare32(Val, '+')        then kind := tokens_add 
+    elseif stringCompare32(Val, '-')        then kind := tokens_sub 
+    elseif stringCompare32(Val, '*')        then kind := tokens_mul 
+    elseif stringCompare32(Val, '/')        then kind := tokens_div 
+    elseif stringCompare32(Val, 'mod')      then kind := tokens_mod 
+    elseif stringCompare32(Val, 'modu')     then kind := tokens_modu 
+    elseif stringCompare32(Val, 'not')      then kind := tokens_not 
+    elseif stringCompare32(Val, 'clz')      then kind := tokens_clz 
+    elseif stringCompare32(Val, 'ctz')      then kind := tokens_ctz 
+    elseif stringCompare32(Val, 'cnt')      then kind := tokens_cnt 
+  endif
   addToken(kind, Val, line, column)
 endfun
 
@@ -817,11 +822,25 @@ endfun
 
 fun i32 ParseHexwasmStatement()
   i32 Node := NewNode()
-  i32 Scope := 0
   store32(Node + node_kind, nodes_hexwasm)
-  i32 Wasm := strToI32(load32(CurrentToken + token_Value))
-  store32(Node + node_type, Wasm)
+  store32(Node + node_type, strToI32(load32(CurrentToken + token_Value)))
   eatToken(tokens_hexwasm)
+  return Node
+endfun
+
+fun i32 ParseStopStatement()
+  i32 Node := NewNode()
+  store32(Node + node_kind, nodes_hexwasm)
+  store32(Node + node_type, 0x00)
+  eatToken(tokens_stop)
+  return Node
+endfun
+
+fun i32 ParseNopStatement()
+  i32 Node := NewNode()
+  store32(Node + node_kind, nodes_hexwasm)
+  store32(Node + node_type, 0x01)
+  eatToken(tokens_nop)
   return Node
 endfun
 
@@ -952,6 +971,10 @@ fun i32 ParseStatement()
     Node := ParseReturnStatement()
   elseif kind = tokens_hexwasm then
     Node := ParseHexwasmStatement()
+  elseif kind = tokens_stop then
+    Node := ParseStopStatement()
+  elseif kind = tokens_nop then
+    Node := ParseNopStatement()
   elseif kind = tokens_if then
     Node := ParseIfStatement(false)
   elseif kind = tokens_loop then
@@ -1659,188 +1682,188 @@ endfun
 fun emitCall(i32 Node)
   i32 ResolvedNode := 0
   i32 Name := load32(load32(Node + node_ANode) + node_String)
-  if stringCompare8(Name, 'i64_i32') then
+  if stringCompare64(Name, 'i64_i32') then
     emitCallArguments(Node, tokens_i64)
     emitByte(0xa7)  // i32.wrap/i64
-  elseif stringCompare8(Name, 'f32_i32') then
+  elseif stringCompare64(Name, 'f32_i32') then
     emitCallArguments(Node, tokens_f32)
     emitByte(0xa8)  // i32.trunc_s/f32
-  elseif stringCompare8(Name, 'f32_i32u') then
+  elseif stringCompare64(Name, 'f32_i32u') then
     emitCallArguments(Node, tokens_f32)
     emitByte(0xa9)  // i32.trunc_u/f32
-  elseif stringCompare8(Name, 'f64_i32') then
+  elseif stringCompare64(Name, 'f64_i32') then
     emitCallArguments(Node, tokens_f64)
     emitByte(0xaa)  // i32.trunc_s/f64
-  elseif stringCompare8(Name, 'f64_i32u') then
+  elseif stringCompare64(Name, 'f64_i32u') then
     emitCallArguments(Node, tokens_f64)
     emitByte(0xab)  // i32.trunc_u/f64
-  elseif stringCompare8(Name, 'i32_i64') then
+  elseif stringCompare64(Name, 'i32_i64') then
     emitCallArguments(Node, tokens_i32)
     emitByte(0xac)  // i64.extend_s/i32
-  elseif stringCompare8(Name, 'i32_i64u') then
+  elseif stringCompare64(Name, 'i32_i64u') then
     emitCallArguments(Node, tokens_i32)
     emitByte(0xad)  // i64.extend_u/i32
-  elseif stringCompare8(Name, 'f32_i64') then
+  elseif stringCompare64(Name, 'f32_i64') then
     emitCallArguments(Node, tokens_f32)
     emitByte(0xae)  // i64.trunc_s/f32
-  elseif stringCompare8(Name, 'f32_i64u') then
+  elseif stringCompare64(Name, 'f32_i64u') then
     emitCallArguments(Node, tokens_f32)
     emitByte(0xaf)  // i64.trunc_u/f32
-  elseif stringCompare8(Name, 'f64_i64') then
+  elseif stringCompare64(Name, 'f64_i64') then
     emitCallArguments(Node, tokens_f64)
     emitByte(0xb0)  // i64.trunc_s/f64
-  elseif stringCompare8(Name, 'f64_i64u') then
+  elseif stringCompare64(Name, 'f64_i64u') then
     emitCallArguments(Node, tokens_f64)
     emitByte(0xb1)  // i64.trunc_u/f64
-  elseif stringCompare8(Name, 'i32_f32') then
+  elseif stringCompare64(Name, 'i32_f32') then
     emitCallArguments(Node, tokens_i32)
     emitByte(0xb2)  // f32.convert_s/i32    
-  elseif stringCompare8(Name, 'i32_f32u') then
+  elseif stringCompare64(Name, 'i32_f32u') then
     emitCallArguments(Node, tokens_i32)
     emitByte(0xb3)  // f32.convert_u/i32   
-  elseif stringCompare8(Name, 'i64_f32') then
+  elseif stringCompare64(Name, 'i64_f32') then
     emitCallArguments(Node, tokens_i64)
     emitByte(0xb4)  // f32.convert_s/i64
-  elseif stringCompare8(Name, 'i64_f32u') then
+  elseif stringCompare64(Name, 'i64_f32u') then
     emitCallArguments(Node, tokens_i64)
     emitByte(0xb5)  // f32.convert_u/i64
-  elseif stringCompare8(Name, 'f64_f32') then
+  elseif stringCompare64(Name, 'f64_f32') then
     emitCallArguments(Node, tokens_f64)
     emitByte(0xb6)  // f32.demote/f64
-  elseif stringCompare8(Name, 'i32_f64') then
+  elseif stringCompare64(Name, 'i32_f64') then
     emitCallArguments(Node, tokens_i32)
     emitByte(0xb7)  // f64.convert_s/i32
-  elseif stringCompare8(Name, 'i32_f64u') then
+  elseif stringCompare64(Name, 'i32_f64u') then
     emitCallArguments(Node, tokens_i32)
     emitByte(0xb8)  // f64.convert_u/i32
-  elseif stringCompare8(Name, 'i64_f64') then
+  elseif stringCompare64(Name, 'i64_f64') then
     emitCallArguments(Node, tokens_i64)
     emitByte(0xb9)  // f64.convert_s/i64
-  elseif stringCompare8(Name, 'i64_f64u') then
+  elseif stringCompare64(Name, 'i64_f64u') then
     emitCallArguments(Node, tokens_i64)
     emitByte(0xba)  // f64.convert_u/i64
-  elseif stringCompare8(Name, 'f32_f64') then
+  elseif stringCompare64(Name, 'f32_f64') then
     emitCallArguments(Node, tokens_f32)
     emitByte(0xbb)  // f64.promote/f32
-  elseif stringCompare8(Name, 'load32') then
+  elseif stringCompare64(Name, 'load32') then
     emitCallArguments(Node, tokens_i32)
     emitByte(0x28)  // i32.load
     emitByte(0x00)  // alignment
     emitByte(0x00)  // offset
-  elseif stringCompare8(Name, 'load64') then
+  elseif stringCompare64(Name, 'load64') then
     emitCallArguments(Node, tokens_i32)
     emitByte(0x29)  // i64.load
     emitByte(0x00)  // alignment
     emitByte(0x00)  // offset
-  elseif stringCompare8(Name, 'loadf32') then
+  elseif stringCompare64(Name, 'loadf32') then
     emitCallArguments(Node, tokens_i32)
     emitByte(0x2a)  // f32.load
     emitByte(0x00)  // alignment
     emitByte(0x00)  // offset
-  elseif stringCompare8(Name, 'loadf64') then
+  elseif stringCompare64(Name, 'loadf64') then
     emitCallArguments(Node, tokens_i32)
     emitByte(0x2b)  // f64.load
     emitByte(0x00)  // alignment
     emitByte(0x00)  // offset
-  elseif stringCompare8(Name, 'loa_8') then
+  elseif stringCompare64(Name, 'loa_8') then
     emitCallArguments(Node, tokens_i32)
     emitByte(0x2c)  // i32.load8_s
     emitByte(0x00)  // alignment
     emitByte(0x00)  // offset
-  elseif stringCompare8(Name, 'load8u') or stringCompare8(Name, 'load8') then
+  elseif stringCompare64(Name, 'load8u') or stringCompare64(Name, 'load8') then
     emitCallArguments(Node, tokens_i32)
     emitByte(0x2d)  // i32.load8_u
     emitByte(0x00)  // alignment
     emitByte(0x00)  // offset
-  elseif stringCompare8(Name, 'load16') then
+  elseif stringCompare64(Name, 'load16') then
     emitCallArguments(Node, tokens_i32)
     emitByte(0x2e)  // i32.load16_s
     emitByte(0x00)  // alignment
     emitByte(0x00)  // offset
-  elseif stringCompare8(Name, 'load16u') then
+  elseif stringCompare64(Name, 'load16u') then
     emitCallArguments(Node, tokens_i32)
     emitByte(0x2f)  // i32.load16_u
     emitByte(0x00)  // alignment
     emitByte(0x00)  // offset
-  elseif stringCompare8(Name, 'loa8i64') then
+  elseif stringCompare64(Name, 'loa8i64') then
     emitCallArguments(Node, tokens_i32)
     emitByte(0x30)  // i64.load8_s
     emitByte(0x00)  // alignment
     emitByte(0x00)  // offset
-  elseif stringCompare8(Name, 'loa8u64') then
+  elseif stringCompare64(Name, 'loa8u64') then
     emitCallArguments(Node, tokens_i32)
     emitByte(0x31)  // i64.load8_u
     emitByte(0x00)  // alignment
     emitByte(0x00)  // offset
-  elseif stringCompare8(Name, 'loa16i64') then
+  elseif stringCompare64(Name, 'loa16i64') then
     emitCallArguments(Node, tokens_i32)
     emitByte(0x32)  // i64.load16_s
     emitByte(0x00)  // alignment
     emitByte(0x00)  // offset    
-  elseif stringCompare8(Name, 'loa16u64') then
+  elseif stringCompare64(Name, 'loa16u64') then
     emitCallArguments(Node, tokens_i32)
     emitByte(0x33)  // i64.load16_u
     emitByte(0x00)  // alignment
     emitByte(0x00)  // offset 
-  elseif stringCompare8(Name, 'loa32i64') then
+  elseif stringCompare64(Name, 'loa32i64') then
     emitCallArguments(Node, tokens_i32)
     emitByte(0x34)  // i64.load32_s
     emitByte(0x00)  // alignment
     emitByte(0x00)  // offset    
-  elseif stringCompare8(Name, 'loa32u64') then
+  elseif stringCompare64(Name, 'loa32u64') then
     emitCallArguments(Node, tokens_i32)
     emitByte(0x35)  // i64.load32_u
     emitByte(0x00)  // alignment
     emitByte(0x00)  // offset    
-  elseif stringCompare8(Name, 'store32') then
+  elseif stringCompare64(Name, 'store32') then
     emitCallArguments(Node, tokens_i32)
     emitByte(0x36)  // i32.store
     emitByte(0x00)  // alignment
     emitByte(0x00)  // offset
-  elseif stringCompare8(Name, 'store64') then
+  elseif stringCompare64(Name, 'store64') then
     emitCallArguments2(Node, tokens_i32, tokens_i64)
     emitByte(0x37)  // i64.store
     emitByte(0x00)  // alignment
     emitByte(0x00)  // offset
-  elseif stringCompare8(Name, 'storeF32') then
+  elseif stringCompare64(Name, 'storeF32') then
     emitCallArguments2(Node, tokens_i32, tokens_f32)
     emitByte(0x38)  // f32.store
     emitByte(0x00)  // alignment
     emitByte(0x00)  // offset
-  elseif stringCompare8(Name, 'storeF64') then
+  elseif stringCompare64(Name, 'storeF64') then
     emitCallArguments2(Node, tokens_i32, tokens_f64)
     emitByte(0x39)  // f64.store
     emitByte(0x00)  // alignment
     emitByte(0x00)  // offset
-  elseif stringCompare8(Name, 'store8') then
+  elseif stringCompare64(Name, 'store8') then
     emitCallArguments(Node, tokens_i32)
     emitByte(0x3a)  // i32.store8
     emitByte(0x00)  // alignment
     emitByte(0x00)  // offset
-  elseif stringCompare8(Name, 'store16') then
+  elseif stringCompare64(Name, 'store16') then
     emitCallArguments(Node, tokens_i32)
     emitByte(0x3b)  // i32.store16
     emitByte(0x00)  // alignment
     emitByte(0x00)  // offset
-  elseif stringCompare8(Name, 'i64sto8') then
+  elseif stringCompare64(Name, 'i64sto8') then
     emitCallArguments2(Node, tokens_i32, tokens_i64)
     emitByte(0x3c)  // i64.store8
     emitByte(0x00)  // alignment
     emitByte(0x00)  // offset
-  elseif stringCompare8(Name, 'i64sto16') then
+  elseif stringCompare64(Name, 'i64sto16') then
     emitCallArguments2(Node, tokens_i32, tokens_i64)
     emitByte(0x3d)  // i64.store16
     emitByte(0x00)  // alignment
     emitByte(0x00)  // offset
-  elseif stringCompare8(Name, 'i64sto32') then
+  elseif stringCompare64(Name, 'i64sto32') then
     emitCallArguments2(Node, tokens_i32, tokens_i64)
     emitByte(0x3e)  // i64.store32
     emitByte(0x00)  // alignment
     emitByte(0x00)  // offset
-  elseif stringCompare8(Name, 'memsize') then
+  elseif stringCompare64(Name, 'memsize') then
     emitByte(0x3f)  // current_memory
     emitByte(0x00)  // memory number
-  elseif stringCompare8(Name, 'memgrow') then
+  elseif stringCompare64(Name, 'memgrow') then
     emitCallArguments(Node, tokens_i32)
     emitByte(0x40)  // grow_memory
     emitByte(0x00)  // memory number
@@ -1910,33 +1933,33 @@ fun i32 inferCallDataType(i32 Node)
   i32 dataType := 0
   i32 Name := load32(Node + node_String)
   i32 ResolvedNode := 0
-  if stringCompare8(Name, 'load64')       then dataType := tokens_i64
-  elseif stringCompare8(Name, 'load32')   then dataType := tokens_i32
-  elseif stringCompare8(Name, 'load8')    then dataType := tokens_i32
-  elseif stringCompare8(Name, 'load8u')   then dataType := tokens_i32
-  elseif stringCompare8(Name, 'memsize')  then dataType := tokens_i32
-  elseif stringCompare8(Name, 'loa_f32')  then dataType := tokens_f32
-  elseif stringCompare8(Name, 'loa_f64')  then dataType := tokens_f64
-  elseif stringCompare8(Name, 'f32_i32')  then dataType := tokens_i32
-  elseif stringCompare8(Name, 'f32_i32u') then dataType := tokens_i32
-  elseif stringCompare8(Name, 'f64_i32')  then dataType := tokens_i32
-  elseif stringCompare8(Name, 'f64_i32u') then dataType := tokens_i32
-  elseif stringCompare8(Name, 'i32_i64')  then dataType := tokens_i64
-  elseif stringCompare8(Name, 'i32_i64u') then dataType := tokens_i64
-  elseif stringCompare8(Name, 'f32_i64')  then dataType := tokens_i64
-  elseif stringCompare8(Name, 'f32_i64u') then dataType := tokens_i64
-  elseif stringCompare8(Name, 'f64_i64')  then dataType := tokens_i64
-  elseif stringCompare8(Name, 'f64_i64u') then dataType := tokens_i64
-  elseif stringCompare8(Name, 'i32_f32')  then dataType := tokens_f32
-  elseif stringCompare8(Name, 'i32_f32u') then dataType := tokens_f32
-  elseif stringCompare8(Name, 'i64_f32')  then dataType := tokens_f32
-  elseif stringCompare8(Name, 'i64_f32u') then dataType := tokens_f32
-  elseif stringCompare8(Name, 'f64_f32')  then dataType := tokens_f32
-  elseif stringCompare8(Name, 'i32_f64')  then dataType := tokens_f64
-  elseif stringCompare8(Name, 'i32_f64u') then dataType := tokens_f64
-  elseif stringCompare8(Name, 'i64_f64')  then dataType := tokens_f64
-  elseif stringCompare8(Name, 'i64_f64u') then dataType := tokens_f64
-  elseif stringCompare8(Name, 'f32_f64')  then dataType := tokens_f64
+  if stringCompare64(Name, 'load64')       then dataType := tokens_i64
+  elseif stringCompare64(Name, 'load32')   then dataType := tokens_i32
+  elseif stringCompare64(Name, 'load8')    then dataType := tokens_i32
+  elseif stringCompare64(Name, 'load8u')   then dataType := tokens_i32
+  elseif stringCompare64(Name, 'memsize')  then dataType := tokens_i32
+  elseif stringCompare64(Name, 'loa_f32')  then dataType := tokens_f32
+  elseif stringCompare64(Name, 'loa_f64')  then dataType := tokens_f64
+  elseif stringCompare64(Name, 'f32_i32')  then dataType := tokens_i32
+  elseif stringCompare64(Name, 'f32_i32u') then dataType := tokens_i32
+  elseif stringCompare64(Name, 'f64_i32')  then dataType := tokens_i32
+  elseif stringCompare64(Name, 'f64_i32u') then dataType := tokens_i32
+  elseif stringCompare64(Name, 'i32_i64')  then dataType := tokens_i64
+  elseif stringCompare64(Name, 'i32_i64u') then dataType := tokens_i64
+  elseif stringCompare64(Name, 'f32_i64')  then dataType := tokens_i64
+  elseif stringCompare64(Name, 'f32_i64u') then dataType := tokens_i64
+  elseif stringCompare64(Name, 'f64_i64')  then dataType := tokens_i64
+  elseif stringCompare64(Name, 'f64_i64u') then dataType := tokens_i64
+  elseif stringCompare64(Name, 'i32_f32')  then dataType := tokens_f32
+  elseif stringCompare64(Name, 'i32_f32u') then dataType := tokens_f32
+  elseif stringCompare64(Name, 'i64_f32')  then dataType := tokens_f32
+  elseif stringCompare64(Name, 'i64_f32u') then dataType := tokens_f32
+  elseif stringCompare64(Name, 'f64_f32')  then dataType := tokens_f32
+  elseif stringCompare64(Name, 'i32_f64')  then dataType := tokens_f64
+  elseif stringCompare64(Name, 'i32_f64u') then dataType := tokens_f64
+  elseif stringCompare64(Name, 'i64_f64')  then dataType := tokens_f64
+  elseif stringCompare64(Name, 'i64_f64u') then dataType := tokens_f64
+  elseif stringCompare64(Name, 'f32_f64')  then dataType := tokens_f64
   else
     ResolvedNode := ScopeResolve(CurrentScope, Name)
     dataType := load32(ResolvedNode + node_dataType)
@@ -1993,12 +2016,27 @@ fun emitVariable(i32 Node)
   emitUleb(load32(Node + node_index))
 endfun
 
+fun i32 funLevel() 
+  i32 Scope := CurrentScope
+  i32 level := 0
+  loop
+    if not Scope then break endif
+    if load32(load32(Scope + scope_Node) + node_kind) = nodes_fun then break endif
+    level := level + 1
+    Scope := load32(Scope + scope_Parent)
+  endloop
+  return level
+endfun
+
 fun emitReturn(i32 Node)
   i32 ANode := load32(Node + node_ANode)
   i32 dataType := load32(CurrentFunNode + node_dataType)
   store32(Node + node_dataType, dataType)
   store32(ANode + node_dataType, dataType)
   emitNode(ANode)
+  if funLevel() > 0 then
+    emitByte(0x0f)  // return
+  endif
 endfun
 
 fun emitNode(i32 Node)
