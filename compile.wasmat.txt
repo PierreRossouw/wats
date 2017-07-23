@@ -235,14 +235,13 @@ fun bool stringCompare4(i32 V, i32 a)
   return r
 endfun
 
-fun bool stringCompare8(i32 V, i32 a, i32 b)
+fun bool stringCompare8(i32 V, i64 a)
   bool r := true
   i32 length := strLen(V)
   if length < 5 or length > 8 then
     r := false
   else
-    if load32(V + string_Chars) <> a then r := false endif
-    if load32(V + string_Chars + 4) <> b then r := false endif
+    if load64(V + string_Chars) <> a then r := false endif
   endif
   return r
 endfun
@@ -308,19 +307,19 @@ fun processToken(i32 Val, i32 line, i32 column)
   if stringCompare4(Val, ',') then kind := tokens_comma endif
   if stringCompare4(Val, ')') then kind := tokens_rParen endif
   if stringCompare4(Val, 'true') then kind := tokens_true endif
-  if stringCompare8(Val, 'fals', 'e') then kind := tokens_false endif
+  if stringCompare8(Val, 'false') then kind := tokens_false endif
   if stringCompare4(Val, 'fun') then kind := tokens_fun endif
-  if stringCompare8(Val, 'retu', 'rn') then kind := tokens_return endif
-  if stringCompare8(Val, 'endf', 'un') then kind := tokens_endfun endif
+  if stringCompare8(Val, 'return') then kind := tokens_return endif
+  if stringCompare8(Val, 'endfun') then kind := tokens_endfun endif
   if stringCompare4(Val, 'loop') then kind := tokens_loop endif
-  if stringCompare8(Val, 'cont', 'inue') then kind := tokens_continue endif
-  if stringCompare8(Val, 'brea', 'k') then kind := tokens_break endif
-  if stringCompare8(Val, 'endl', 'oop') then kind := tokens_endloop endif
+  if stringCompare8(Val, 'continue') then kind := tokens_continue endif
+  if stringCompare8(Val, 'break') then kind := tokens_break endif
+  if stringCompare8(Val, 'endloop') then kind := tokens_endloop endif
   if stringCompare4(Val, 'if') then kind := tokens_if endif
   if stringCompare4(Val, 'then') then kind := tokens_then endif
   if stringCompare4(Val, 'else') then kind := tokens_else endif
-  if stringCompare8(Val, 'else', 'if') then kind := tokens_elseif endif
-  if stringCompare8(Val, 'endi', 'f') then kind := tokens_endif endif
+  if stringCompare8(Val, 'elseif') then kind := tokens_elseif endif
+  if stringCompare8(Val, 'endif') then kind := tokens_endif endif
   if stringCompare4(Val, 'i32') then kind := tokens_i32 endif
   if stringCompare4(Val, 'i64') then kind := tokens_i64 endif
   if stringCompare4(Val, 'f32') then kind := tokens_f32 endif
@@ -1591,40 +1590,40 @@ endfun
 fun emitCall(i32 Node)
   i32 ResolvedNode := 0
   i32 Name := load32(load32(Node + node_ANode) + node_String)
-  if stringCompare8(Name, 'stor', 'e32') then
+  if stringCompare8(Name, 'store32') then
     emitCallArguments(Node, tokens_i32)
     emitByte(0x36)  // i32.store
     emitByte(0x00)  // alignment
     emitByte(0x00)  // offset
-  elseif stringCompare8(Name, 'stor', 'e64') then
+  elseif stringCompare8(Name, 'store64') then
     emitCallArgumentsI32I64(Node)
     emitByte(0x37)  // i64.store
     emitByte(0x00) 
     emitByte(0x00)
-  elseif stringCompare8(Name, 'stor', 'e8') then
+  elseif stringCompare8(Name, 'store8') then
     emitCallArguments(Node, tokens_i32)
     emitByte(0x3a)  // i32.store8
     emitByte(0x00)  
     emitByte(0x00)  
-  elseif stringCompare8(Name, 'load', '64') then
+  elseif stringCompare8(Name, 'load64') then
     emitCallArguments(Node, tokens_i32)
     emitByte(0x29)  // i64.load
     emitByte(0x00)  
     emitByte(0x00) 
-  elseif stringCompare8(Name, 'load', '32') then
+  elseif stringCompare8(Name, 'load32') then
     emitCallArguments(Node, tokens_i32)
     emitByte(0x28)  // i32.load
     emitByte(0x00)  
     emitByte(0x00) 
-  elseif stringCompare8(Name, 'load', '8') then
+  elseif stringCompare8(Name, 'load8') then
     emitCallArguments(Node, tokens_i32)
     emitByte(0x2d)  // i32.load8
     emitByte(0x00) 
     emitByte(0x00)
-  elseif stringCompare8(Name, 'exte', 'nd64') then
+  elseif stringCompare8(Name, 'extend64') then
     emitCallArguments(Node, tokens_i32)
     emitByte(0xac)  // i64.extend_s/i32
-  elseif stringCompare8(Name, 'wrap', '32') then
+  elseif stringCompare8(Name, 'wrap32') then
     emitCallArguments(Node, tokens_i64)
     emitByte(0xa7)  // i32.wrap/i64
   else
@@ -1693,15 +1692,15 @@ fun i32 inferCallDataType(i32 Node)
   i32 dataType := 0
   i32 Name := load32(Node + node_String)
   i32 ResolvedNode := 0
-  if stringCompare8(Name, 'load', '64') then
+  if stringCompare8(Name, 'load64') then
     dataType := tokens_i64
-  elseif stringCompare8(Name, 'load', '32') then
+  elseif stringCompare8(Name, 'load32') then
     dataType := tokens_i32
-  elseif stringCompare8(Name, 'load', '8') then
+  elseif stringCompare8(Name, 'load8') then
     dataType := tokens_i32
-  elseif stringCompare8(Name, 'exte', 'nd64') then
+  elseif stringCompare8(Name, 'extend64') then
     dataType := tokens_i64
-  elseif stringCompare8(Name, 'wrap', '32') then
+  elseif stringCompare8(Name, 'wrap32') then
     dataType := tokens_i32
   else
     ResolvedNode := ScopeResolve(CurrentScope, Name)
