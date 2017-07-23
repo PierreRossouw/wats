@@ -1264,13 +1264,13 @@ fun emitFunctionSection()
 endfun
 
 // Memory is exported as 'mem' and is a fixed size
-// This compiler takes about 2MB to compile
+// This compiler takes about 1MB to compile
 fun emitMemorySection()
   emitByte(0x05)  // Memory section
   emitUleb(0x03)  // Size in bytes
   emitByte(0x01)  // Count. A maximum of 1 currently in WebAssembly
   emitByte(0x00)  // Resizable flag
-  emitByte(0x7e)  // Pages (A page is 64kb)
+  emitByte(0x7f)  // Pages (A page is 64kb)
 endfun
 
 fun emitNativeGlobal(i32 Node)
@@ -1596,22 +1596,22 @@ fun emitCallArguments(i32 CallNode, i32 data_Type)
   endloop
 endfun
 
-fun emitCallArgumentsI32I64(i32 CallNode)
+fun emitCallArguments2(i32 CallNode, i32 data_TypeA, i32 data_TypeB)
   i32 ArgumentList := load32(CallNode + node_ParamNodes)
   i32 ArgumentItem := load32(ArgumentList + list_First)
   i32 ArgumentNode := 0
-  bool tail := false
+  bool first := true
   loop
     if not ArgumentItem then break endif
     ArgumentNode := load32(ArgumentItem + item_Object)
-    if tail then
-      store32(ArgumentNode + node_dataType, tokens_i64)
+    if first then
+      store32(ArgumentNode + node_dataType, data_TypeA)
     else    
-      store32(ArgumentNode + node_dataType, tokens_i32)
+      store32(ArgumentNode + node_dataType, data_TypeB)
     endif
     emitNode(ArgumentNode)
     ArgumentItem := load32(ArgumentItem + item_Next)
-    tail := true
+    first := false
   endloop
 endfun
 
@@ -1687,13 +1687,43 @@ fun emitCall(i32 Node)
     emitByte(0x00)  // alignment
     emitByte(0x00)  // offset
   elseif stringCompare8(Name, 'store64') then
-    emitCallArgumentsI32I64(Node)
+    emitCallArguments2(Node, tokens_i32, tokens_i64)
     emitByte(0x37)  // i64.store
+    emitByte(0x00)  // alignment
+    emitByte(0x00)  // offset
+  elseif stringCompare8(Name, 'storeF32') then
+    emitCallArguments2(Node, tokens_i32, tokens_f32)
+    emitByte(0x38)  // f32.store
+    emitByte(0x00)  // alignment
+    emitByte(0x00)  // offset
+  elseif stringCompare8(Name, 'storeF64') then
+    emitCallArguments2(Node, tokens_i32, tokens_f64)
+    emitByte(0x39)  // f64.store
     emitByte(0x00)  // alignment
     emitByte(0x00)  // offset
   elseif stringCompare8(Name, 'store8') then
     emitCallArguments(Node, tokens_i32)
     emitByte(0x3a)  // i32.store8
+    emitByte(0x00)  // alignment
+    emitByte(0x00)  // offset
+  elseif stringCompare8(Name, 'store16') then
+    emitCallArguments(Node, tokens_i32)
+    emitByte(0x3b)  // i32.store16
+    emitByte(0x00)  // alignment
+    emitByte(0x00)  // offset
+  elseif stringCompare8(Name, 'i64sto8') then
+    emitCallArguments2(Node, tokens_i32, tokens_i64)
+    emitByte(0x3c)  // i64.store8
+    emitByte(0x00)  // alignment
+    emitByte(0x00)  // offset
+  elseif stringCompare8(Name, 'i64sto16') then
+    emitCallArguments2(Node, tokens_i32, tokens_i64)
+    emitByte(0x3d)  // i64.store16
+    emitByte(0x00)  // alignment
+    emitByte(0x00)  // offset
+  elseif stringCompare8(Name, 'i64sto32') then
+    emitCallArguments2(Node, tokens_i32, tokens_i64)
+    emitByte(0x3e)  // i64.store32
     emitByte(0x00)  // alignment
     emitByte(0x00)  // offset
   elseif stringCompare8(Name, 'load64') then
