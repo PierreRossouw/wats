@@ -1,5 +1,5 @@
-# dwasm
-dWasm is a small WebAssembly language with a self-hosted compiler
+# compile.dwasm
+dWasm is a simple and readable WebAssembly language with a self-hosted compiler
 
 Try it out at https://pierrerossouw.github.io/dwasm/
 
