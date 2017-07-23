@@ -1525,11 +1525,10 @@ fun emitUnary(i32 Node)
   if type = tokens_sub then
     if dataType = tokens_f64 then
       emitByte(0x44)  // f64.const
-      emitI32(0) 
-      emitI32(0) 
+      emitF64(i32_f64(0)) 
     elseif dataType = tokens_f32 then
       emitByte(0x43)  // f32.const
-      emitI32(0) 
+      emitF32(i32_f32(0)) 
     elseif dataType = tokens_i64 then
       emitByte(0x42)  // i64.const 
       emitByte(0x00)  // 0
