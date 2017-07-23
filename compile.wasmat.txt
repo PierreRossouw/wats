@@ -56,16 +56,16 @@ i32 tokens_and         := 96
 i32 tokens_eq          := 97   // =
 i32 tokens_ne          := 98   // <>
 i32 tokens_lt          := 99   // <
-i32 tokens_ltu         := 100  // <u
+i32 tokens_ltu         := 100  // <^
 i32 tokens_le          := 101  // <=
-i32 tokens_leu         := 102  // <=u
+i32 tokens_leu         := 102  // <=^
 i32 tokens_gt          := 103  // >
-i32 tokens_gtu         := 104  // >u
+i32 tokens_gtu         := 104  // >^
 i32 tokens_ge          := 105  // >=
-i32 tokens_geu         := 106  // >=u
+i32 tokens_geu         := 106  // >=^
 i32 tokens_shl         := 107  // <<
 i32 tokens_shr         := 108  // >>
-i32 tokens_shru        := 109  // >>u
+i32 tokens_shru        := 109  // >>^
 i32 tokens_rotl        := 110  // <-<
 i32 tokens_rotr        := 111  // >->
 i32 tokens_clz         := 113 
@@ -333,16 +333,16 @@ fun processToken(i32 Val, i32 line, i32 column)
   if stringCompare4(Val, '=') then kind := tokens_eq endif
   if stringCompare4(Val, '<>') then kind := tokens_ne endif
   if stringCompare4(Val, '<') then kind := tokens_lt endif
-  if stringCompare4(Val, '<u') then kind := tokens_ltu endif
+  if stringCompare4(Val, '<^') then kind := tokens_ltu endif
   if stringCompare4(Val, '<=') then kind := tokens_le endif
-  if stringCompare4(Val, '<=u') then kind := tokens_leu endif
+  if stringCompare4(Val, '<=^') then kind := tokens_leu endif
   if stringCompare4(Val, '>') then kind := tokens_gt endif
-  if stringCompare4(Val, '>u') then kind := tokens_gtu endif
+  if stringCompare4(Val, '>^') then kind := tokens_gtu endif
   if stringCompare4(Val, '>=') then kind := tokens_ge endif
-  if stringCompare4(Val, '>=u') then kind := tokens_geu endif  
+  if stringCompare4(Val, '>=^') then kind := tokens_geu endif  
   if stringCompare4(Val, '<<') then kind := tokens_shl endif
   if stringCompare4(Val, '>>') then kind := tokens_shr endif
-  if stringCompare4(Val, '>>u') then kind := tokens_shru endif
+  if stringCompare4(Val, '>>^') then kind := tokens_shru endif
   if stringCompare4(Val, '<-<') then kind := tokens_rotl endif
   if stringCompare4(Val, '>->') then kind := tokens_rotr endif
   if stringCompare4(Val, '+') then kind := tokens_add endif
@@ -383,8 +383,8 @@ fun bool isPunctuator(i32 chr)
 endfun
 
 fun bool isOperatorChar(i32 chr)
-  return chr = '=' or chr = '+' or chr = '-' or chr = '/' or
-         chr = '<' or chr = '>' or chr = '*' or chr = ':'
+  return chr = '=' or chr = '+' or chr = '-' or chr = '/' or chr = '^' or
+         chr = '<' or chr = '>' or chr = '*' or chr = ':' 
 endfun
 
 fun lexx()
@@ -471,9 +471,15 @@ fun lexx()
       processToken(Val, line, column)
     elseif isOperatorChar(chr) then
       if isOperatorChar(getchar(Code, pos + 1)) then
-        Val := Substring(Code, pos, 2)
-        pos := pos + 1
-        column := column + 1
+        if isOperatorChar(getchar(Code, pos + 2)) then
+          Val := Substring(Code, pos, 3)
+          pos := pos + 2
+          column := column + 2
+        else
+          Val := Substring(Code, pos, 2)
+          pos := pos + 1
+          column := column + 1
+        endif
       else
         Val := Substring(Code, pos, 1)
       endif
@@ -986,10 +992,13 @@ fun i32 strToI32(i32 V)  // Supports ints and 0x-prefixed hex
   if length >= 3 then
     if getchar(V, 0) = '0' and getchar(V, 1) = 'x' then
       hex := true
+    elseif getchar(V, 0) = '-' and getchar(V, 1) = '0' and getchar(V, 2) = 'x' 
+      hex := true
     endif
   endif
   if hex then
     offset := 2
+    if getchar(V, 2) = 'x' then offset := 3 endif
     loop
       if offset >= length then break endif
       i := i * 16
@@ -1421,26 +1430,39 @@ fun emitIdentifier(i32 Node)
   emitUleb(load32(ResolvedNode + node_index))
 endfun
 
+fun emitNumLiteral(i32 Node, i32 dataType)
+  if dataType = tokens_f64 then
+    emitByte(0x44)  // f64.const
+    // TODO emitF64(strToF64(load32(Node + node_String)))
+  elseif dataType = tokens_f32 then
+    emitByte(0x43)  // f32.const
+    // TODO emitF32(strToF32(load32(Node + node_String)))
+  elseif dataType = tokens_i64 then
+    emitByte(0x42)  // i64.const
+    emitSleb(strToI32(load32(Node + node_String)))  // TODO
+  else
+    emitByte(0x41)  // i32.const
+    emitSleb(strToI32(load32(Node + node_String)))
+  endif
+endfun
+
+fun emitCharLiteral(i32 Node, i32 dataType)
+  if dataType = tokens_i64 then
+    emitByte(0x42)  // i64.const
+    emitSleb(load32(load32(Node + node_String) + string_Chars))  // TODO
+  else
+    emitByte(0x41)  // i32.const
+    emitSleb(load32(load32(Node + node_String) + string_Chars))
+  endif
+endfun
+
 fun emitLiteral(i32 Node)
   i32 type := load32(Node + node_type)
   i32 dataType := load32(Node + node_dataType)
   if type = tokens_numLiteral then
-    if dataType = tokens_f64 then
-      emitByte(0x44)  // f64.const
-      // TODO emitF64(strToF64(load32(Node + node_String)))
-    elseif dataType = tokens_f32 then
-      emitByte(0x43)  // f32.const
-      // TODO emitF32(strToF32(load32(Node + node_String)))
-    elseif dataType = tokens_i64 then
-      emitByte(0x42)  // i64.const
-      emitSleb(strToI32(load32(Node + node_String)))  // TODO
-    else
-      emitByte(0x41)  // i32.const
-      emitSleb(strToI32(load32(Node + node_String)))
-    endif
+    emitNumLiteral(Node, dataType)
   elseif type = tokens_charLiteral then
-    emitByte(0x41)  // i32.const
-    emitSleb(load32(load32(Node + node_String) + string_Chars))
+    emitCharLiteral(Node, dataType)
   elseif type = tokens_true then
     emitByte(0x41)  // i32.const
     emitByte(0x01)  // 1
@@ -1533,6 +1555,9 @@ fun emitCall(i32 Node)
     emitByte(0x2d)  // i32.load8
     emitByte(0x00) 
     emitByte(0x00)
+  elseif stringCompare8(Name, 'exte', 'nd64') then
+    emitCallArgumentsI32(Node)
+    emitByte(0xac)  // i64.extend_s/i32
   else
     ResolvedNode := ScopeResolve(CurrentScope, Name)
     emitFunCallArguments(Node, ResolvedNode)
@@ -1599,6 +1624,8 @@ fun i32 inferCallDataType(i32 Node)
   i32 dataType := 0
   i32 Name := load32(Node + node_String)
   if stringCompare8(Name, 'load', '64') then
+    dataType := tokens_i64
+  elseif stringCompare8(Name, 'exte', 'nd64') then
     dataType := tokens_i64
   elseif stringCompare8(Name, 'load', '32') then
     dataType := tokens_i32
