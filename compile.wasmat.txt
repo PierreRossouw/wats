@@ -1068,7 +1068,7 @@ fun i64 strToI64(i32 V)
 endfun
 
 fun f32 strToF32(i32 V)
-  f32 i := i  // TODO
+  f32 i := 0
   i32 length := strLen(V)
   i32 offset := 0
   i32 c := 0
@@ -1086,6 +1086,34 @@ fun f32 strToF32(i32 V)
       else
         if c >= '0' and c <= '9' then
           i := i * 10 + i32_f32(c - '0')
+        endif
+      endif
+    endif
+    offset := offset + 1
+  endloop
+  if getchar(V, 0) = '-' then i := -i endif
+  return i
+endfun
+
+fun f64 strToF64(i32 V)
+  f64 i := i
+  i32 length := strLen(V)
+  i32 offset := 0
+  i32 c := 0
+  i32 d := 1
+  bool afterDot := false
+  loop
+    if offset >= length then break endif
+    c := getchar(V, offset)
+    if c = '.' then
+      afterDot := true
+    else
+      if afterDot then 
+        i := i + i32_f64(c - '0') / i32_f64(d)
+        d := d * 10
+      else
+        if c >= '0' and c <= '9' then
+          i := i * i32_f64(10) + i32_f64(c - '0')
         endif
       endif
     endif
@@ -1531,7 +1559,7 @@ endfun
 fun emitNumLiteral(i32 Node, i32 dataType)
   if dataType = tokens_f64 then
     emitByte(0x44)  // f64.const
-    // TODO emitF64(strToF64(load32(Node + node_String)))
+    emitF64(strToF64(load32(Node + node_String)))
   elseif dataType = tokens_f32 then
     emitByte(0x43)  // f32.const
     emitF32(strToF32(load32(Node + node_String)))
