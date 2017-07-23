@@ -1500,7 +1500,7 @@ fun emitNumLiteral(i32 Node, i32 dataType)
     // TODO emitF32(strToF32(load32(Node + node_String)))
   elseif dataType = tokens_i64 then
     emitByte(0x42)  // i64.const
-    emitSleb(strToI32(load32(Node + node_String)))  // TODO
+    emitSleb64(strToI64(load32(Node + node_String)))  // TODO
   else
     emitByte(0x41)  // i32.const
     emitSleb(strToI32(load32(Node + node_String)))
@@ -1508,12 +1508,17 @@ fun emitNumLiteral(i32 Node, i32 dataType)
 endfun
 
 fun emitCharLiteral(i32 Node, i32 dataType)
+  i32 Name := load32(Node + node_String)
   if dataType = tokens_i64 then
     emitByte(0x42)  // i64.const
-    emitSleb(load32(load32(Node + node_String) + string_Chars))  // TODO
+    if strLen(Name) > 4 then
+      emitSleb64(load64(Name + string_Chars))
+    else
+      emitSleb(load32(Name + string_Chars))
+    endif
   else
     emitByte(0x41)  // i32.const
-    emitSleb(load32(load32(Node + node_String) + string_Chars))
+    emitSleb(load32(Name + string_Chars))
   endif
 endfun
 
