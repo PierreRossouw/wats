@@ -37,8 +37,7 @@
         width: 100%;
       }
       pre {
-       max-height: 30em;
-       overflow: auto;
+        overflow: auto;
       }
     </style>
     <script src="prism.js"></script>
@@ -90,7 +89,7 @@
           var hex = (uint8arr[i] & 0xff).toString(16);
           hex = (hex.length === 1) ? '0' + hex : hex;
           hexStr += hex + ',';
-          if (i % 4 == 0) {
+          if (i % 4 == 3) {
             hexStr += ' ';
           };
         }
