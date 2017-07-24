@@ -1,4 +1,4 @@
-// Compile.dwasm v0.1.20170723
+// Compile.dwasm v0.1.20170724
 // A simple and readable WebAssembly language with self-hosted compiler
 
 // Style conventions:
@@ -25,7 +25,8 @@ i32 nodes_if         := 12
 i32 nodes_loop       := 13
 i32 nodes_break      := 14
 i32 nodes_continue   := 15
-i32 nodes_hexwasm    := 16  // WebAssembly code byte e.g. tokens_stop (0x00 - trap)
+i32 nodes_hexwasm    := 16  // WebAssembly code byte e.g. tokens_stop
+i32 nodes_breakif    := 17
 
 i32 tokens_identifier  := 43
 i32 tokens_charLiteral := 46
@@ -44,7 +45,8 @@ i32 tokens_nop         := 65
 i32 tokens_loop        := 70
 i32 tokens_continue    := 71
 i32 tokens_break       := 72
-i32 tokens_endloop     := 73
+i32 tokens_breakif     := 73
+i32 tokens_endloop     := 74
 i32 tokens_if          := 80
 i32 tokens_then        := 81
 i32 tokens_elseif      := 82
@@ -86,6 +88,7 @@ i32 tokens_f32         := 125  // 0x7d
 i32 tokens_i64         := 126  // 0x7e
 i32 tokens_i32         := 127  // 0x7f
 i32 tokens_bool        := 128  // synonym for i32
+i32 tokens_ptr         := 129  // synonym for i32
 
 i32 error_eatToken := 1
 
@@ -315,6 +318,7 @@ fun processToken(i32 Val, i32 line, i32 column)
   elseif stringCompare32(Val, 'loop')     then kind := tokens_loop
   elseif stringCompare64(Val, 'continue') then kind := tokens_continue
   elseif stringCompare64(Val, 'break')    then kind := tokens_break
+  elseif stringCompare64(Val, 'breakif')  then kind := tokens_breakif
   elseif stringCompare64(Val, 'endloop')  then kind := tokens_endloop
   elseif stringCompare32(Val, 'if')       then kind := tokens_if
   elseif stringCompare32(Val, 'then')     then kind := tokens_then
@@ -797,12 +801,22 @@ fun i32 ParseInfix(i32 level, i32 Left)
   return Node
 endfun
 
+fun i32 ParseBreakif()
+  i32 Node := NewNode()
+  store32(Node + node_kind, nodes_breakif)
+  eatToken(tokens_breakif)
+  store32(Node + node_CNode, ParseExpression(tokens_minPrec))
+  return Node
+endfun
+
 fun i32 ParseExpression(i32 level)
   i32 Node := 0
   i32 Expr := 0
   i32 kind := load32(CurrentToken + token_kind)
   if kind = tokens_break then
     Node := ParseBreak()
+  elseif kind = tokens_breakif then
+    Node := ParseBreakif()
   elseif kind = tokens_continue then
     Node := ParseContinue()
   else
@@ -2029,6 +2043,12 @@ fun emitReturn(i32 Node)
   endif
 endfun
 
+fun emitBreakif(i32 Node)
+  emitNode(load32(Node + node_CNode))  // If condition expression
+  emitByte(0x0d)  // br_if
+  emitUleb(loopLevel() + 1)
+endfun
+
 fun emitNode(i32 Node)
   i32 kind := load32(Node + node_kind)
   if kind = nodes_block then
@@ -2043,6 +2063,8 @@ fun emitNode(i32 Node)
     emitReturn(Node)
   elseif kind = nodes_if then
     emitIf(Node)
+  elseif kind = nodes_breakif then
+    emitBreakif(Node)
   elseif kind = nodes_loop then
     emitLoop(Node)
   elseif kind = nodes_hexwasm then
