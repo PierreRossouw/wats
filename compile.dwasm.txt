@@ -377,7 +377,7 @@ fun bool isAlpha(i32 chr)
   return (chr >= 'a' and chr <= 'z') or (chr >= 'A' and chr <= 'Z') or (chr = '_')
 endfun
 
-fun bool isNumber(i32 chr, i32 hex)
+fun bool isNumber(i32 chr, bool hex)
   bool num := false
   if chr >= '0' and chr <= '9' then
     num := true
@@ -390,7 +390,7 @@ fun bool isNumber(i32 chr, i32 hex)
 endfun
 
 fun bool isHexwasm(i32 chr1, i32 chr2, i32 chr3)
-  return chr1 = 'x' and isNumber(chr2, 1) and isNumber(chr3, 1)
+  return chr1 = 'x' and isNumber(chr2, true) and isNumber(chr3, true)
 endfun
 
 fun bool isPunctuator(i32 chr)
@@ -427,7 +427,7 @@ fun lexx()
     elseif isAlpha(chr) then
       start := pos
       loop
-        if (not isAlpha(chr)) and (not isNumber(chr, 0)) then
+        if (not isAlpha(chr)) and (not isNumber(chr, false)) then
           pos := pos - 1
           column := column - 1
           break
@@ -451,7 +451,7 @@ fun lexx()
       endloop
       Val := Substring(Code, start, pos - start)
       addToken(tokens_charLiteral, Val, line, column)
-    elseif isNumber(chr, 0) or ((chr = '-') and isNumber(getchar(Code, pos + 1), 0)) then
+    elseif isNumber(chr, false) or ((chr = '-') and isNumber(getchar(Code, pos + 1), false)) then
       start := pos
       hex := false
       loop
@@ -570,7 +570,7 @@ fun i32 NewNode()
   return Node
 endfun
 
-fun next()
+fun nextToken()
   CurrentTokenItem := load32(CurrentTokenItem + item_Next)
   if CurrentTokenItem then
     CurrentToken := load32(CurrentTokenItem + item_Object)
@@ -610,7 +610,7 @@ endfun
 
 fun eatToken(i32 kind)
   if load32(CurrentToken + token_kind) = kind then
-    next()
+    nextToken()
   else
     debug(error_eatToken)  // error number
     debug(kind)
@@ -628,7 +628,7 @@ fun i32 ParseFunParams()
   loop
     type := load32(CurrentToken + token_kind)
     breakif type = tokens_rParen
-    next()
+    nextToken()
     FunParamNode := NewNode()
     store32(FunParamNode + node_kind, nodes_parameter)
     store32(FunParamNode + node_type, type)
@@ -636,9 +636,9 @@ fun i32 ParseFunParams()
     Name := load32(CurrentToken + token_Value)
     store32(FunParamNode + node_String, Name)
     listAddName(Params, FunParamNode, Name)
-    next()
+    nextToken()
     breakif load32(CurrentToken + token_kind) <> tokens_comma
-    next()
+    nextToken()
   endloop
   eatToken(tokens_rParen)
   return Params
@@ -696,10 +696,10 @@ fun i32 ParseFun()
   i32 Name := 0
   if isNativeType(CurrentToken) then
     funType := load32(CurrentToken + token_kind)
-    next()
+    nextToken()
   endif
   Name := load32(CurrentToken + token_Value)
-  next()
+  nextToken()
   return ParseFunDeclaration(funType, Name)
 endfun
 
@@ -722,7 +722,7 @@ fun i32 ParseLiteral()
   store32(Node + node_kind, nodes_literal)
   store32(Node + node_String, load32(CurrentToken + token_Value))
   store32(Node + node_type, load32(CurrentToken + token_kind))
-  next()
+  nextToken()
   return Node
 endfun
 
@@ -731,7 +731,7 @@ fun i32 ParseIdentifier()
   store32(Node + node_kind, nodes_identifier)
   store32(Node + node_String, load32(CurrentToken + token_Value))
   store32(Node + node_type, load32(CurrentToken + token_kind))
-  next()
+  nextToken()
   return Node
 endfun
 
@@ -761,7 +761,7 @@ fun i32 parseUnaryExpression()
   store32(Node + node_kind, nodes_unary)
   store32(Node + node_type, load32(CurrentToken + token_kind))
   store32(Node + node_String, load32(CurrentToken + token_Value))
-  next()
+  nextToken()
   store32(Node + node_BNode, ParseExpression(tokens_add))
   return Node
 endfun
@@ -773,7 +773,7 @@ fun i32 ParsePrefix()
   elseif load32(CurrentToken + token_kind) = tokens_identifier then
     Node := ParseIdentifier()
   elseif load32(CurrentToken + token_kind) = tokens_lParen then
-    next()
+    nextToken()
     Node := ParseExpression(tokens_minPrec)
     eatToken(tokens_rParen)
   elseif isUnaryOperator(CurrentToken) then
@@ -793,7 +793,7 @@ fun i32 ParseBinaryExpression(i32 level, i32 Left)
     store32(Node + node_type, load32(CurrentToken + token_kind))
     store32(Node + node_String, load32(CurrentToken + token_Value))
     store32(Node + node_ANode, Left)
-    next()
+    nextToken()
     store32(Node + node_BNode, ParseExpression(precedence))
   endif
   return Node
@@ -957,9 +957,9 @@ fun i32 ParseDeclaration()
   i32 FunNode := 0
   i32 FunLocalsList := 0
   i32 type := load32(CurrentToken + token_kind)
-  next()
+  nextToken()
   i32 Name := load32(CurrentToken + token_Value)
-  next()
+  nextToken()
   i32 Node := NewNode()
   store32(Node + node_kind, nodes_variable)
   store32(Node + node_type, type)
@@ -1911,9 +1911,7 @@ endfun
 
 fun emitBlock(i32 Node)
   i32 Scope := load32(Node + node_Scope)
-  if Scope then
-    CurrentScope := Scope
-  endif
+  CurrentScope := Scope
   i32 BlockList := load32(Node + node_Nodes)
   i32 Item := load32(BlockList + list_First)
   loop
@@ -1921,9 +1919,7 @@ fun emitBlock(i32 Node)
     emitNode(load32(Item + item_Object))
     Item := load32(Item + item_Next)
   endloop
-  if Scope then
-    CurrentScope := load32(CurrentScope + scope_Parent)
-  endif
+  CurrentScope := load32(Scope + scope_Parent)
 endfun
 
 fun emitIf(i32 Node)
