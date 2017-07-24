@@ -48,11 +48,11 @@
 
       var xmlhttp, text;
       xmlhttp = new XMLHttpRequest();
-      xmlhttp.open('GET', 'compile.wasmat.txt', false);
+      xmlhttp.open('GET', 'compile.dwasm.txt', false);
       xmlhttp.send();
       code.value = xmlhttp.responseText;
       compilerSource.innerHTML = xmlhttp.responseText;
-      xmlhttp.open('GET', 'compile-wasmat-binary-hex.txt', false);
+      xmlhttp.open('GET', 'compile.dwasm.bin.txt', false);
       xmlhttp.send();
       compilerBinary.value = xmlhttp.responseText;
 
@@ -61,8 +61,8 @@
           return new Uint8Array();
         }
         var a = [];
-        for (var i = 0, len = str.length; i < len; i+=2) {
-          a.push(parseInt(str.substr(i,2),16));
+        for (var i = 0, len = str.length; i < len; i += 2) {
+          a.push(parseInt(str.substr(i, 2), 16));
         }
         return new Uint8Array(a);
       };
@@ -108,7 +108,7 @@
           let mem = new Uint8Array(results.instance.exports.mem.buffer);
           let sourcecode = code.value;
           new Uint32Array(mem.buffer)[2] = sourcecode.length;
-          for (var i = 0, strLen = sourcecode.length; i < strLen; i++) { mem[i+12] = sourcecode.charCodeAt(i); }
+          for (var i = 0, strLen = sourcecode.length; i < strLen; i++) { mem[i + 12] = sourcecode.charCodeAt(i); }
           let out = main();
           let binLen = mem[out] + 256*mem[out + 1] + 256*256*mem[out + 2] + 256*256*256*mem[out + 3];
           out = out + 4;
