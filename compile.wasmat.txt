@@ -1770,12 +1770,12 @@ fun emitCall(i32 Node)
     emitByte(0x2b)  // f64.load
     emitByte(0x00)  // alignment
     emitByte(0x00)  // offset
-  elseif stringCompare64(Name, 'loa_8') then
+  elseif stringCompare64(Name, 'load8') then
     emitCallArguments(Node, tokens_i32)
     emitByte(0x2c)  // i32.load8_s
     emitByte(0x00)  // alignment
     emitByte(0x00)  // offset
-  elseif stringCompare64(Name, 'load8u') or stringCompare64(Name, 'load8') then
+  elseif stringCompare64(Name, 'load8u') then
     emitCallArguments(Node, tokens_i32)
     emitByte(0x2d)  // i32.load8_u
     emitByte(0x00)  // alignment
@@ -1937,7 +1937,7 @@ endfun
 fun i32 inferCallDataType(i32 Node)
   i32 Name := load32(Node + node_String)
   i32 ResolvedNode := 0
-  if stringCompare64(Name, 'load64')       then return tokens_i64
+  if     stringCompare64(Name, 'load64')   then return tokens_i64
   elseif stringCompare64(Name, 'load32')   then return tokens_i32
   elseif stringCompare64(Name, 'load8')    then return tokens_i32
   elseif stringCompare64(Name, 'load8u')   then return tokens_i32
