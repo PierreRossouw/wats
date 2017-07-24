@@ -1910,12 +1910,12 @@ fun emitIf(i32 Node)
   emitByte(0x0b)  // end
 endfun
 
-fun i32 loopLevel(i32 Node) 
+fun i32 scopeLevel(i32 Node, i32 kind) 
   i32 Scope := load32(Node + node_Scope)
   i32 level := 0
   loop
     breakif not Scope
-    breakif load32(load32(Scope + scope_Node) + node_kind) = nodes_loop
+    breakif load32(load32(Scope + scope_Node) + node_kind) = kind
     level := level + 1
     Scope := load32(Scope + scope_Parent)
   endloop
@@ -2020,25 +2020,13 @@ fun emitVariable(i32 Node)
   emitUleb(load32(Node + node_index))
 endfun
 
-fun i32 funLevel() 
-  i32 Scope := CurrentScope
-  i32 level := 0
-  loop
-    breakif not Scope
-    breakif load32(load32(Scope + scope_Node) + node_kind) = nodes_fun
-    level := level + 1
-    Scope := load32(Scope + scope_Parent)
-  endloop
-  return level
-endfun
-
 fun emitReturn(i32 Node)
   i32 ANode := load32(Node + node_ANode)
   i32 dataType := load32(CurrentFunNode + node_dataType)
   store32(Node + node_dataType, dataType)
   store32(ANode + node_dataType, dataType)
   emitNode(ANode)
-  if funLevel() > 0 then
+  if scopeLevel(Node, nodes_fun) > 0 then
     emitByte(0x0f)  // return
   endif
 endfun
@@ -2046,7 +2034,7 @@ endfun
 fun emitBreakif(i32 Node)
   emitNode(load32(Node + node_CNode))  // If condition expression
   emitByte(0x0d)  // br_if
-  emitUleb(loopLevel(Node) + 1)
+  emitUleb(scopeLevel(Node, nodes_loop) + 1)
 endfun
 
 fun emitNode(i32 Node)
@@ -2071,10 +2059,10 @@ fun emitNode(i32 Node)
     emitByte(load32(Node + node_type))
   elseif kind = nodes_break then
     emitByte(0x0c)  // br
-    emitUleb(loopLevel(Node) + 1)
+    emitUleb(scopeLevel(Node, nodes_loop) + 1)
   elseif kind = nodes_continue then
     emitByte(0x0c)  // br
-    emitUleb(loopLevel(Node))
+    emitUleb(scopeLevel(Node, nodes_loop))
   elseif kind = nodes_literal then
     emitLiteral(Node)
   elseif kind = nodes_identifier then
