@@ -93,7 +93,9 @@
           let out = main();
           let binLen = mem[out] + 256*mem[out + 1] + 256*256*mem[out + 2] + 256*256*256*mem[out + 3];
           out = out + 4;
-          compilerLog.value = byteToHexString(mem.slice(0, out + binLen));
+          if (binLen < 10000) {
+            compilerLog.value = byteToHexString(mem.slice(0, out + binLen));
+          };
           binary.value = byteToHexString(mem.slice(out, out + binLen));
         });
       };
