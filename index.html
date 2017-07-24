@@ -92,8 +92,12 @@
           if (i % 4 == 3) {
             hexStr += ' ';
           };
-        }
-        return hexStr.slice(0, -1);
+        };
+        hexStr = hexStr.replace(/02,de,c0,de,/g, '\nNode        ');
+        hexStr = hexStr.replace(/03,de,c0,de,/g, '\nScope       ');
+        hexStr = hexStr.replace(/04,de,c0,de,/g, '\nList        ');
+        hexStr = hexStr.replace(/05,de,c0,de,/g, '\nItem        ');
+        return hexStr;
       }
 
       compile.onclick = (e) => {
