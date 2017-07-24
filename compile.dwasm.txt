@@ -52,8 +52,11 @@ i32 tokens_then        := 81
 i32 tokens_elseif      := 82
 i32 tokens_else        := 83
 i32 tokens_endif       := 84
-i32 tokens_minPrec     := 92
-i32 tokens_assign      := 93   // :=
+i32 tokens_minPrec     := 89
+i32 tokens_assign      := 90   // :=
+i32 tokens_min         := 91
+i32 tokens_max         := 92
+i32 tokens_copys       := 93
 i32 tokens_or          := 94
 i32 tokens_xor         := 95
 i32 tokens_and         := 96
@@ -83,6 +86,13 @@ i32 tokens_divu        := 120
 i32 tokens_mod         := 121
 i32 tokens_modu        := 122
 i32 tokens_not         := 123
+i32 tokens_abs         := 130
+i32 tokens_neg         := 131
+i32 tokens_ceil        := 132
+i32 tokens_floor       := 133
+i32 tokens_trunc       := 134
+i32 tokens_round       := 135
+i32 tokens_sqrt        := 136
 i32 tokens_f64         := 124  // 0x7c
 i32 tokens_f32         := 125  // 0x7d 
 i32 tokens_i64         := 126  // 0x7e
@@ -1182,9 +1192,8 @@ fun i32 uLebLen(i32 i)
   elseif i <= 16383 then return 2
   elseif i <= 2097151 then return 3
   elseif i <= 268435455 then return 4
-  else return 0
   endif
-  return 0
+  return 5
 endfun
 
 fun emitUleb(i32 i)  // en.wikipedia.org/wiki/LEB128
@@ -1467,27 +1476,47 @@ endfun
 
 fun emitOperator(i32 type, i32 dataType)
   if dataType = tokens_f64 then
-    if type = tokens_eq   then emitByte(0x61) endif
-    if type = tokens_ne   then emitByte(0x62) endif
-    if type = tokens_lt   then emitByte(0x63) endif
-    if type = tokens_gt   then emitByte(0x64) endif
-    if type = tokens_le   then emitByte(0x65) endif
-    if type = tokens_ge   then emitByte(0x66) endif
-    if type = tokens_add  then emitByte(0xa0) endif
-    if type = tokens_sub  then emitByte(0xa1) endif
-    if type = tokens_mul  then emitByte(0xa2) endif
-    if type = tokens_div  then emitByte(0xa3) endif
+    if type = tokens_eq    then emitByte(0x61) endif
+    if type = tokens_ne    then emitByte(0x62) endif
+    if type = tokens_lt    then emitByte(0x63) endif
+    if type = tokens_gt    then emitByte(0x64) endif
+    if type = tokens_le    then emitByte(0x65) endif
+    if type = tokens_ge    then emitByte(0x66) endif
+    if type = tokens_abs   then emitByte(0x99) endif
+    if type = tokens_neg   then emitByte(0x9a) endif
+    if type = tokens_ceil  then emitByte(0x9b) endif
+    if type = tokens_floor then emitByte(0x9c) endif
+    if type = tokens_trunc then emitByte(0x9d) endif
+    if type = tokens_round then emitByte(0x9e) endif
+    if type = tokens_sqrt  then emitByte(0x9f) endif
+    if type = tokens_add   then emitByte(0xa0) endif
+    if type = tokens_sub   then emitByte(0xa1) endif
+    if type = tokens_mul   then emitByte(0xa2) endif
+    if type = tokens_div   then emitByte(0xa3) endif
+    if type = tokens_min   then emitByte(0xa4) endif
+    if type = tokens_max   then emitByte(0xa5) endif
+    if type = tokens_copys then emitByte(0xa6) endif
   elseif dataType = tokens_f32 then
-    if type = tokens_eq   then emitByte(0x5b) endif
-    if type = tokens_ne   then emitByte(0x5c) endif
-    if type = tokens_lt   then emitByte(0x5d) endif
-    if type = tokens_gt   then emitByte(0x5e) endif
-    if type = tokens_le   then emitByte(0x5f) endif
-    if type = tokens_ge   then emitByte(0x60) endif
-    if type = tokens_add  then emitByte(0x92) endif
-    if type = tokens_sub  then emitByte(0x93) endif
-    if type = tokens_mul  then emitByte(0x94) endif
-    if type = tokens_div  then emitByte(0x95) endif
+    if type = tokens_eq    then emitByte(0x5b) endif
+    if type = tokens_ne    then emitByte(0x5c) endif
+    if type = tokens_lt    then emitByte(0x5d) endif
+    if type = tokens_gt    then emitByte(0x5e) endif
+    if type = tokens_le    then emitByte(0x5f) endif
+    if type = tokens_ge    then emitByte(0x60) endif
+    if type = tokens_abs   then emitByte(0x8b) endif
+    if type = tokens_neg   then emitByte(0x8c) endif
+    if type = tokens_ceil  then emitByte(0x8d) endif
+    if type = tokens_floor then emitByte(0x8e) endif
+    if type = tokens_trunc then emitByte(0x8f) endif
+    if type = tokens_round then emitByte(0x90) endif
+    if type = tokens_sqrt  then emitByte(0x91) endif
+    if type = tokens_add   then emitByte(0x92) endif
+    if type = tokens_sub   then emitByte(0x93) endif
+    if type = tokens_mul   then emitByte(0x94) endif
+    if type = tokens_div   then emitByte(0x95) endif
+    if type = tokens_min   then emitByte(0x96) endif
+    if type = tokens_max   then emitByte(0x97) endif
+    if type = tokens_copys then emitByte(0x98) endif
   elseif dataType = tokens_i64 then
     if type = tokens_not  then emitByte(0x50) endif
     if type = tokens_eq   then emitByte(0x51) endif
