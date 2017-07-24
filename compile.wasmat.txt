@@ -187,7 +187,7 @@ fun i32 strLen(i32 String)
 endfun
 
 fun i32 getchar(i32 String, i32 offset)
-  return load8(String + string_Chars + offset)
+  return load8u(String + string_Chars + offset)
 endfun
 
 fun setchar(i32 String, i32 offset, i32 chr)
@@ -1238,7 +1238,7 @@ fun fixUlebGuess(i32 Start, i32 offset)
     loop
       Copy := Copy - 1
       breakif Copy < Start
-      store8(Copy + offset, load8(Copy))
+      store8(Copy + offset, load8u(Copy))
     endloop
   endif
 endfun
