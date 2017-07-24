@@ -203,7 +203,7 @@ fun i32 Substring(i32 String, i32 offset, i32 length)
   endif
   i32 R := NewString(length)
   loop
-    if length = 0 then break endif
+    breakif length = 0
     length := length - 1
     setchar(R, length, getchar(String, offset + length))
   endloop
@@ -219,7 +219,7 @@ fun bool strCompare(i32 A, i32 B)
         return false
         break
       endif
-      if offset >= length then break endif
+      breakif offset >= length
       offset := offset + 1
     endloop
   else
@@ -279,7 +279,7 @@ fun i32 ListSearch(i32 List, i32 FindName)
   i32 Item := load32(List + list_First)
   i32 Node := 0
   loop
-    if not Item then break endif
+    breakif not Item
     if strCompare(load32(Item + item_Name), FindName) then
       Node := load32(Item + item_Object)
       break
@@ -434,7 +434,7 @@ fun lexx()
       chr := getchar(Code, pos)
       start := pos
       loop
-        if chr = 39 then break endif
+        breakif chr = 39
         pos := pos + 1
         column := column + 1
         chr := getchar(Code, pos)
@@ -490,7 +490,7 @@ fun lexx()
       endif
       processToken(Val, line, column)
     endif
-    if pos >= length then break endif
+    breakif pos >= length
   endloop
 endfun
 
@@ -517,8 +517,8 @@ endfun
 fun i32 LookupFunctionScope(i32 Scope)
   i32 FunScope := Scope
   loop
-    if not FunScope then break endif
-    if load32(load32(FunScope + scope_Node) + node_kind) then break endif
+    breakif not FunScope
+    breakif load32(load32(FunScope + scope_Node) + node_kind)
     FunScope := load32(FunScope + scope_Parent)
   endloop
   return FunScope
@@ -542,9 +542,9 @@ fun i32 ScopeResolve(i32 Scope, i32 Name)
   i32 Node := 0
   i32 RecurseScope := Scope
   loop
-    if not RecurseScope then break endif
+    breakif not RecurseScope
     Node := ListSearch(load32(RecurseScope + scope_Symbols), Name)
-    if Node then break endif
+    breakif Node
     RecurseScope := load32(RecurseScope + scope_Parent)
   endloop
   return Node
@@ -617,7 +617,7 @@ fun i32 ParseFunParams()
   eatToken(tokens_lParen)
   loop
     type := load32(CurrentToken + token_kind)
-    if type = tokens_rParen then break endif
+    breakif type = tokens_rParen
     next()
     FunParamNode := NewNode()
     store32(FunParamNode + node_kind, nodes_parameter)
@@ -627,7 +627,7 @@ fun i32 ParseFunParams()
     store32(FunParamNode + node_String, Name)
     listAddName(Params, FunParamNode, Name)
     next()
-    if load32(CurrentToken + token_kind) <> tokens_comma then break endif
+    breakif load32(CurrentToken + token_kind) <> tokens_comma
     next()
   endloop
   eatToken(tokens_rParen)
@@ -642,10 +642,10 @@ fun i32 ParseFunBlock()
   store32(Node + node_Nodes, BodyList)
   store32(Node + node_Scope, CurrentScope)
   loop
-    if not CurrentToken then break endif
-    if load32(CurrentToken + token_kind) = tokens_endfun then break endif
+    breakif not CurrentToken
+    breakif load32(CurrentToken + token_kind) = tokens_endfun
     ChildNode := ParseStatement()
-    if not ChildNode then break endif
+    breakif not ChildNode
     listAdd(BodyList, ChildNode)
   endloop
   return Node
@@ -670,7 +670,7 @@ fun i32 ParseFunDeclaration(i32 type, i32 Name)
   pushScope(Node)
   ParamItem := load32(ParamList + list_First)
   loop
-    if not ParamItem then break endif
+    breakif not ParamItem
     ParamName := load32(ParamItem + item_Name)
     scopeRegister(CurrentScope, ParamName, load32(ParamItem + item_Object))
     ParamItem := load32(ParamItem + item_Next)
@@ -729,9 +729,9 @@ fun i32 ParseCallParams()
   i32 ParamList := Alloc(list_size)
   eatToken(tokens_lParen)
   loop
-    if load32(CurrentToken + token_kind) = tokens_rParen then break endif
+    breakif load32(CurrentToken + token_kind) = tokens_rParen
     listAdd(ParamList, ParseExpression(tokens_minPrec))
-    if load32(CurrentToken + token_kind) <> tokens_comma then break endif
+    breakif load32(CurrentToken + token_kind) <> tokens_comma
     eatToken(tokens_comma)
   endloop
   eatToken(tokens_rParen)
@@ -822,9 +822,9 @@ fun i32 ParseExpression(i32 level)
   else
     Node := ParsePrefix()
     loop
-      if not CurrentToken then break endif
+      breakif not CurrentToken
       Expr := ParseInfix(level, Node)
-      if Expr = 0 or Expr = Node then break endif
+      breakif Expr = 0 or Expr = Node
       Node := Expr
     endloop
   endif
@@ -863,8 +863,8 @@ fun i32 ParseReturnStatement()
   store32(Node + node_ANode, ParseExpression(tokens_minPrec))
   Scope := CurrentScope
   loop
-    if not Scope then break endif
-    if load32(load32(Scope + scope_Node) + node_kind) = nodes_fun then break endif
+    breakif not Scope
+    breakif load32(load32(Scope + scope_Node) + node_kind) = nodes_fun
     Scope := load32(Scope + scope_Parent)
   endloop
   store32(load32(Scope + scope_Node) + node_ANode, Node)
@@ -879,12 +879,12 @@ fun i32 ParseIfBlock()
   store32(Node + node_Nodes, BodyList)
   store32(Node + node_Scope, CurrentScope)
   loop
-    if not CurrentToken then break endif
-    if load32(CurrentToken + token_kind) = tokens_else then break endif
-    if load32(CurrentToken + token_kind) = tokens_elseif then break endif
-    if load32(CurrentToken + token_kind) = tokens_endif then break endif
+    breakif not CurrentToken
+    breakif load32(CurrentToken + token_kind) = tokens_else
+    breakif load32(CurrentToken + token_kind) = tokens_elseif
+    breakif load32(CurrentToken + token_kind) = tokens_endif
     ChildNode := ParseStatement()
-    if not ChildNode then break endif
+    breakif not ChildNode
     listAdd(BodyList, ChildNode)
   endloop
   return Node
@@ -923,10 +923,10 @@ fun i32 ParseLoopBlock()
   store32(Node + node_Nodes, BodyList)
   store32(Node + node_Scope, CurrentScope)
   loop
-    if not CurrentToken then break endif
-    if load32(CurrentToken + token_kind) = tokens_endloop then break endif
+    breakif not CurrentToken
+    breakif load32(CurrentToken + token_kind) = tokens_endloop
     ChildNode := ParseStatement()
-    if not ChildNode then break endif
+    breakif not ChildNode
     listAdd(BodyList, ChildNode)
   endloop
   return Node
@@ -1007,9 +1007,9 @@ fun parse()
   i32 BodyList := Alloc(list_size)
   store32(RootNode + node_Nodes, BodyList)
   loop
-    if not CurrentToken then break endif
+    breakif not CurrentToken
     Child := ParseStatement()
-    if not Child then break endif
+    breakif not Child
     listAdd(BodyList, Child)
   endloop
 endfun
@@ -1033,7 +1033,7 @@ fun i32 strToI32(i32 V)  // Supports ints and 0x-prefixed hex
     offset := 2
     if getchar(V, 2) = 'x' then offset := 3 endif
     loop
-      if offset >= length then break endif
+      breakif offset >= length
       i := i * 16
       c := getchar(V, offset)
       if c >= '0' and c <= '9' then
@@ -1047,7 +1047,7 @@ fun i32 strToI32(i32 V)  // Supports ints and 0x-prefixed hex
     endloop
   else
     loop
-      if offset >= length then break endif
+      breakif offset >= length
       i := i * 10
       c := getchar(V, offset)
       if c >= '0' and c <= '9' then
@@ -1074,7 +1074,7 @@ fun i64 strToI64(i32 V)
   if hex then
     offset := 2
     loop
-      if offset >= length then break endif
+      breakif offset >= length
       i := i * 16
       c := getchar(V, offset)
       if c >= '0' and c <= '9' then
@@ -1088,7 +1088,7 @@ fun i64 strToI64(i32 V)
     endloop
   else
     loop
-      if offset >= length then break endif
+      breakif offset >= length
       i := i * 10
       c := getchar(V, offset)
       if c >= '0' and c <= '9' then
@@ -1109,7 +1109,7 @@ fun f32 strToF32(i32 V)
   f32 d := 1
   bool afterDot := false
   loop
-    if offset >= length then break endif
+    breakif offset >= length
     c := getchar(V, offset)
     if c = '.' then
       afterDot := true
@@ -1137,7 +1137,7 @@ fun f64 strToF64(i32 V)
   f64 d := 1
   bool afterDot := false
   loop
-    if offset >= length then break endif
+    breakif offset >= length
     c := getchar(V, offset)
     if c = '.' then
       afterDot := true
@@ -1189,7 +1189,7 @@ endfun
 
 fun emitUleb(i32 i)  // en.wikipedia.org/wiki/LEB128
   loop
-    if i < 128 then break endif
+    breakif i < 128
     emitByte(128 + (i mod 128))
     i := i / 128  
   endloop
@@ -1199,14 +1199,14 @@ endfun
 fun emitSleb(i32 i)
   if i >= 0 then 
     loop
-      if i < 64 then break endif
+      breakif i < 64
       emitByte(128 + (i mod 128))
       i := i / 128
     endloop
     emitByte(i)
   else
     loop
-      if i >= -64 then break endif
+      breakif i >= -64
       emitByte((i mod 128) - 128)
       i := i / 128
     endloop
@@ -1217,14 +1217,14 @@ endfun
 fun emitSleb64(i64 i)
   if i >= 0 then 
     loop
-      if i < 64 then break endif
+      breakif i < 64
       emitByte(i64_i32(128 + (i mod 128)))
       i := i / 128
     endloop
     emitByte(i64_i32(i))
   else
     loop
-      if i >= -64 then break endif
+      breakif i >= -64
       emitByte(i64_i32((i mod 128) - 128))
       i := i / 128
     endloop
@@ -1237,7 +1237,7 @@ fun fixUlebGuess(i32 Start, i32 offset)
   if offset > 0 then
     loop
       Copy := Copy - 1
-      if Copy < Start then break endif
+      breakif Copy < Start
       store8(Copy + offset, load8(Copy))
     endloop
   endif
@@ -1250,7 +1250,7 @@ fun emitType(i32 Node)
   emitUleb(load32(ParamList + list_count)) 
   i32 ParamItem := load32(ParamList + list_First)
   loop
-    if not ParamItem then break endif
+    breakif not ParamItem
     dataType := load32(load32(ParamItem + item_Object) + node_type)
     if dataType = tokens_bool then dataType := tokens_i32 endif
     emitByte(dataType)
@@ -1291,7 +1291,7 @@ fun emitTypeSection()
           emitFunCount := emitFunCount + 1
         endif
         Item := load32(Item + item_Next)
-        if not Item then break endif
+        breakif not Item
       endloop
       length := BinaryPointer - Start
       offset := uLebLen(count) - 1 + uLebLen(length) - 1
@@ -1316,7 +1316,7 @@ fun emitFunctionSection()
     Start := BinaryPointer 
     emitUleb(emitFunCount)  // types count
     loop
-      if counter >= emitFunCount then break endif
+      breakif counter >= emitFunCount
       emitUleb(counter)
       counter := counter + 1
     endloop
@@ -1400,7 +1400,7 @@ fun emitGlobalSection()
           emitGlobalCount := emitGlobalCount + 1
         endif
         Item := load32(Item + item_Next)
-        if not Item then break endif
+        breakif not Item
       endloop
       length := BinaryPointer - Start
       offset := uLebLen(count) - 1 + uLebLen(length) - 1
@@ -1642,7 +1642,7 @@ fun emitFunCallArguments(i32 CallNode, i32 FunNode)
   i32 ParamItem := load32(ParamList + list_First)
   i32 ParamNode := 0
   loop
-    if not ArgumentItem then break endif
+    breakif not ArgumentItem
     ArgumentNode := load32(ArgumentItem + item_Object)
     ParamNode := load32(ParamItem + item_Object)
     store32(ArgumentNode + node_dataType, load32(ParamNode + node_dataType))
@@ -1657,7 +1657,7 @@ fun emitCallArguments(i32 CallNode, i32 data_Type)
   i32 ArgumentItem := load32(ArgumentList + list_First)
   i32 ArgumentNode := 0
   loop
-    if not ArgumentItem then break endif
+    breakif not ArgumentItem
     ArgumentNode := load32(ArgumentItem + item_Object)
     store32(ArgumentNode + node_dataType, data_Type)
     emitNode(ArgumentNode)
@@ -1671,7 +1671,7 @@ fun emitCallArguments2(i32 CallNode, i32 data_TypeA, i32 data_TypeB)
   i32 ArgumentNode := 0
   bool first := true
   loop
-    if not ArgumentItem then break endif
+    breakif not ArgumentItem
     ArgumentNode := load32(ArgumentItem + item_Object)
     if first then
       store32(ArgumentNode + node_dataType, data_TypeA)
@@ -1888,7 +1888,7 @@ fun emitBlock(i32 Node)
   i32 BlockList := load32(Node + node_Nodes)
   i32 Item := load32(BlockList + list_First)
   loop
-    if not Item then break endif
+    breakif not Item
     emitNode(load32(Item + item_Object))
     Item := load32(Item + item_Next)
   endloop
@@ -1910,12 +1910,12 @@ fun emitIf(i32 Node)
   emitByte(0x0b)  // end
 endfun
 
-fun i32 loopLevel() 
-  i32 Scope := CurrentScope
+fun i32 loopLevel(i32 Node) 
+  i32 Scope := load32(Node + node_Scope)
   i32 level := 0
   loop
-    if not Scope then break endif
-    if load32(load32(Scope + scope_Node) + node_kind) = nodes_loop then break endif
+    breakif not Scope
+    breakif load32(load32(Scope + scope_Node) + node_kind) = nodes_loop
     level := level + 1
     Scope := load32(Scope + scope_Parent)
   endloop
@@ -2024,8 +2024,8 @@ fun i32 funLevel()
   i32 Scope := CurrentScope
   i32 level := 0
   loop
-    if not Scope then break endif
-    if load32(load32(Scope + scope_Node) + node_kind) = nodes_fun then break endif
+    breakif not Scope
+    breakif load32(load32(Scope + scope_Node) + node_kind) = nodes_fun
     level := level + 1
     Scope := load32(Scope + scope_Parent)
   endloop
@@ -2046,7 +2046,7 @@ endfun
 fun emitBreakif(i32 Node)
   emitNode(load32(Node + node_CNode))  // If condition expression
   emitByte(0x0d)  // br_if
-  emitUleb(loopLevel() + 1)
+  emitUleb(loopLevel(Node) + 1)
 endfun
 
 fun emitNode(i32 Node)
@@ -2071,10 +2071,10 @@ fun emitNode(i32 Node)
     emitByte(load32(Node + node_type))
   elseif kind = nodes_break then
     emitByte(0x0c)  // br
-    emitUleb(loopLevel() + 1)
+    emitUleb(loopLevel(Node) + 1)
   elseif kind = nodes_continue then
     emitByte(0x0c)  // br
-    emitUleb(loopLevel())
+    emitUleb(loopLevel(Node))
   elseif kind = nodes_literal then
     emitLiteral(Node)
   elseif kind = nodes_identifier then
@@ -2093,7 +2093,7 @@ fun emitFunNode(i32 Node)
   emitUleb(load32(LocalList + list_count))
   i32 LocalItem := load32(LocalList + list_First)
   loop
-    if not LocalItem then break endif
+    breakif not LocalItem
     emitByte(0x01)  // count
     dataType := load32(load32(LocalItem + item_Object) + node_type)
     if dataType = tokens_bool then dataType := tokens_i32 endif
@@ -2130,7 +2130,7 @@ fun emitCodeSection()
         emitFunNode(FunNode)
       endif
       FunItem := load32(FunItem + item_Next)
-      if not FunItem then break endif
+      breakif not FunItem
     endloop
     length := BinaryPointer - Start
     offset := uLebLen(length) - 1
