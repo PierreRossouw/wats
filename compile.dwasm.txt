@@ -126,11 +126,12 @@ i32 item_Object := 8  // TODO: find this bug - if item_Object <> 8 the program b
 i32 item_Name   := 12
 i32 item_size   := 16
 
-i32 token_kind   := 0
-i32 token_Value  := 4
-i32 token_line   := 8
-i32 token_column := 12
-i32 token_size   := 16
+i32 token_dec0de := 0  // debugging marker
+i32 token_kind   := 4
+i32 token_Value  := 8
+i32 token_line   := 12
+i32 token_column := 16
+i32 token_size   := 20
 
 i32 node_dec0de     := 0   // debugging marker
 i32 node_kind       := 4   // From the nodes_ enum
@@ -363,6 +364,7 @@ fun addToken(i32 kind, i32 Value, i32 line, i32 column)
     TokenList := Alloc(list_size)
   endif
   i32 Token := Alloc(token_size)
+  store32(Token + token_dec0de, 6 - DEC0DE)
   store32(Token + token_kind, kind)
   store32(Token + token_Value, Value)
   store32(Token + token_line, line)
