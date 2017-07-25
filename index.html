@@ -51,11 +51,13 @@
       xmlhttp = new XMLHttpRequest();
       xmlhttp.open('GET', 'compile.dwasm.txt', false);
       xmlhttp.send();
-      code.value = xmlhttp.responseText;
       compilerSource.innerHTML = xmlhttp.responseText;
       xmlhttp.open('GET', 'compile.dwasm.bin.txt', false);
       xmlhttp.send();
       compilerBinary.value = xmlhttp.responseText;
+      xmlhttp.open('GET', 'playtest.dwasm.txt', false);
+      xmlhttp.send();
+      code.value = xmlhttp.responseText;
 
       function hexStringToByte(str) {
         if (!str) {
