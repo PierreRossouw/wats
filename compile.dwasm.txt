@@ -94,21 +94,19 @@ i32 tokens_divu        := 120
 i32 tokens_mod         := 121
 i32 tokens_modu        := 122
 i32 tokens_not         := 123
-i32 tokens_abs         := 130  // TODO
-i32 tokens_neg         := 131  // TODO
-i32 tokens_ceil        := 132  // TODO
-i32 tokens_floor       := 133  // TODO
-i32 tokens_trunc       := 134  // TODO
-i32 tokens_round       := 135  // TODO
-i32 tokens_sqrt        := 136  // TODO
-i32 tokens_f64         := 124  // 0x7c
+i32 tokens_abs         := 130 
+i32 tokens_neg         := 131
+i32 tokens_ceil        := 132
+i32 tokens_floor       := 133
+i32 tokens_trunc       := 134
+i32 tokens_round       := 135
+i32 tokens_sqrt        := 136
+i32 tokens_f64         := 124  // 0x7c  (Data types)
 i32 tokens_f32         := 125  // 0x7d 
 i32 tokens_i64         := 126  // 0x7e
 i32 tokens_i32         := 127  // 0x7f
 i32 tokens_bool        := 128  // synonym for i32
 i32 tokens_ptr         := 129  // synonym for i32
-
-i32 error_eatToken := 1
 
 // Structs
 i32 string_length := 0
@@ -122,7 +120,7 @@ i32 list_size   := 16
 
 i32 item_dec0de := 0  // debugging marker
 i32 item_Next   := 4
-i32 item_Object := 8  // TODO: find this bug - if item_Object <> 8 the program breaks
+i32 item_Object := 8 
 i32 item_Name   := 12
 i32 item_size   := 16
 
@@ -402,6 +400,7 @@ fun processToken(i32 Val, i32 line, i32 column)
   elseif stringCompare32(Val, 'f32')      then kind := tokens_f32
   elseif stringCompare32(Val, 'f64')      then kind := tokens_f64
   elseif stringCompare32(Val, 'bool')     then kind := tokens_bool
+  elseif stringCompare32(Val, 'ptr')      then kind := tokens_ptr
   elseif stringCompare32(Val, ':=')       then kind := tokens_assign
   elseif stringCompare32(Val, 'or')       then kind := tokens_or
   elseif stringCompare32(Val, 'xor')      then kind := tokens_xor
@@ -428,6 +427,13 @@ fun processToken(i32 Val, i32 line, i32 column)
   elseif stringCompare32(Val, 'mod')      then kind := tokens_mod 
   elseif stringCompare32(Val, 'modu')     then kind := tokens_modu 
   elseif stringCompare32(Val, 'not')      then kind := tokens_not 
+  elseif stringCompare32(Val, 'neg')      then kind := tokens_neg 
+  elseif stringCompare64(Val, 'ceiling')  then kind := tokens_ceil
+  elseif stringCompare64(Val, 'floor')    then kind := tokens_floor
+  elseif stringCompare64(Val, 'trunc')    then kind := tokens_trunc
+  elseif stringCompare64(Val, 'round')    then kind := tokens_round
+  elseif stringCompare64(Val, 'sqrt')     then kind := tokens_sqrt
+  elseif stringCompare32(Val, 'abs')      then kind := tokens_abs
   elseif stringCompare32(Val, 'clz')      then kind := tokens_clz 
   elseif stringCompare32(Val, 'ctz')      then kind := tokens_ctz 
   elseif stringCompare32(Val, 'cnt')      then kind := tokens_cnt 
@@ -669,7 +675,8 @@ endfun
 fun bool isUnaryOperator(i32 Token)
   i32 kind := load32(Token + token_kind)
   return kind = tokens_sub or kind = tokens_not or kind = tokens_cnt or kind = tokens_clz or 
-         kind = tokens_ctz
+         kind = tokens_ctz or kind = tokens_abs or kind = tokens_neg or kind = tokens_ceil or
+         kind = tokens_floor or kind = tokens_trunc or kind = tokens_round or kind = tokens_sqrt 
 endfun
 
 fun bool isLiteral(i32 Token)
@@ -681,14 +688,13 @@ endfun
 fun bool isNativeType(i32 Token)
   i32 kind := load32(Token + token_kind)
   return kind = tokens_i32 or kind = tokens_i64 or kind = tokens_f32 or kind = tokens_f64 or 
-         kind = tokens_bool
+         kind = tokens_bool or kind = tokens_ptr
 endfun
 
 fun eatToken(i32 kind)
   if load32(CurrentToken + token_kind) = kind then
     nextToken()
   else
-    debug(error_eatToken)  // error number
     debug(kind)
     debug(load32(CurrentToken + token_kind))
     debug(CurrentToken)
@@ -1143,7 +1149,6 @@ fun parse()
   RootNode := NewNode()
   ExportList := Alloc(list_size)
   DataList := Alloc(list_size)
-  store32(DataList + list_dec0de, 4 - DEC0DE)  // TODO delete
   CurrentTokenItem := load32(TokenList + list_First)
   CurrentToken := load32(CurrentTokenItem + item_Object)
   store32(RootNode + node_kind, nodes_program)
@@ -1407,14 +1412,18 @@ fun emitType(i32 Node)
   loop
     breakif not ParamItem
     dataType := load32(load32(ParamItem + item_Object) + node_type)
-    if dataType = tokens_bool then dataType := tokens_i32 endif
+    if dataType = tokens_bool or dataType = tokens_ptr then 
+      dataType := tokens_i32 
+    endif
     emitByte(dataType)
     ParamItem := load32(ParamItem + item_Next)
   endloop
   i32 returnType := load32(Node + node_type)
   if returnType then
     emitByte(0x01)  // return count
-    if returnType = tokens_bool then returnType := tokens_i32 endif
+    if returnType = tokens_bool or dataType = tokens_ptr then 
+      returnType := tokens_i32 
+    endif
     emitByte(returnType)
   else
     emitByte(0x00)  // return count
@@ -2279,7 +2288,9 @@ fun emitFunNode(i32 Node)
     breakif not LocalItem
     emitByte(0x01)  // count
     dataType := load32(load32(LocalItem + item_Object) + node_type)
-    if dataType = tokens_bool then dataType := tokens_i32 endif
+    if dataType = tokens_bool or dataType = tokens_ptr then
+      dataType := tokens_i32
+    endif
     emitByte(dataType)
     LocalItem := load32(LocalItem + item_Next)
   endloop
