@@ -30,6 +30,7 @@ i32 nodes_continue   := 15
 i32 nodes_hexwasm    := 16  // WebAssembly code byte e.g. tokens_stop
 i32 nodes_breakif    := 17
 i32 nodes_mem        := 18
+i32 nodes_data       := 19
 
 i32 tokens_identifier  := 43
 i32 tokens_strLiteral  := 45
@@ -48,6 +49,7 @@ i32 tokens_stop        := 64
 i32 tokens_nop         := 65
 i32 tokens_mem         := 66
 i32 tokens_export      := 67
+i32 tokens_data        := 68
 i32 tokens_loop        := 70
 i32 tokens_continue    := 71
 i32 tokens_break       := 72
@@ -157,6 +159,7 @@ i32 Code             := 8
 i32 Heap             := 8  // Memory management - reserve 0-7 for null pointers
 i32 TokenList        := 0
 i32 ExportList       := 0
+i32 DataList         := 0
 i32 funIndex         := 0  // Next function index number
 i32 CurrentTokenItem := 0
 i32 CurrentToken     := 0
@@ -380,6 +383,7 @@ fun processToken(i32 Val, i32 line, i32 column)
   elseif stringCompare32(Val, 'stop')     then kind := tokens_stop
   elseif stringCompare32(Val, 'nop')      then kind := tokens_nop
   elseif stringCompare32(Val, 'mem')      then kind := tokens_mem
+  elseif stringCompare32(Val, 'data')     then kind := tokens_data
   elseif stringCompare64(Val, 'export')   then kind := tokens_export
   elseif stringCompare32(Val, 'loop')     then kind := tokens_loop
   elseif stringCompare64(Val, 'continue') then kind := tokens_continue
@@ -1082,6 +1086,27 @@ fun i32 ParseMem()
   return Node
 endfun
 
+fun i32 ParseData()
+  i32 Node := NewNode()
+  i32 OffsetToken := 0
+  i32 DataToken := 0
+  store32(Node + node_kind, nodes_data)
+  eatToken(tokens_data)
+  if load32(CurrentToken + token_kind) = tokens_numLiteral then
+    OffsetToken := CurrentToken
+    store32(Node + node_ANode, OffsetToken)
+    nextToken()
+    if load32(CurrentToken + token_kind) = tokens_strLiteral then
+      DataToken := CurrentToken
+      listAddName(DataList, OffsetToken, DataToken)
+      debug(DataToken)
+      store32(Node + node_BNode, DataToken)
+      nextToken()
+    endif
+  endif
+  return Node
+endfun
+
 fun i32 ParseStatement()
   i32 Node := 0
   i32 kind := load32(CurrentToken + token_kind)
@@ -1090,6 +1115,8 @@ fun i32 ParseStatement()
     Node := ParseFun()
   elseif kind = tokens_mem then
     Node := ParseMem()
+  elseif kind = tokens_data then
+    Node := ParseData()
   elseif isNativeType(CurrentToken) then
     Node := ParseDeclaration()
   elseif kind = tokens_return then
@@ -1113,7 +1140,8 @@ endfun
 fun parse()
   RootNode := NewNode()
   ExportList := Alloc(list_size)
-  store32(ExportList + list_dec0de, 4 - DEC0DE)
+  DataList := Alloc(list_size)
+  store32(DataList + list_dec0de, 4 - DEC0DE)  // TODO delete
   CurrentTokenItem := load32(TokenList + list_First)
   CurrentToken := load32(CurrentTokenItem + item_Object)
   store32(RootNode + node_kind, nodes_program)
@@ -2294,6 +2322,47 @@ fun emitCodeSection()
   endif
 endfun
 
+fun emitDataSection()
+  i32 Start := 0
+  i32 length := 0
+  i32 offset := 0
+  i32 count := load32(DataList + list_count)
+  i32 DataItem := 0
+  i32 DataString := 0
+  i32 i := 0
+  i32 dataLength := 0
+  if count then
+    emitByte(0x0b)  // Code section
+    emitByte(0x00)  // Section size (guess)
+    Start := BinaryPointer 
+    emitUleb(count)
+    DataItem := load32(DataList + list_First)
+    loop
+      emitByte(0x00)  // memory index 
+      emitByte(0x41)  // i32.const
+      emitUleb(strToI32(load32(load32(DataItem + item_Object) + token_Value)))  // offset
+      emitByte(0x0b)  // end
+      DataString := load32(load32(DataItem + item_Name) + token_Value)
+      dataLength := strLen(DataString)
+      emitUleb(dataLength)
+      i := 0
+      loop
+        breakif i >= dataLength
+        emitByte(getchar(DataString, i))
+        i := i + 1
+      endloop
+      DataItem := load32(DataItem + item_Next)
+      breakif not DataItem
+    endloop
+    length := BinaryPointer - Start
+    offset := uLebLen(length) - 1
+    fixUlebGuess(Start, offset)
+    BinaryPointer := Start - 1
+    emitUleb(length)
+    BinaryPointer := BinaryPointer + length
+  endif
+endfun
+
 fun emit(i32 length)
   Binary := NewString(length + 256)  // Heuristic: binary will be smaller than length(source) + 256
   BinaryPointer := Binary + string_Chars
@@ -2309,6 +2378,7 @@ fun emit(i32 length)
   emitGlobalSection()
   emitExportSection()
   emitCodeSection()
+  emitDataSection()
   store32(Binary + string_length, BinaryPointer - (Binary + string_Chars))  // Fix up the length
 endfun
 
