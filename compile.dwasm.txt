@@ -168,7 +168,7 @@ i32 emitGlobalCount  := 0
 i32 emitFunCount     := 0
 i32 CurrentFunNode   := 0
 
-fun i32 main() export
+fun i32 Compile() export "main"
   i32 length := load32(Code + string_length)
   i32 i := Alloc(string_Chars + length)  
   lexx()
