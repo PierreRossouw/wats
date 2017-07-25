@@ -5,7 +5,7 @@
 // Pointers and functions returning pointers start with a Capital letter
 // Constants are ALL CAPS
 
-// TODO: mem 100, 100 export "memory"
+mem 200 export
 
 // Constants
 i32 SIZEINT := 4  // Most browsers currently only support 32bit sized WASM memories
@@ -46,8 +46,8 @@ i32 tokens_endfun      := 62
 i32 tokens_hexwasm     := 63
 i32 tokens_stop        := 64
 i32 tokens_nop         := 65
-i32 tokens_mem         := 66  // TODO
-i32 tokens_export      := 67  // TODO
+i32 tokens_mem         := 66
+i32 tokens_export      := 67
 i32 tokens_loop        := 70
 i32 tokens_continue    := 71
 i32 tokens_break       := 72
@@ -1031,6 +1031,7 @@ fun i32 ParseMem()
     eatToken(tokens_export)
     if load32(CurrentToken + token_kind) = tokens_strLiteral then
       MemExport := load32(CurrentToken + token_Value)
+      nextToken()
     else
       MemExport := load32(MemToken + token_Value)
     endif
@@ -1400,14 +1401,28 @@ fun emitFunctionSection()
   endif
 endfun
 
-// Memory is exported as 'mem' and is a fixed size
-// This compiler takes about 1MB to compile
 fun emitMemorySection()
-  emitByte(0x05)  // Memory section
-  emitUleb(0x03)  // Size in bytes
-  emitByte(0x01)  // Count. A maximum of 1 currently in WebAssembly
-  emitByte(0x00)  // Resizable flag
-  emitByte(0x7f)  // Pages (A page is 64kb)
+  emitByte(0x05)  // Memory section. A maximum of 1 currently in WebAssembly
+  if memMin then
+    if memMax then
+      if memMax < memMin then memMax := memMin endif
+      emitUleb(2 + uLebLen(memMin) + uLebLen(memMax))  // Size in bytes
+      emitByte(0x01)  // Count 
+      emitByte(0x01)  // Resizable
+      emitUleb(memMin)  // Pages
+      emitUleb(memMax)  // Pages
+    else
+      emitUleb(2 + uLebLen(memMin))  // Size in bytes
+      emitByte(0x01)  // Count
+      emitByte(0x00)  // Resizable
+      emitUleb(memMin)  // Pages
+    endif
+  else
+    emitUleb(0x03)  // Size in bytes
+    emitByte(0x01)  // Count
+    emitByte(0x00)  // Resizable
+    emitByte(0x01)  // Pages
+  endif
 endfun
 
 fun emitNativeGlobal(i32 Node)
@@ -1507,6 +1522,19 @@ fun emitExportFuns()
   endloop
 endfun
 
+fun emitExportMem()
+  i32 length := strLen(MemExport)
+  i32 i := 0
+  emitUleb(length)
+  loop
+    breakif i >= length
+    emitByte(getchar(MemExport, i))
+    i := i + 1
+  endloop
+  emitByte(0x02)  // Type: memory
+  emitByte(0x00)  // Memory number 0 
+endfun
+
 fun emitExportSection()
   i32 funCount := 0
   i32 Start := 0
@@ -1518,15 +1546,19 @@ fun emitExportSection()
     if funCount then
       emitByte(0x07)  // Export section
       emitByte(0x00)  // Section size (guess)
-      Start := BinaryPointer 
-      if load32(ExportList + list_count) then
-        emitUleb(1 + load32(ExportList + list_count))  // Export count
+      Start := BinaryPointer
+      emitUleb(1 + load32(ExportList + list_count))  // Export count
+      if MemExport then
+        emitExportMem()
+      else
         emitByte(0x03)  // Name length
         emitByte(0x6d)  // m
         emitByte(0x65)  // e
         emitByte(0x6d)  // m
         emitByte(0x02)  // Type: memory
         emitByte(0x00)  // Memory number 0 
+      endif
+      if load32(ExportList + list_count) then
         emitExportFuns()
       endif
       length := BinaryPointer - Start
