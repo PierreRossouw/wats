@@ -29,6 +29,7 @@ i32 nodes_break      := 14
 i32 nodes_continue   := 15
 i32 nodes_hexwasm    := 16  // WebAssembly code byte e.g. tokens_stop
 i32 nodes_breakif    := 17
+i32 nodes_mem        := 18
 
 i32 tokens_identifier  := 43
 i32 tokens_strLiteral  := 45
@@ -167,6 +168,9 @@ i32 BinaryPointer    := 0
 i32 emitGlobalCount  := 0
 i32 emitFunCount     := 0
 i32 CurrentFunNode   := 0
+i32 MemExport        := 0
+i32 memMin           := 0
+i32 memMax           := 0
 
 fun i32 Compile() export "main"
   i32 length := load32(Code + string_length)
@@ -1012,12 +1016,36 @@ fun i32 ParseDeclaration()
   return Node
 endfun
 
+fun i32 ParseMem()
+  i32 Node := NewNode()
+  i32 MemToken := CurrentToken
+  store32(Node + node_kind, nodes_mem)
+  eatToken(tokens_mem)
+  memMin := strToI32(load32(CurrentToken + token_Value))
+  nextToken()
+  if load32(CurrentToken + token_kind) = tokens_numLiteral then
+    memMax := strToI32(load32(CurrentToken + token_Value))
+    nextToken()
+  endif
+  if load32(CurrentToken + token_kind) = tokens_export then
+    eatToken(tokens_export)
+    if load32(CurrentToken + token_kind) = tokens_strLiteral then
+      MemExport := load32(CurrentToken + token_Value)
+    else
+      MemExport := load32(MemToken + token_Value)
+    endif
+  endif
+  return Node
+endfun
+
 fun i32 ParseStatement()
   i32 Node := 0
   i32 kind := load32(CurrentToken + token_kind)
   if kind = tokens_fun then
     eatToken(tokens_fun)
     Node := ParseFun()
+  elseif kind = tokens_mem then
+    Node := ParseMem()
   elseif isNativeType(CurrentToken) then
     Node := ParseDeclaration()
   elseif kind = tokens_return then
