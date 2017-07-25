@@ -16,7 +16,7 @@ The compiler will return a memory location for the compiled binary.
 - Decompiler to dwasm
 
 ### Updates
-2017-07-25: Named exports of functions   
+2017-07-25: Named exports of functions and memory   
 2017-07-23: i64, f32 and f64 types. All native types are now supported  
 2017-07-21: Support bool as a synonym for i32, added true and false keywords  
 2017-07-10: Inline hex binary literals - for example use x00 to trap or x01 for NOP  
