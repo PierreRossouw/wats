@@ -116,7 +116,6 @@ pre[class*="language-"] {
 }
 
 .token.operator,
-.token.punctuation,
 .token.keyword {
 	color: #E91E63;
 }
