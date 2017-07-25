@@ -1402,26 +1402,21 @@ fun emitFunctionSection()
 endfun
 
 fun emitMemorySection()
-  emitByte(0x05)  // Memory section. A maximum of 1 currently in WebAssembly
-  if memMin then
+  if memMin or memMax then
+    emitByte(0x05)  // Memory section
     if memMax then
       if memMax < memMin then memMax := memMin endif
       emitUleb(2 + uLebLen(memMin) + uLebLen(memMax))  // Size in bytes
-      emitByte(0x01)  // Count 
-      emitByte(0x01)  // Resizable
+      emitByte(0x01)    // Count. A maximum of 1 currently in WebAssembly
+      emitByte(0x01)    // Resizable
       emitUleb(memMin)  // Pages
       emitUleb(memMax)  // Pages
     else
       emitUleb(2 + uLebLen(memMin))  // Size in bytes
-      emitByte(0x01)  // Count
-      emitByte(0x00)  // Resizable
+      emitByte(0x01)    // Count
+      emitByte(0x00)    // Resizable
       emitUleb(memMin)  // Pages
     endif
-  else
-    emitUleb(0x03)  // Size in bytes
-    emitByte(0x01)  // Count
-    emitByte(0x00)  // Resizable
-    emitByte(0x01)  // Pages
   endif
 endfun
 
@@ -1536,27 +1531,21 @@ fun emitExportMem()
 endfun
 
 fun emitExportSection()
-  i32 funCount := 0
+  i32 count := 0
   i32 Start := 0
   i32 length := 0
   i32 offset := 0
   i32 BodyList := load32(RootNode + node_Nodes)
   if BodyList then
-    funCount := load32(BodyList + list_count)
-    if funCount then
+    count := load32(ExportList + list_count)
+    if MemExport then count := count + 1 endif
+    if count then
       emitByte(0x07)  // Export section
       emitByte(0x00)  // Section size (guess)
       Start := BinaryPointer
-      emitUleb(1 + load32(ExportList + list_count))  // Export count
+      emitUleb(count)  // Export count
       if MemExport then
         emitExportMem()
-      else
-        emitByte(0x03)  // Name length
-        emitByte(0x6d)  // m
-        emitByte(0x65)  // e
-        emitByte(0x6d)  // m
-        emitByte(0x02)  // Type: memory
-        emitByte(0x00)  // Memory number 0 
       endif
       if load32(ExportList + list_count) then
         emitExportFuns()
