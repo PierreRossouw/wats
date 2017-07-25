@@ -130,10 +130,7 @@
           let mem = new Uint8Array(results.instance.exports.mem.buffer);
           let out = main();
           execResult.value = out;
-          let binLen = mem[out] + 256*mem[out + 1] + 256*256*mem[out + 2] + 256*256*256*mem[out + 3];
-          out = out + 4;
-          execMemDump.value = byteToDumpString(mem.slice(0, out + binLen));
-          execResultString.value = byteToHexString(mem.slice(out, out + binLen));
+          execMemDump.value = byteToDumpString(mem.slice(0, 24000));
         });
       };
     </script>
