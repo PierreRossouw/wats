@@ -556,7 +556,7 @@ Prism.languages.clike = {
 			punctuation: /(\.|\\)/
 		}
 	},
-	'keyword': /\b(export|or|and|nop|stop|breakif|elseif|if|then|else|elseif|endif|loop|endloop|return|fun|endfun|break|continue|not|mod|modu)\b/,
+	'keyword': /\b(data|mem|export|or|and|nop|stop|breakif|elseif|if|then|else|elseif|endif|loop|endloop|return|fun|endfun|break|continue|not|mod|modu)\b/,
 	'boolean': /\b(true|false)\b/,
 	'function': /[a-z0-9_]+(?=\()/i,
 	'number': /\b-?(?:0x[\da-f]+|\d*\.?\d+(?:e[+-]?\d+)?)\b/i,
@@ -565,7 +565,7 @@ Prism.languages.clike = {
 };
 
 Prism.languages.c = Prism.languages.extend('clike', {
-	'keyword': /\b(export|or|and|nop|stop|breakif|elseif|if|then|else|endif|loop|endloop|return|fun|endfun|break|continue|not|mod|modu)\b/,
+	'keyword': /\b(data|memexport|or|and|nop|stop|breakif|elseif|if|then|else|endif|loop|endloop|return|fun|endfun|break|continue|not|mod|modu)\b/,
 	'operator': /\-[>-]?|\+\+?|!=?|<<?=?|>>?=?|==?|&&?|\|?\||[~^%?*\/]/,
 	'number': /\b-?(?:0x[\da-f]+|\d*\.?\d+(?:e[+-]?\d+)?)[ful]*\b/i
 });
