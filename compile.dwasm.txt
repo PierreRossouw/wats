@@ -5,7 +5,20 @@
 // Pointers and functions returning pointers start with a Capital letter
 // Constants are ALL CAPS
 
+// Memory size in 64kB pages
 mem 200 export
+
+data 8 "\ff"  // string lenght
+data 12  // Source code to compile
+"
+mem 1 export
+
+i32 GlobalVar := 21  
+
+fun i32 main() export  
+  return GlobalVar * 2
+endfun 
+"
 
 // Constants
 i32 SIZEINT := 4  // Most browsers currently only support 32bit sized WASM memories
