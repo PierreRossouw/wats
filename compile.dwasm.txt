@@ -269,6 +269,48 @@ fun bool stringCompare64(i32 V, i64 a)
   return true
 endfun
 
+fun i32 hexCharToInt(i32 char)
+  if char >= '0' and char <= '9' then
+    return char - '0'
+  elseif char >= 'a' and char <= 'f' then
+    return char - 'a' + 10
+  elseif char >= 'A' and char <= 'F' then
+    return char - 'A' + 10
+  endif
+  return 0
+endfun
+
+// Strings may contain escaped hex bytes for example "\5a" -> "Z"
+fun decodeString(i32 S)
+  i32 length := strLen(S)
+  i32 i := 0
+  i32 o := 0
+  i32 char := 0
+  loop
+    breakif i >= length
+    if getchar(S, i) = 92 then // backslash
+      i := i + 1
+      if isNumber(getchar(S, i), true) and isNumber(getchar(S, i + 1), true) then
+        char := hexCharToInt(getchar(S, i)) 
+        char := char * 16
+        char := char + hexCharToInt(getchar(S, i + 1))
+        setchar(S, o, char)
+        i := i + 1
+      endif
+    elseif i > o then
+      setchar(S, o, getchar(S, i))
+    endif
+    i := i + 1
+    o := o + 1
+  endloop
+  store32(S + string_length, o)
+  loop
+    breakif o >= length
+    setchar(S, o, 0)
+    o := o + 1
+  endloop
+endfun
+
 // Lists
 fun listAdd(i32 List, i32 Object)
   i32 Item := Alloc(item_size)
@@ -477,6 +519,7 @@ fun lexx()
         chr := getchar(Code, pos)
       endloop
       Val := Substring(Code, start, pos - start)
+      decodeString(Val)
       addToken(tokens_strLiteral, Val, line, column)
     elseif isNumber(chr, false) or ((chr = '-') and isNumber(getchar(Code, pos + 1), false)) then
       start := pos
@@ -1250,6 +1293,16 @@ fun emitF64(f64 f)
   BinaryPointer := BinaryPointer + 8
 endfun
 
+fun emitString(i32 S)
+  i32 length := strLen(S)
+  i32 i := 0
+  loop
+    breakif i >= length
+    emitByte(getchar(S, i))
+    i := i + 1
+  endloop
+endfun
+
 fun i32 uLebLen(i32 i)
   if i <= 127 then return 1
   elseif i <= 16383 then return 2
@@ -1496,20 +1549,12 @@ fun emitGlobalSection()
 endfun
 
 fun emitExportFuns()
-  i32 length := 0
   i32 Item := load32(ExportList + list_First)
   i32 Name := 0
-  i32 i := 0
   loop
     Name := load32(Item + item_Name)
-    length := strLen(Name)
-    emitUleb(length)
-    i := 0
-    loop
-      breakif i >= length
-      emitByte(getchar(Name, i))
-      i := i + 1
-    endloop
+    emitUleb(strLen(Name))
+    emitString(Name)
     emitByte(0x00)  // Type: function
     emitUleb(load32(load32(Item + item_Object) + node_index))
     Item := load32(Item + item_Next)
@@ -1518,14 +1563,8 @@ fun emitExportFuns()
 endfun
 
 fun emitExportMem()
-  i32 length := strLen(MemExport)
-  i32 i := 0
-  emitUleb(length)
-  loop
-    breakif i >= length
-    emitByte(getchar(MemExport, i))
-    i := i + 1
-  endloop
+  emitUleb(strLen(MemExport))
+  emitString(MemExport)
   emitByte(0x02)  // Type: memory
   emitByte(0x00)  // Memory number 0 
 endfun
