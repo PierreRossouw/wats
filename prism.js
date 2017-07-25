@@ -560,13 +560,13 @@ Prism.languages.clike = {
 	'boolean': /\b(true|false)\b/,
 	'function': /[a-z0-9_]+(?=\()/i,
 	'number': /\b-?(?:0x[\da-f]+|\d*\.?\d+(?:e[+-]?\d+)?)\b/i,
-	'operator': /--?|\+\+?|!=?=?|<=?|>=?|==?=?|&&?|\|\|?|\?|\*|\/|~|\^|%/,
+	'operator': /--?|\+\+?|:=?=?|<=?|>=?|==?=?|&&?|\|\|?|\?|\*|\/|~|\^|%/,
 	'punctuation': /[{}[\];(),.:]/
 };
 
 Prism.languages.c = Prism.languages.extend('clike', {
 	'keyword': /\b(data|mem|export|or|and|nop|stop|breakif|elseif|if|then|else|endif|loop|endloop|return|fun|endfun|break|continue|not|mod|modu)\b/,
-	'operator': /\-[>-]?|\+\+?|!=?|<<?=?|>>?=?|==?|&&?|\|?\||[~^%?*\/]/,
+	'operator': /\-[>-]?|\+\+?|:=?|<<?=?|>>?=?|==?|&&?|\|?\||[~^%?*\/]/,
 	'number': /\b-?(?:0x[\da-f]+|\d*\.?\d+(?:e[+-]?\d+)?)[ful]*\b/i
 });
 
