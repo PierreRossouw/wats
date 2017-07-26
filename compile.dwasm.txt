@@ -1,4 +1,4 @@
-// Compile.dwasm v0.1.20170725
+// Compile.dwasm v0.1.20170726
 // A simple and readable WebAssembly language with self-hosted compiler
 
 // Style conventions:
@@ -8,7 +8,7 @@
 // Memory size in 64kB pages
 mem 200 export
 
-data 8 "\ff"  // string lenght
+data 8 "\ff"  // string length
 data 12 ""  // Source code to compile
 
 // Constants
@@ -31,7 +31,7 @@ i32 nodes_if         := 12
 i32 nodes_loop       := 13
 i32 nodes_break      := 14
 i32 nodes_continue   := 15
-i32 nodes_hexwasm    := 16  // WebAssembly code byte e.g. tokens_stop
+i32 nodes_hexwasm    := 16  // WebAssembly code byte e.g. tokens_nop
 i32 nodes_breakif    := 17
 i32 nodes_mem        := 18
 i32 nodes_data       := 19
@@ -789,6 +789,7 @@ endfun
 fun i32 ParseFun()
   i32 funType := 0
   i32 Name := 0
+  eatToken(tokens_fun)
   if isNativeType(CurrentToken) then
     funType := load32(CurrentToken + token_kind)
     nextToken()
@@ -918,21 +919,13 @@ fun i32 ParseExpression(i32 level)
   i32 Node := 0
   i32 Expr := 0
   i32 kind := load32(CurrentToken + token_kind)
-  if kind = tokens_break then
-    Node := ParseBreak()
-  elseif kind = tokens_breakif then
-    Node := ParseBreakif()
-  elseif kind = tokens_continue then
-    Node := ParseContinue()
-  else
-    Node := ParsePrefix()
-    loop
-      breakif not CurrentToken
-      Expr := ParseInfix(level, Node)
-      breakif Expr = 0 or Expr = Node
-      Node := Expr
-    endloop
-  endif
+  Node := ParsePrefix()
+  loop
+    breakif not CurrentToken
+    Expr := ParseInfix(level, Node)
+    breakif Expr = 0 or Expr = Node
+    Node := Expr
+  endloop
   return Node
 endfun
 
@@ -1111,7 +1104,6 @@ fun i32 ParseData()
     if load32(CurrentToken + token_kind) = tokens_strLiteral then
       DataToken := CurrentToken
       listAddName(DataList, OffsetToken, DataToken)
-      debug(DataToken)
       store32(Node + node_BNode, DataToken)
       nextToken()
     endif
@@ -1122,29 +1114,20 @@ endfun
 fun i32 ParseStatement()
   i32 Node := 0
   i32 kind := load32(CurrentToken + token_kind)
-  if kind = tokens_fun then
-    eatToken(tokens_fun)
-    Node := ParseFun()
-  elseif kind = tokens_mem then
-    Node := ParseMem()
-  elseif kind = tokens_data then
-    Node := ParseData()
-  elseif isNativeType(CurrentToken) then
-    Node := ParseDeclaration()
-  elseif kind = tokens_return then
-    Node := ParseReturnStatement()
-  elseif kind = tokens_hexwasm then
-    Node := ParseHexwasmStatement()
-  elseif kind = tokens_stop then
-    Node := ParseStopStatement()
-  elseif kind = tokens_nop then
-    Node := ParseNopStatement()
-  elseif kind = tokens_if then
-    Node := ParseIfStatement(false)
-  elseif kind = tokens_loop then
-    Node := ParseLoopStatement()
-  else
-    Node := ParseExpression(tokens_minPrec)
+  if isNativeType(CurrentToken) then Node := ParseDeclaration()
+  elseif kind = tokens_mem      then Node := ParseMem()
+  elseif kind = tokens_data     then Node := ParseData()
+  elseif kind = tokens_fun      then Node := ParseFun()
+  elseif kind = tokens_return   then Node := ParseReturnStatement()
+  elseif kind = tokens_hexwasm  then Node := ParseHexwasmStatement()
+  elseif kind = tokens_stop     then Node := ParseStopStatement()
+  elseif kind = tokens_nop      then Node := ParseNopStatement()
+  elseif kind = tokens_if       then Node := ParseIfStatement(false)
+  elseif kind = tokens_loop     then Node := ParseLoopStatement()
+  elseif kind = tokens_breakif  then Node := ParseBreakif()
+  elseif kind = tokens_continue then Node := ParseContinue()
+  elseif kind = tokens_break    then Node := ParseBreak()
+  else Node := ParseExpression(tokens_minPrec)
   endif
   return Node
 endfun
@@ -2247,36 +2230,24 @@ endfun
 
 fun emitNode(i32 Node)
   i32 kind := load32(Node + node_kind)
-  if kind = nodes_block then
-    emitBlock(Node)
-  elseif kind = nodes_binary then
-    emitBinary(Node)
-  elseif kind = nodes_unary then
-    emitUnary(Node)
-  elseif kind = nodes_call then
-    emitCall(Node)
-  elseif kind = nodes_return then
-    emitReturn(Node)
-  elseif kind = nodes_if then
-    emitIf(Node)
-  elseif kind = nodes_breakif then
-    emitBreakif(Node)
-  elseif kind = nodes_loop then
-    emitLoop(Node)
-  elseif kind = nodes_hexwasm then
-    emitByte(load32(Node + node_type))
-  elseif kind = nodes_break then
-    emitByte(0x0c)  // br
-    emitUleb(scopeLevel(Node, nodes_loop) + 1)
+  if     kind = nodes_block      then emitBlock(Node)
+  elseif kind = nodes_binary     then emitBinary(Node)
+  elseif kind = nodes_unary      then emitUnary(Node)
+  elseif kind = nodes_call       then emitCall(Node)
+  elseif kind = nodes_return     then emitReturn(Node)
+  elseif kind = nodes_if         then emitIf(Node)
+  elseif kind = nodes_breakif    then emitBreakif(Node)
+  elseif kind = nodes_loop       then emitLoop(Node)
+  elseif kind = nodes_hexwasm    then emitByte(load32(Node + node_type))
+  elseif kind = nodes_literal    then emitLiteral(Node)
+  elseif kind = nodes_identifier then emitIdentifier(Node)
+  elseif kind = nodes_variable   then emitVariable(Node)
   elseif kind = nodes_continue then
     emitByte(0x0c)  // br
     emitUleb(scopeLevel(Node, nodes_loop))
-  elseif kind = nodes_literal then
-    emitLiteral(Node)
-  elseif kind = nodes_identifier then
-    emitIdentifier(Node)
-  elseif kind = nodes_variable then
-    emitVariable(Node)
+  elseif kind = nodes_break then
+    emitByte(0x0c)  // br
+    emitUleb(scopeLevel(Node, nodes_loop) + 1)
   endif
 endfun
 
