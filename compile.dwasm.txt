@@ -239,12 +239,11 @@ endfun
 
 fun bool strCompare(i32 A, i32 B)
   i32 length := A.string_length
-  i32 offset := 0
   if length = B.string_length then
+    i32 offset := 0
     loop
       if getchar(A, offset) <> getchar(B, offset) then
         return false
-        break
       endif
       breakif offset >= length
       offset := offset + 1
@@ -291,13 +290,12 @@ fun decodeString(i32 S)
   i32 length := S.string_length
   i32 i := 0
   i32 o := 0
-  i32 char := 0
   loop
     breakif i >= length
     if getchar(S, i) = 92 then // backslash
       i := i + 1
       if isNumber(getchar(S, i), true) and isNumber(getchar(S, i + 1), true) then
-        char := hexCharToInt(getchar(S, i)) 
+        i32 char := hexCharToInt(getchar(S, i)) 
         char := char * 16
         char := char + hexCharToInt(getchar(S, i + 1))
         setchar(S, o, char)
@@ -347,24 +345,19 @@ endfun
 // Find a string in a list
 fun i32 ListSearch(i32 List, i32 FindName)
   i32 Item := List.list_First
-  i32 Node := 0
   loop
     breakif not Item
     if strCompare(Item.item_Name, FindName) then
-      Node := Item.item_Object
-      break
+      return Item.item_Object
     endif
     Item := Item.item_Next
   endloop
-  return Node
+  return 0
 endfun
 
 // Lexer XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
 fun addToken(i32 kind, i32 Value, i32 line, i32 column)
-  if not TokenList then
-    TokenList := Alloc(list_size)
-  endif
   i32 Token := Alloc(token_size)
   Token.token_dec0de := 6 - DEC0DE
   Token.token_kind := kind
@@ -475,18 +468,18 @@ fun bool isOperatorChar(i32 chr)
 endfun
 
 fun lexx()
+  TokenList := Alloc(list_size)
   i32 pos := -1
   i32 line := 1
   i32 column := 0
   i32 length := Code.string_length
-  i32 chr := 0
   i32 start := 0
   i32 Val := 0
   bool hex := false
   loop
     pos := pos + 1
     column := column + 1
-    chr := getchar(Code, pos) 
+    i32 chr := getchar(Code, pos) 
     if chr = 10 then  // newline
       line := line + 1
       column := 0
@@ -612,9 +605,7 @@ fun pushScope(i32 Node)
 endfun
 
 fun popScope()
-  if CurrentScope then
-    CurrentScope := CurrentScope.scope_Parent
-  endif
+  CurrentScope := CurrentScope.scope_Parent
 endfun
 
 fun i32 LookupFunctionScope(i32 Scope)
@@ -623,7 +614,6 @@ fun i32 LookupFunctionScope(i32 Scope)
     breakif not FunScope  // error
     breakif FunScope.scope_Node.node_kind = nodes_fun
     breakif FunScope.scope_Node.node_kind = nodes_program
-    store32(4, load32(4) + 1)
     FunScope := FunScope.scope_Parent
   endloop
   return FunScope
@@ -631,12 +621,10 @@ endfun
 
 fun scopeRegister(i32 Scope, i32 Name, i32 Node)
   i32 nodeKind := Node.node_kind
-  i32 FunScope := 0
-  i32 nextIndex := 0
   listAddName(Scope.scope_Symbols, Node, Name)
   if nodeKind = nodes_variable or nodeKind = nodes_parameter then
-    FunScope := LookupFunctionScope(Scope)
-    nextIndex := FunScope.scope_localIndex
+    i32 FunScope := LookupFunctionScope(Scope)
+    i32 nextIndex := FunScope.scope_localIndex
     Node.node_Scope := FunScope
     Node.node_index := nextIndex
     FunScope.scope_localIndex := nextIndex + 1
@@ -721,19 +709,16 @@ endfun
 
 fun i32 ParseFunParams()
   i32 Params := Alloc(list_size)
-  i32 type := 0
-  i32 FunParamNode := 0
-  i32 Name := 0
   eatToken(tokens_lParen)
   loop
-    type := CurrentToken.token_kind
+    i32 type := CurrentToken.token_kind
     breakif type = tokens_rParen
     nextToken()
-    FunParamNode := NewNode()
+    i32 FunParamNode := NewNode()
     FunParamNode.node_kind := nodes_parameter
     FunParamNode.node_type := type
     FunParamNode.node_dataType := type
-    Name := CurrentToken.token_Value
+    i32 Name := CurrentToken.token_Value
     FunParamNode.node_String := Name
     listAddName(Params, FunParamNode, Name)
     nextToken()
@@ -747,14 +732,13 @@ endfun
 fun i32 ParseFunBlock()
   i32 Node := NewNode()
   i32 BodyList := Alloc(list_size)
-  i32 ChildNode := 0
   Node.node_kind := nodes_block
   Node.node_Nodes := BodyList
   Node.node_Scope := CurrentScope
   loop
     breakif not CurrentToken
     breakif CurrentToken.token_kind = tokens_endfun
-    ChildNode := ParseStatement()
+    i32 ChildNode := ParseStatement()
     breakif not ChildNode
     listAdd(BodyList, ChildNode)
   endloop
@@ -764,9 +748,6 @@ endfun
 fun i32 ParseFunDeclaration(i32 type, i32 Name)
   i32 Node := NewNode()
   i32 Locals := Alloc(list_size)
-  i32 ParamList := 0
-  i32 ParamName := 0
-  i32 ParamItem := 0
   Node.node_kind := nodes_fun
   Node.node_index := funIndex
   funIndex := funIndex + 1
@@ -775,13 +756,13 @@ fun i32 ParseFunDeclaration(i32 type, i32 Name)
   Node.node_String := Name
   Node.node_Nodes := Locals
   scopeRegister(CurrentScope, Name, Node)
-  ParamList := ParseFunParams()
+  i32 ParamList := ParseFunParams()
   Node.node_ParamNodes := ParamList
   pushScope(Node)
-  ParamItem := ParamList.list_First
+  i32 ParamItem := ParamList.list_First
   loop
     breakif not ParamItem
-    ParamName := ParamItem.item_Name
+    i32 ParamName := ParamItem.item_Name
     scopeRegister(CurrentScope, ParamName, ParamItem.item_Object)
     ParamItem := ParamItem.item_Next
   endloop
@@ -802,13 +783,12 @@ endfun
 
 fun i32 ParseFun()
   i32 funType := 0
-  i32 Name := 0
   eatToken(tokens_fun)
   if isNativeType(CurrentToken) then
     funType := CurrentToken.token_kind
     nextToken()
   endif
-  Name := CurrentToken.token_Value
+  i32 Name := CurrentToken.token_Value
   nextToken()
   return ParseFunDeclaration(funType, Name)
 endfun
@@ -910,10 +890,10 @@ endfun
 
 fun i32 ParsePrefix()
   i32 Node := 0
-  i32 nextKind := 0
   if isLiteral(CurrentToken) then
     Node := ParseLiteral()
   elseif CurrentToken.token_kind = tokens_identifier then
+    i32 nextKind := 0
     if NextToken then nextKind := NextToken.token_kind endif
     if nextKind = tokens_dot then
       Node := ParseDotLoad()
@@ -968,12 +948,10 @@ fun i32 ParseBreakif()
 endfun
 
 fun i32 ParseExpression(i32 level)
-  i32 Node := 0
-  i32 Expr := 0
-  Node := ParsePrefix()
+  i32 Node := ParsePrefix()
   loop
     breakif not CurrentToken
-    Expr := ParseInfix(level, Node)
+    i32 Expr := ParseInfix(level, Node)
     breakif Expr = 0 or Expr = Node
     Node := Expr
   endloop
@@ -1006,24 +984,15 @@ endfun
 
 fun i32 ParseReturnStatement()
   i32 Node := NewNode()
-  i32 Scope := 0
   eatToken(tokens_return)
   Node.node_kind := nodes_return
   Node.node_ANode := ParseExpression(tokens_minPrec)
-  Scope := CurrentScope
-  loop
-    breakif not Scope
-    breakif Scope.scope_Node.node_kind = nodes_fun
-    Scope := Scope.scope_Parent
-  endloop
-
   return Node
 endfun
 
 fun i32 ParseIfBlock()
   i32 Node := NewNode()
   i32 BodyList := Alloc(list_size)
-  i32 ChildNode := 0
   Node.node_kind := nodes_block
   Node.node_Nodes := BodyList
   Node.node_Scope := CurrentScope
@@ -1032,7 +1001,7 @@ fun i32 ParseIfBlock()
     breakif CurrentToken.token_kind = tokens_else
     breakif CurrentToken.token_kind = tokens_elseif
     breakif CurrentToken.token_kind = tokens_endif
-    ChildNode := ParseStatement()
+    i32 ChildNode := ParseStatement()
     breakif not ChildNode
     listAdd(BodyList, ChildNode)
   endloop
@@ -1067,14 +1036,13 @@ endfun
 fun i32 ParseLoopBlock()
   i32 Node := NewNode()
   i32 BodyList := Alloc(list_size)
-  i32 ChildNode := 0
   Node.node_kind := nodes_block
   Node.node_Nodes := BodyList
   Node.node_Scope := CurrentScope
   loop
     breakif not CurrentToken
     breakif CurrentToken.token_kind = tokens_endloop
-    ChildNode := ParseStatement()
+    i32 ChildNode := ParseStatement()
     breakif not ChildNode
     listAdd(BodyList, ChildNode)
   endloop
@@ -1093,14 +1061,11 @@ fun i32 ParseLoopStatement()
 endfun
 
 fun i32 ParseDeclaration()
-  i32 FunNode := 0
-  i32 FunLocalsList := 0
   i32 type := CurrentToken.token_kind
   nextToken()
   i32 Name := CurrentToken.token_Value
   nextToken()
   i32 Node := NewNode()
-  i32 FunScope := 0
   Node.node_kind := nodes_variable
   Node.node_type := type
   Node.node_dataType := type
@@ -1109,9 +1074,9 @@ fun i32 ParseDeclaration()
   eatToken(tokens_assign)
   Node.node_BNode := ParseExpression(tokens_minPrec)
   if CurrentScope.scope_Parent then
-    FunScope := LookupFunctionScope(CurrentScope)
-    FunNode := FunScope.scope_Node
-    FunLocalsList := FunNode.node_Nodes
+    i32 FunScope := LookupFunctionScope(CurrentScope)
+    i32 FunNode := FunScope.scope_Node
+    i32 FunLocalsList := FunNode.node_Nodes
     if not FunLocalsList then
       FunLocalsList := Alloc(list_size)
       FunNode.node_Nodes := FunLocalsList
@@ -1146,16 +1111,14 @@ endfun
 
 fun i32 ParseData()
   i32 Node := NewNode()
-  i32 OffsetToken := 0
-  i32 DataToken := 0
   Node.node_kind := nodes_data
   eatToken(tokens_data)
   if CurrentToken.token_kind = tokens_numLiteral then
-    OffsetToken := CurrentToken
+    i32 OffsetToken := CurrentToken
     Node.node_ANode := OffsetToken
     nextToken()
     if CurrentToken.token_kind = tokens_strLiteral then
-      DataToken := CurrentToken
+      i32 DataToken := CurrentToken
       listAddName(DataList, OffsetToken, DataToken)
       Node.node_BNode := DataToken
       nextToken()
@@ -1197,12 +1160,11 @@ fun parse()
   RootNode.node_kind := nodes_program
   pushScope(RootNode)
   GlobalScope := CurrentScope  
-  i32 Child := 0
   i32 BodyList := Alloc(list_size)
   RootNode.node_Nodes := BodyList
   loop
     breakif not CurrentToken
-    Child := ParseStatement()
+    i32 Child := ParseStatement()
     breakif not Child
     listAdd(BodyList, Child)
   endloop
@@ -1215,7 +1177,7 @@ fun i32 strToI32(i32 V)  // Supports ints and 0x-prefixed hex
   i32 i := 0
   i32 length := V.string_length
   i32 offset := 0
-  i32 c := 0
+  i32 chr := 0
   if length >= 3 then
     if getchar(V, 0) = '0' and getchar(V, 1) = 'x' then
       hex := true
@@ -1229,13 +1191,13 @@ fun i32 strToI32(i32 V)  // Supports ints and 0x-prefixed hex
     loop
       breakif offset >= length
       i := i * 16
-      c := getchar(V, offset)
-      if c >= '0' and c <= '9' then
-        i := i + c - '0'
-      elseif c >= 'a' and c <= 'f' then
-        i := i + c - 'a' + 10
-      elseif c >= 'A' and c <= 'F' then
-        i := i + c - 'A' + 10
+      chr := getchar(V, offset)
+      if chr >= '0' and chr <= '9' then
+        i := i + chr - '0'
+      elseif chr >= 'a' and chr <= 'f' then
+        i := i + chr - 'a' + 10
+      elseif chr >= 'A' and chr <= 'F' then
+        i := i + chr - 'A' + 10
       endif
       offset := offset + 1
     endloop
@@ -1243,9 +1205,9 @@ fun i32 strToI32(i32 V)  // Supports ints and 0x-prefixed hex
     loop
       breakif offset >= length
       i := i * 10
-      c := getchar(V, offset)
-      if c >= '0' and c <= '9' then
-        i := i + c - '0'
+      chr := getchar(V, offset)
+      if chr >= '0' and chr <= '9' then
+        i := i + chr - '0'
       endif
       offset := offset + 1
     endloop
@@ -1259,7 +1221,7 @@ fun i64 strToI64(i32 V)
   i64 i := 0
   i32 length := V.string_length
   i32 offset := 0
-  i32 c := 0
+  i32 chr := 0
   if length >= 3 then
     if getchar(V, 0) = '0' and getchar(V, 1) = 'x' then
       hex := true
@@ -1270,13 +1232,13 @@ fun i64 strToI64(i32 V)
     loop
       breakif offset >= length
       i := i * 16
-      c := getchar(V, offset)
-      if c >= '0' and c <= '9' then
-        i := i + i32_i64(c) - '0'
-      elseif c >= 'a' and c <= 'f' then
-        i := i + i32_i64(c) - 'a' + 10
-      elseif c >= 'A' and c <= 'F' then
-        i := i + i32_i64(c) - 'A' + 10
+      chr := getchar(V, offset)
+      if chr >= '0' and chr <= '9' then
+        i := i + i32_i64(chr) - '0'
+      elseif chr >= 'a' and chr <= 'f' then
+        i := i + i32_i64(chr) - 'a' + 10
+      elseif chr >= 'A' and chr <= 'F' then
+        i := i + i32_i64(chr) - 'A' + 10
       endif
       offset := offset + 1
     endloop
@@ -1284,9 +1246,9 @@ fun i64 strToI64(i32 V)
     loop
       breakif offset >= length
       i := i * 10
-      c := getchar(V, offset)
-      if c >= '0' and c <= '9' then
-        i := i + i32_i64(c) - '0'
+      chr := getchar(V, offset)
+      if chr >= '0' and chr <= '9' then
+        i := i + i32_i64(chr) - '0'
       endif
       offset := offset + 1
     endloop
@@ -1299,21 +1261,20 @@ fun f32 strToF32(i32 V)
   f32 f := 0
   i32 length := V.string_length
   i32 offset := 0
-  i32 c := 0
   f32 d := 1
   bool afterDot := false
   loop
     breakif offset >= length
-    c := getchar(V, offset)
-    if c = '.' then
+    i32 chr := getchar(V, offset)
+    if chr = '.' then
       afterDot := true
     else
       if afterDot then 
-        f := f + i32_f32(c - '0') / d
+        f := f + i32_f32(chr - '0') / d
         d := d * 10
       else
-        if c >= '0' and c <= '9' then
-          f := f * 10 + i32_f32(c - '0')
+        if chr >= '0' and chr <= '9' then
+          f := f * 10 + i32_f32(chr - '0')
         endif
       endif
     endif
@@ -1327,21 +1288,20 @@ fun f64 strToF64(i32 V)
   f64 f := f
   i32 length := V.string_length
   i32 offset := 0
-  i32 c := 0
   f64 d := 1
   bool afterDot := false
   loop
     breakif offset >= length
-    c := getchar(V, offset)
-    if c = '.' then
+    i32 chr := getchar(V, offset)
+    if chr = '.' then
       afterDot := true
     else
       if afterDot then 
-        f := f + i32_f64(c - '0') / d
+        f := f + i32_f64(chr - '0') / d
         d := d * 10
       else
-        if c >= '0' and c <= '9' then
-          f := f * 10 + i32_f64(c - '0')
+        if chr >= '0' and chr <= '9' then
+          f := f * 10 + i32_f64(chr - '0')
         endif
       endif
     endif
@@ -1506,22 +1466,19 @@ fun emitTypeSection()
 endfun
 
 fun emitFunctionSection()
-  i32 Start := 0
-  i32 counter := 0
-  i32 length := 0
-  i32 offset := 0
   if emitFunCount then
     emitByte(0x03)  // Function section
     emitByte(0x00)  // section size (guess)
-    Start := BinaryPointer 
+    i32 Start := BinaryPointer 
     emitUleb(emitFunCount)  // types count
+    i32 counter := 0
     loop
       breakif counter >= emitFunCount
       emitUleb(counter)
       counter := counter + 1
     endloop
-    length := BinaryPointer - Start
-    offset := uLebLen(length) - 1
+    i32 length := BinaryPointer - Start
+    i32 offset := uLebLen(length) - 1
     fixUlebGuess(Start, offset)
     BinaryPointer := Start - 1
     emitUleb(length)
@@ -1586,23 +1543,18 @@ fun emitNativeGlobal(i32 Node)
 endfun
 
 fun emitGlobalSection()
-  i32 Start := 0
-  i32 count := 0
-  i32 Item := 0
-  i32 Node := 0
-  i32 length := 0
-  i32 offset := 0
   i32 BodyList := RootNode.node_Nodes
   i32 Skip := BinaryPointer
   if BodyList then
     if BodyList.list_count then
       emitByte(0x06)  // Section code
       emitByte(0x00)  // Section size (guess)
-      Start := BinaryPointer 
+      i32 Start := BinaryPointer 
       emitByte(0x00)  // Globals count (guess)
-      Item := BodyList.list_First
+      i32 Item := BodyList.list_First
+      i32 count := 0
       loop
-        Node := Item.item_Object
+        i32 Node := Item.item_Object
         if Node.node_kind = nodes_variable then
           emitNativeGlobal(Node)
           count := count + 1
@@ -1611,8 +1563,8 @@ fun emitGlobalSection()
         Item := Item.item_Next
         breakif not Item
       endloop
-      length := BinaryPointer - Start
-      offset := uLebLen(count) - 1 + uLebLen(length) - 1
+      i32 length := BinaryPointer - Start
+      i32 offset := uLebLen(count) - 1 + uLebLen(length) - 1
       fixUlebGuess(Start, offset)
       BinaryPointer := Start - 1
       emitUleb(length + uLebLen(count) - 1)
@@ -1625,9 +1577,8 @@ endfun
 
 fun emitExportFuns()
   i32 Item := ExportList.list_First
-  i32 Name := 0
   loop
-    Name := Item.item_Name
+    i32 Name := Item.item_Name
     emitUleb(Name.string_length)
     emitString(Name)
     emitByte(0x00)  // Type: function
@@ -1645,18 +1596,14 @@ fun emitExportMem()
 endfun
 
 fun emitExportSection()
-  i32 count := 0
-  i32 Start := 0
-  i32 length := 0
-  i32 offset := 0
   i32 BodyList := RootNode.node_Nodes
   if BodyList then
-    count := ExportList.list_count
+    i32 count := ExportList.list_count
     if MemExport then count := count + 1 endif
     if count then
       emitByte(0x07)  // Export section
       emitByte(0x00)  // Section size (guess)
-      Start := BinaryPointer
+      i32 Start := BinaryPointer
       emitUleb(count)  // Export count
       if MemExport then
         emitExportMem()
@@ -1664,8 +1611,8 @@ fun emitExportSection()
       if ExportList.list_count then
         emitExportFuns()
       endif
-      length := BinaryPointer - Start
-      offset := uLebLen(length) - 1
+      i32 length := BinaryPointer - Start
+      i32 offset := uLebLen(length) - 1
       fixUlebGuess(Start, offset)
       BinaryPointer := Start - 1
       emitUleb(length)
@@ -1952,14 +1899,12 @@ endfun
 fun emitFunCallArguments(i32 CallNode, i32 FunNode)
   i32 ArgumentList := CallNode.node_ParamNodes
   i32 ArgumentItem := ArgumentList.list_First
-  i32 ArgumentNode := 0
   i32 ParamList := FunNode.node_ParamNodes
   i32 ParamItem := ParamList.list_First
-  i32 ParamNode := 0
   loop
     breakif not ArgumentItem
-    ArgumentNode := ArgumentItem.item_Object
-    ParamNode := ParamItem.item_Object
+    i32 ArgumentNode := ArgumentItem.item_Object
+    i32 ParamNode := ParamItem.item_Object
     ArgumentNode.node_dataType := ParamNode.node_dataType
     emitNode(ArgumentNode)
     ArgumentItem := ArgumentItem.item_Next
@@ -1970,10 +1915,9 @@ endfun
 fun emitCallArguments(i32 CallNode, i32 data_Type)
   i32 ArgumentList := CallNode.node_ParamNodes
   i32 ArgumentItem := ArgumentList.list_First
-  i32 ArgumentNode := 0
   loop
     breakif not ArgumentItem
-    ArgumentNode := ArgumentItem.item_Object
+    i32 ArgumentNode := ArgumentItem.item_Object
     ArgumentNode.node_dataType := data_Type
     emitNode(ArgumentNode)
     ArgumentItem := ArgumentItem.item_Next
@@ -1983,11 +1927,10 @@ endfun
 fun emitCallArguments2(i32 CallNode, i32 data_TypeA, i32 data_TypeB)
   i32 ArgumentList := CallNode.node_ParamNodes
   i32 ArgumentItem := ArgumentList.list_First
-  i32 ArgumentNode := 0
   bool first := true
   loop
     breakif not ArgumentItem
-    ArgumentNode := ArgumentItem.item_Object
+    i32 ArgumentNode := ArgumentItem.item_Object
     if first then
       ArgumentNode.node_dataType := data_TypeA
     else    
@@ -2000,7 +1943,6 @@ fun emitCallArguments2(i32 CallNode, i32 data_TypeA, i32 data_TypeB)
 endfun
 
 fun emitCall(i32 Node)
-  i32 ResolvedNode := 0
   i32 Name := Node.node_ANode.node_String
   if stringCompare64(Name, 'i64_i32') then
     emitCallArguments(Node, tokens_i64)
@@ -2188,7 +2130,7 @@ fun emitCall(i32 Node)
     emitByte(0x40)  // grow_memory
     emitByte(0x00)  // memory number
   else
-    ResolvedNode := ScopeResolve(CurrentScope, Name)
+    i32 ResolvedNode := ScopeResolve(CurrentScope, Name)
     emitFunCallArguments(Node, ResolvedNode)
     emitByte(0x10)  // call
     emitUleb(ResolvedNode.node_index)
@@ -2247,7 +2189,6 @@ endfun
 
 fun i32 inferCallDataType(i32 Node)
   i32 Name := Node.node_String
-  i32 ResolvedNode := 0
   if     stringCompare64(Name, 'load64')   then return tokens_i64
   elseif stringCompare64(Name, 'load32')   then return tokens_i32
   elseif stringCompare64(Name, 'load8')    then return tokens_i32
@@ -2276,7 +2217,7 @@ fun i32 inferCallDataType(i32 Node)
   elseif stringCompare64(Name, 'i64_f64u') then return tokens_f64
   elseif stringCompare64(Name, 'f32_f64')  then return tokens_f64
   else
-    ResolvedNode := ScopeResolve(CurrentScope, Name)
+    i32 ResolvedNode := ScopeResolve(CurrentScope, Name)
     return ResolvedNode.node_dataType
   endif
   return 0
@@ -2284,7 +2225,6 @@ endfun
 
 fun i32 inferDataType(i32 Node)
   i32 dataType := 0
-  i32 ResolvedNode := 0
   i32 kind := Node.node_kind
   if kind = nodes_binary then
     dataType := inferDataType(Node.node_ANode)
@@ -2292,7 +2232,7 @@ fun i32 inferDataType(i32 Node)
       dataType := inferDataType(Node.node_BNode)
     endif
   elseif kind = nodes_identifier then
-    ResolvedNode := ScopeResolve(CurrentScope, Node.node_String)
+    i32 ResolvedNode := ScopeResolve(CurrentScope, Node.node_String)
     dataType := ResolvedNode.node_dataType
   elseif kind = nodes_unary then
     dataType := inferDataType(Node.node_BNode)
@@ -2304,12 +2244,12 @@ endfun
 
 fun emitBinary(i32 Node)
   i32 type := Node.node_type
-  i32 dataType := Node.node_dataType
-  i32 ANode := Node.node_ANode
-  i32 BNode := Node.node_BNode
   if type = tokens_assign then
     emitAssignment(Node)
   else
+    i32 dataType := Node.node_dataType
+    i32 ANode := Node.node_ANode
+    i32 BNode := Node.node_BNode
     if not dataType then
       dataType := inferDataType(Node)
       Node.node_dataType := dataType
@@ -2375,7 +2315,6 @@ endfun
 
 fun emitFunNode(i32 Node)
   CurrentFunNode := Node
-  i32 dataType := 0
   emitByte(0x00)  // Function size (guess)
   i32 Start := BinaryPointer
   i32 LocalList := Node.node_Nodes
@@ -2384,7 +2323,7 @@ fun emitFunNode(i32 Node)
   loop
     breakif not LocalItem
     emitByte(0x01)  // count
-    dataType := LocalItem.item_Object.node_type
+    i32 dataType := LocalItem.item_Object.node_type
     if dataType = tokens_bool or dataType = tokens_ptr then
       dataType := tokens_i32
     endif
@@ -2402,29 +2341,22 @@ fun emitFunNode(i32 Node)
 endfun
 
 fun emitCodeSection()
-  i32 Start := 0
-  i32 BodyList := 0
-  i32 FunItem := 0
-  i32 FunNode := 0
-  i32 length := 0
-  i32 offset := 0
   if emitFunCount then
     emitByte(0x0a)  // Code section
     emitByte(0x00)  // Section size (guess)
-    Start := BinaryPointer 
+    i32 Start := BinaryPointer 
     emitUleb(emitFunCount)
-    BodyList := RootNode.node_Nodes
-    FunItem := BodyList.list_First
+    i32 FunItem := RootNode.node_Nodes.list_First
     loop
-      FunNode := FunItem.item_Object
+      i32 FunNode := FunItem.item_Object
       if FunNode.node_kind = nodes_fun then
         emitFunNode(FunNode)
       endif
       FunItem := FunItem.item_Next
       breakif not FunItem
     endloop
-    length := BinaryPointer - Start
-    offset := uLebLen(length) - 1
+    i32 length := BinaryPointer - Start
+    i32 offset := uLebLen(length) - 1
     fixUlebGuess(Start, offset)
     BinaryPointer := Start - 1
     emitUleb(length)
@@ -2433,29 +2365,22 @@ fun emitCodeSection()
 endfun
 
 fun emitDataSection()
-  i32 Start := 0
-  i32 length := 0
-  i32 offset := 0
   i32 count := DataList.list_count
-  i32 DataItem := 0
-  i32 DataString := 0
-  i32 i := 0
-  i32 dataLength := 0
   if count then
     emitByte(0x0b)  // Code section
     emitByte(0x00)  // Section size (guess)
-    Start := BinaryPointer 
+    i32 Start := BinaryPointer 
     emitUleb(count)
-    DataItem := DataList.list_First
+    i32 DataItem := DataList.list_First
     loop
       emitByte(0x00)  // memory index 
       emitByte(0x41)  // i32.const
       emitUleb(strToI32(DataItem.item_Object.token_Value))  // offset
       emitByte(0x0b)  // end
-      DataString := DataItem.item_Name.token_Value
-      dataLength := DataString.string_length
+      i32 DataString := DataItem.item_Name.token_Value
+      i32 dataLength := DataString.string_length
       emitUleb(dataLength)
-      i := 0
+      i32 i := 0
       loop
         breakif i >= dataLength
         emitByte(getchar(DataString, i))
@@ -2464,8 +2389,8 @@ fun emitDataSection()
       DataItem := DataItem.item_Next
       breakif not DataItem
     endloop
-    length := BinaryPointer - Start
-    offset := uLebLen(length) - 1
+    i32 length := BinaryPointer - Start
+    i32 offset := uLebLen(length) - 1
     fixUlebGuess(Start, offset)
     BinaryPointer := Start - 1
     emitUleb(length)
