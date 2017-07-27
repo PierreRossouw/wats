@@ -1,4 +1,4 @@
-// Compile.dwasm v0.1.20170726
+// Compile.dwasm v0.1.20170727
 // A simple and readable WebAssembly language with self-hosted compiler
 
 // Style conventions:
@@ -620,8 +620,10 @@ endfun
 fun i32 LookupFunctionScope(i32 Scope)
   i32 FunScope := Scope
   loop
-    breakif not FunScope
-    breakif FunScope.scope_Node.node_kind
+    breakif not FunScope  // error
+    breakif FunScope.scope_Node.node_kind = nodes_fun
+    breakif FunScope.scope_Node.node_kind = nodes_program
+    store32(4, load32(4) + 1)
     FunScope := FunScope.scope_Parent
   endloop
   return FunScope
@@ -889,7 +891,7 @@ fun i32 ParseDotLoad()
   return Node
 endfun
 
-fun i32 ParseDotStore()  // TODO: test
+fun i32 ParseDotStore()  // TODO: test dataTypes
   i32 Node := NewNode()
   i32 BodyList := Alloc(list_size)
   Node.node_kind := nodes_dotStore
@@ -1014,7 +1016,7 @@ fun i32 ParseReturnStatement()
     breakif Scope.scope_Node.node_kind = nodes_fun
     Scope := Scope.scope_Parent
   endloop
-  Scope.scope_Node.node_ANode := Node
+
   return Node
 endfun
 
@@ -2498,4 +2500,4 @@ fun emit(i32 length)
 endfun
 
 // Pierre Rossouw 2017 
-// https://github.com/PierreRossouw/dwasm 
+// https://github.com/PierreRossouw/dwasm
