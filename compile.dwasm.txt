@@ -1447,14 +1447,13 @@ fun fixUlebGuess(i32 Start, i32 offset)
 endfun
 
 fun emitType(i32 Node)
-  i32 dataType := 0
   i32 ParamList := Node.node_ParamNodes
   emitByte(0x60)  // fun type
   emitUleb(ParamList.list_count)
   i32 ParamItem := ParamList.list_First
   loop
     breakif not ParamItem
-    dataType := ParamItem.item_Object.node_type
+    i32 dataType := ParamItem.item_Object.node_type
     if dataType = tokens_bool or dataType = tokens_ptr then 
       dataType := tokens_i32 
     endif
@@ -1464,7 +1463,7 @@ fun emitType(i32 Node)
   i32 returnType := Node.node_type
   if returnType then
     emitByte(0x01)  // return count
-    if returnType = tokens_bool or dataType = tokens_ptr then 
+    if returnType = tokens_bool or returnType = tokens_ptr then 
       returnType := tokens_i32 
     endif
     emitByte(returnType)
@@ -1474,24 +1473,18 @@ fun emitType(i32 Node)
 endfun
 
 fun emitTypeSection()
-  i32 Start := 0
-  i32 count := 0
-  i32 Item := 0
-  i32 Node := 0
-  i32 length := 0
-  i32 offset := 0
   i32 BodyList := RootNode.node_Nodes
   i32 Skip := BinaryPointer
   if BodyList then
     if BodyList.list_count then
       emitByte(0x01)  // Type section
       emitByte(0x00)  // section size (guess)
-      Start := BinaryPointer 
+      i32 Start := BinaryPointer 
       emitByte(0x00)  // types count (guess)  
-      count := 0
-      Item := BodyList.list_First
+      i32 count := 0
+      i32 Item := BodyList.list_First
       loop
-        Node := Item.item_Object
+        i32 Node := Item.item_Object
         if Node.node_kind = nodes_fun then
           emitType(Node)
           count := count + 1
@@ -1500,8 +1493,8 @@ fun emitTypeSection()
         Item := Item.item_Next
         breakif not Item
       endloop
-      length := BinaryPointer - Start
-      offset := uLebLen(count) - 1 + uLebLen(length) - 1
+      i32 length := BinaryPointer - Start
+      i32 offset := uLebLen(count) - 1 + uLebLen(length) - 1
       fixUlebGuess(Start, offset)
       BinaryPointer := Start - 1
       emitUleb(length + uLebLen(count) - 1)
