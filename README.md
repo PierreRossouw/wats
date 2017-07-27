@@ -16,6 +16,8 @@ The compiler will return a memory location for the compiled binary.
 - Decompiler to dwasm
 
 ### Updates
+2017-07-27: Syntactic sugar: a.b.c.d := e ->  storeX(load32(load32(a + b) + c) + d, e)  
+2017-07-26: Syntactic sugar: a.b.c.d  ->  loadX(load32(load32(a + b) + c) + d)  
 2017-07-25: Named exports of functions and memory. Wasm data section support   
 2017-07-23: i64, f32 and f64 types. All native types are now supported  
 2017-07-21: Support bool as a synonym for i32, added true and false keywords  
