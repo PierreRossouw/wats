@@ -116,8 +116,9 @@ i32 tokens_bool        := 128  // synonym for i32
 i32 tokens_ptr         := 129  // synonym for i32
 
 // Structs
-i32 string_length := 0
-i32 string_Chars  := 4
+i32 string_max    := 0
+i32 string_length := 4
+i32 string_Chars  := 8
 
 i32 list_dec0de := 0  // debugging marker
 i32 list_First  := 4
@@ -150,7 +151,8 @@ i32 node_Nodes      := 32  // List of child nodes for program/block, or fun loca
 i32 node_ParamNodes := 36  // List of params for call/fun
 i32 node_type       := 40  // From the tokens_ enum
 i32 node_dataType   := 44  // inferred data type
-i32 node_size       := 48
+i32 node_Token      := 48
+i32 node_size       := 52
 
 i32 scope_dec0de     := 0   // debugging marker
 i32 scope_Node       := 4
@@ -161,7 +163,7 @@ i32 scope_localIndex := 20
 i32 scope_size       := 24
 
 // Global variables
-ptr Code             := 8
+ptr Code             := 4
 i32 Heap             := 8  // Memory management - reserve 0-7 for null pointers
 ptr TokenList        := 0
 ptr ExportList       := 0
@@ -173,7 +175,7 @@ ptr NextToken        := 0
 ptr CurrentScope     := 0
 ptr GlobalScope      := 0
 ptr RootNode         := 0
-ptr Binary           := 0
+ptr CompilerOutput   := 0
 ptr BinaryPointer    := 0
 i32 emitGlobalCount  := 0
 i32 emitFunCount     := 0
@@ -181,14 +183,31 @@ ptr CurrentFunNode   := 0
 ptr MemExport        := 0
 i32 memMin           := 0
 i32 memMax           := 0
+ptr ErrorList        := 0
 
 fun ptr Compile() export "main"
   i32 length := Code.string_length
   i32 i := Alloc(string_Chars + length)  
+  ErrorList := Alloc(list_size)
   lexx()
-  parse()
-  emit(length)
-  return Binary + string_length
+  if ErrorList.list_count = 0 then parse() endif
+  if ErrorList.list_count = 0 then emit(length) endif
+  if ErrorList.list_count > 0 then
+    parseErrorList()
+  endif
+  return CompilerOutput + string_length
+endfun
+
+fun parseErrorList()
+  ptr ErrorItem := ErrorList.list_First
+  if ErrorItem then
+    ptr ErrorString := NewString(16)
+    ErrorString.string_Chars.i64 := 'Error:'
+    store8(ErrorString + string_Chars + 6, 13)
+    store8(ErrorString + string_Chars + 7, 10)
+
+    CompilerOutput := ErrorItem.item_Object.token_Value
+  endif
 endfun
 
 // Memory management
@@ -442,11 +461,11 @@ fun bool isAlpha(i32 chr)
   return (chr >= 'a' and chr <= 'z') or (chr >= 'A' and chr <= 'Z') or (chr = '_')
 endfun
 
-fun bool isNumber(i32 chr, bool hex)
+fun bool isNumber(i32 chr, bool hexNum)
   bool num := false
   if chr >= '0' and chr <= '9' then
     num := true
-  elseif hex then
+  elseif hexNum then
     if (chr >= 'a' and chr <= 'f') or (chr >= 'A' and chr <= 'F') then 
       num := true 
     endif
@@ -475,7 +494,6 @@ fun lexx()
   i32 length := Code.string_length
   i32 start := 0
   i32 Val := 0
-  bool hex := false
   loop
     pos := pos + 1
     column := column + 1
@@ -538,11 +556,11 @@ fun lexx()
       addToken(tokens_strLiteral, Val, line, column)
     elseif isNumber(chr, false) or ((chr = '-') and isNumber(getchar(Code, pos + 1), false)) then
       start := pos
-      hex := false
+      bool isHex := false
       loop
-        if (not isNumber(chr, hex)) and (chr <> '-') then
+        if (not isNumber(chr, isHex)) and (chr <> '-') then
           if start + 1 = pos and chr = 'x' then
-            hex := true
+            isHex := true
           else
             pos := pos - 1
             column := column - 1
@@ -553,12 +571,12 @@ fun lexx()
         column := column + 1
         chr := getchar(Code, pos)
       endloop
-      if chr = '.' and not hex then
+      if chr = '.' and not isHex then
         pos := pos + 2
         column := column + 2
         chr := getchar(Code, pos)
         loop
-          if (not isNumber(chr, hex)) then
+          if (not isNumber(chr, isHex)) then
             pos := pos - 1
             column := column - 1
             break
@@ -664,6 +682,7 @@ fun ptr NewNode()
   ptr Node := Alloc(node_size)
   Node.node_Scope := CurrentScope
   Node.node_dec0de := 2 - DEC0DE
+  Node.node_Token := CurrentToken
   return Node
 endfun
 
@@ -716,6 +735,7 @@ fun eatToken(i32 kind)
   if CurrentToken.token_kind = kind then
     nextToken()
   else
+    listAdd(ErrorList, CurrentToken)
     debug(kind)
     debug(CurrentToken.token_kind)
     debug(CurrentToken)
@@ -919,8 +939,8 @@ fun ptr ParseDotStore()
   return Node
 endfun
 
-fun i32 ParsePrefix()
-  i32 Node := 0
+fun ptr ParsePrefix()
+  ptr Node := 0
   if isLiteral(CurrentToken) then
     Node := ParseLiteral()
   elseif CurrentToken.token_kind = tokens_identifier then
@@ -941,8 +961,8 @@ fun i32 ParsePrefix()
   return Node
 endfun
 
-fun i32 ParseBinaryExpression(i32 level, i32 Left)
-  i32 Node := 0
+fun ptr ParseBinaryExpression(i32 level, ptr Left)
+  ptr Node := 0
   i32 precedence := CurrentToken.token_kind  // node_kind doubles as the precedence
   if level > precedence then
     Node := Left
@@ -958,8 +978,8 @@ fun i32 ParseBinaryExpression(i32 level, i32 Left)
   return Node
 endfun
 
-fun i32 ParseInfix(i32 level, i32 Left)
-  i32 Node := 0
+fun ptr ParseInfix(i32 level, ptr Left)
+  ptr Node := 0
   if isBinaryOperator(CurrentToken) then
     Node := ParseBinaryExpression(level, Left)
   elseif CurrentToken.token_kind = tokens_lParen then
@@ -970,60 +990,60 @@ fun i32 ParseInfix(i32 level, i32 Left)
   return Node
 endfun
 
-fun i32 ParseBreakif()
-  i32 Node := NewNode()
+fun ptr ParseBreakif()
+  ptr Node := NewNode()
   Node.node_kind := nodes_breakif
   eatToken(tokens_breakif)
   Node.node_CNode := ParseExpression(tokens_minPrec)
   return Node
 endfun
 
-fun i32 ParseExpression(i32 level)
-  i32 Node := ParsePrefix()
+fun ptr ParseExpression(i32 level)
+  ptr Node := ParsePrefix()
   loop
     breakif not CurrentToken
-    i32 Expr := ParseInfix(level, Node)
+    ptr Expr := ParseInfix(level, Node)
     breakif Expr = 0 or Expr = Node
     Node := Expr
   endloop
   return Node
 endfun
 
-fun i32 ParseHexwasmStatement()
-  i32 Node := NewNode()
+fun ptr ParseHexwasmStatement()
+  ptr Node := NewNode()
   Node.node_kind := nodes_hexwasm
   Node.node_type := strToI32(CurrentToken.token_Value)
   eatToken(tokens_hexwasm)
   return Node
 endfun
 
-fun i32 ParseStopStatement()
-  i32 Node := NewNode()
+fun ptr ParseStopStatement()
+  ptr Node := NewNode()
   Node.node_kind := nodes_hexwasm
   Node.node_type := 0x00
   eatToken(tokens_stop)
   return Node
 endfun
 
-fun i32 ParseNopStatement()
-  i32 Node := NewNode()
+fun ptr ParseNopStatement()
+  ptr Node := NewNode()
   Node.node_kind := nodes_hexwasm
   Node.node_type := 0x01
   eatToken(tokens_nop)
   return Node
 endfun
 
-fun i32 ParseReturnStatement()
-  i32 Node := NewNode()
+fun ptr ParseReturnStatement()
+  ptr Node := NewNode()
   eatToken(tokens_return)
   Node.node_kind := nodes_return
   Node.node_ANode := ParseExpression(tokens_minPrec)
   return Node
 endfun
 
-fun i32 ParseIfBlock()
-  i32 Node := NewNode()
-  i32 BodyList := Alloc(list_size)
+fun ptr ParseIfBlock()
+  ptr Node := NewNode()
+  ptr BodyList := Alloc(list_size)
   Node.node_kind := nodes_block
   Node.node_Nodes := BodyList
   Node.node_Scope := CurrentScope
@@ -1032,15 +1052,15 @@ fun i32 ParseIfBlock()
     breakif CurrentToken.token_kind = tokens_else
     breakif CurrentToken.token_kind = tokens_elseif
     breakif CurrentToken.token_kind = tokens_endif
-    i32 ChildNode := ParseStatement()
+    ptr ChildNode := ParseStatement()
     breakif not ChildNode
     listAdd(BodyList, ChildNode)
   endloop
   return Node
 endfun
 
-fun i32 ParseIfStatement(bool isElseif)
-  i32 Node := NewNode()
+fun ptr ParseIfStatement(bool isElseif)
+  ptr Node := NewNode()
   if not isElseif then eatToken(tokens_if) endif
   Node.node_kind := nodes_if
   Node.node_CNode := ParseExpression(tokens_minPrec)
@@ -1064,24 +1084,24 @@ fun i32 ParseIfStatement(bool isElseif)
   return Node
 endfun
 
-fun i32 ParseLoopBlock()
-  i32 Node := NewNode()
-  i32 BodyList := Alloc(list_size)
+fun ptr ParseLoopBlock()
+  ptr Node := NewNode()
+  ptr BodyList := Alloc(list_size)
   Node.node_kind := nodes_block
   Node.node_Nodes := BodyList
   Node.node_Scope := CurrentScope
   loop
     breakif not CurrentToken
     breakif CurrentToken.token_kind = tokens_endloop
-    i32 ChildNode := ParseStatement()
+    ptr ChildNode := ParseStatement()
     breakif not ChildNode
     listAdd(BodyList, ChildNode)
   endloop
   return Node
 endfun
 
-fun i32 ParseLoopStatement()
-  i32 Node := NewNode()
+fun ptr ParseLoopStatement()
+  ptr Node := NewNode()
   eatToken(tokens_loop)
   Node.node_kind := nodes_loop
   pushScope(Node)
@@ -1091,12 +1111,12 @@ fun i32 ParseLoopStatement()
   return Node
 endfun
 
-fun i32 ParseDeclaration()
+fun ptr ParseDeclaration()
   i32 type := CurrentToken.token_kind
   nextToken()
-  i32 Name := CurrentToken.token_Value
+  ptr Name := CurrentToken.token_Value
   nextToken()
-  i32 Node := NewNode()
+  ptr Node := NewNode()
   Node.node_kind := nodes_variable
   Node.node_type := type
   Node.node_dataType := type
@@ -1105,9 +1125,9 @@ fun i32 ParseDeclaration()
   eatToken(tokens_assign)
   Node.node_BNode := ParseExpression(tokens_minPrec)
   if CurrentScope.scope_Parent then
-    i32 FunScope := LookupFunctionScope(CurrentScope)
-    i32 FunNode := FunScope.scope_Node
-    i32 FunLocalsList := FunNode.node_Nodes
+    ptr FunScope := LookupFunctionScope(CurrentScope)
+    ptr FunNode := FunScope.scope_Node
+    ptr FunLocalsList := FunNode.node_Nodes
     if not FunLocalsList then
       FunLocalsList := Alloc(list_size)
       FunNode.node_Nodes := FunLocalsList
@@ -1117,9 +1137,9 @@ fun i32 ParseDeclaration()
   return Node
 endfun
 
-fun i32 ParseMem()
-  i32 Node := NewNode()
-  i32 MemToken := CurrentToken
+fun ptr ParseMem()
+  ptr Node := NewNode()
+  ptr MemToken := CurrentToken
   Node.node_kind := nodes_mem
   eatToken(tokens_mem)
   memMin := strToI32(CurrentToken.token_Value)
@@ -1140,16 +1160,16 @@ fun i32 ParseMem()
   return Node
 endfun
 
-fun i32 ParseData()
-  i32 Node := NewNode()
+fun ptr ParseData()
+  ptr Node := NewNode()
   Node.node_kind := nodes_data
   eatToken(tokens_data)
   if CurrentToken.token_kind = tokens_numLiteral then
-    i32 OffsetToken := CurrentToken
+    ptr OffsetToken := CurrentToken
     Node.node_ANode := OffsetToken
     nextToken()
     if CurrentToken.token_kind = tokens_strLiteral then
-      i32 DataToken := CurrentToken
+      ptr DataToken := CurrentToken
       listAddName(DataList, OffsetToken, DataToken)
       Node.node_BNode := DataToken
       nextToken()
@@ -1158,8 +1178,8 @@ fun i32 ParseData()
   return Node
 endfun
 
-fun i32 ParseStatement()
-  i32 Node := 0
+fun ptr ParseStatement()
+  ptr Node := 0
   i32 kind := CurrentToken.token_kind
   if isNativeType(CurrentToken) then Node := ParseDeclaration()
   elseif kind = tokens_mem      then Node := ParseMem()
@@ -1191,11 +1211,11 @@ fun parse()
   RootNode.node_kind := nodes_program
   pushScope(RootNode)
   GlobalScope := CurrentScope  
-  i32 BodyList := Alloc(list_size)
+  ptr BodyList := Alloc(list_size)
   RootNode.node_Nodes := BodyList
   loop
     breakif not CurrentToken
-    i32 Child := ParseStatement()
+    ptr Child := ParseStatement()
     breakif not Child
     listAdd(BodyList, Child)
   endloop
@@ -1203,20 +1223,20 @@ endfun
 
 // Compiler XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
-fun i32 strToI32(i32 V)  // Supports ints and 0x-prefixed hex
-  bool hex := false
+fun i32 strToI32(ptr V)  // Supports ints and 0x-prefixed hex
+  bool isHex := false
   i32 i := 0
   i32 length := V.string_length
   i32 offset := 0
   i32 chr := 0
   if length >= 3 then
     if getchar(V, 0) = '0' and getchar(V, 1) = 'x' then
-      hex := true
-    elseif getchar(V, 0) = '-' and getchar(V, 1) = '0' and getchar(V, 2) = 'x' 
-      hex := true
+      isHex := true
+    elseif getchar(V, 0) = '-' and getchar(V, 1) = '0' and getchar(V, 2) = 'x' then
+      isHex := true
     endif
   endif
-  if hex then
+  if isHex then
     offset := 2
     if getchar(V, 2) = 'x' then offset := 3 endif
     loop
@@ -1247,18 +1267,18 @@ fun i32 strToI32(i32 V)  // Supports ints and 0x-prefixed hex
   return i
 endfun
 
-fun i64 strToI64(i32 V)
-  bool hex := false
+fun i64 strToI64(ptr V)
+  bool isHex := false
   i64 i := 0
   i32 length := V.string_length
   i32 offset := 0
   i32 chr := 0
   if length >= 3 then
     if getchar(V, 0) = '0' and getchar(V, 1) = 'x' then
-      hex := true
+      isHex := true
     endif
   endif
-  if hex then
+  if isHex then
     offset := 2
     loop
       breakif offset >= length
@@ -1288,7 +1308,7 @@ fun i64 strToI64(i32 V)
   return i
 endfun
 
-fun f32 strToF32(i32 V)
+fun f32 strToF32(ptr V)
   f32 f := 0
   i32 length := V.string_length
   i32 offset := 0
@@ -1315,7 +1335,7 @@ fun f32 strToF32(i32 V)
   return f
 endfun
 
-fun f64 strToF64(i32 V)
+fun f64 strToF64(ptr V)
   f64 f := f
   i32 length := V.string_length
   i32 offset := 0
@@ -2437,8 +2457,8 @@ fun emitDataSection()
 endfun
 
 fun emit(i32 length)
-  Binary := NewString(length + 256)  // Heuristic: binary will be smaller than length(source) + 256
-  BinaryPointer := Binary + string_Chars
+  CompilerOutput := NewString(length + 256)  // Heuristic: binary will be smaller than length(source) + 256
+  BinaryPointer := CompilerOutput + string_Chars
   CurrentScope := RootNode.node_Scope
   emitByte(0x00)  // Wasm magic: 00 61 73 6d
   emitByte(0x61)  // a
@@ -2452,7 +2472,7 @@ fun emit(i32 length)
   emitExportSection()
   emitCodeSection()
   emitDataSection()
-  Binary.string_length := BinaryPointer - (Binary + string_Chars)  // Fix up the length
+  CompilerOutput.string_length := BinaryPointer - (CompilerOutput + string_Chars)  // Fix up the length
 endfun
 
 // Pierre Rossouw 2017 
