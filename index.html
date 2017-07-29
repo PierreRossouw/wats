@@ -125,7 +125,7 @@
             if (magic == 1836278016) {
               binary.value = byteToHexString(mem.slice(out, out + binLen));
             } else {
-              binary.value = mem.slice(out, out + binLen);
+              binary.value = String.fromCharCode.apply(null, mem.slice(out, out + binLen));
             };
             if (binLen < 10000) {
               compilerLog.value = byteToDumpString(mem.slice(0, out + binLen));
