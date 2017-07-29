@@ -115,6 +115,14 @@ i32 tokens_i32         := 127  // 0x7f
 i32 tokens_bool        := 128  // synonym for i32
 i32 tokens_ptr         := 129  // synonym for i32
 
+i32 error_duplicateName := 1
+i32 error_invalidToken  := 2
+
+i32 error_typeMismatch  := 5
+i32 error_typeNotInferred := 7
+i32 error_notDeclared   := 8
+i32 error_literalToInt  := 9
+
 // Structs
 i32 string_max    := 0
 i32 string_length := 4
@@ -130,6 +138,7 @@ i32 item_dec0de := 0  // debugging marker
 i32 item_Next   := 4
 i32 item_Object := 8 
 i32 item_Name   := 12
+i32 item_number := 12
 i32 item_size   := 16
 
 i32 token_dec0de := 0  // debugging marker
@@ -202,28 +211,41 @@ fun parseErrorList()
   ptr ErrorItem := ErrorList.list_First
   if ErrorItem then
     ptr ErrorString := NewEmptyString(1000)
-    appendChar(ErrorString, 'E')
-    appendChar(ErrorString, 'r')
-    appendChar(ErrorString, 'r')
-    appendChar(ErrorString, 'o')
-    appendChar(ErrorString, 'r')
-    appendChar(ErrorString, 's')
-    appendChar(ErrorString, 13)
     loop
       ptr Token := ErrorItem.item_Object
-      appendChar(ErrorString, 'L')
-      appendChar(ErrorString, 'i')
-      appendChar(ErrorString, 'n')
-      appendChar(ErrorString, 'e')
-      appendChar(ErrorString, ' ')
+      i32 errorNo := ErrorItem.item_number
+      if errorNo = error_duplicateName then
+        appendChar(ErrorString, 'Duplicat')
+        appendChar(ErrorString, 'e identi')
+        appendChar(ErrorString, 'fier nam')
+        appendChar(ErrorString, 'e')
+      elseif errorNo = error_invalidToken then
+        appendChar(ErrorString, 'Invalid ')
+        appendChar(ErrorString, 'token')
+      elseif errorNo = error_typeMismatch then
+        appendChar(ErrorString, 'Type mis')
+        appendChar(ErrorString, 'match')
+      elseif errorNo = error_notDeclared then
+        appendChar(ErrorString, 'Identifi')
+        appendChar(ErrorString, 'er not d')
+        appendChar(ErrorString, 'eclare')
+      elseif errorNo = error_literalToInt then
+        appendChar(ErrorString, 'Could no')
+        appendChar(ErrorString, 't conver')
+        appendChar(ErrorString, 't to int')
+      elseif errorNo = error_typeNotInferred then
+        appendChar(ErrorString, 'Could no')
+        appendChar(ErrorString, 't determ')
+        appendChar(ErrorString, 'ine type')        
+      else
+        appendChar(ErrorString, 'Error ')
+        appendI32(ErrorString, errorNo)
+      endif
+      appendChar(ErrorString, ' line ')
       appendI32(ErrorString, Token.token_line)
-      appendChar(ErrorString, ' ')
-      appendChar(ErrorString, 'c')
-      appendChar(ErrorString, 'o')
-      appendChar(ErrorString, 'l')
-      appendChar(ErrorString, ' ')
+      appendChar(ErrorString, ' column ')
       appendI32(ErrorString, Token.token_column - Token.token_Value.string_length)
-      appendChar(ErrorString, ' ')
+      appendChar(ErrorString, ' token ')
       appendString(ErrorString, Token.token_Value)
       appendChar(ErrorString, 13)
       CompilerOutput := ErrorString
@@ -292,13 +314,32 @@ fun appendI32(ptr String, i32 i)
   endif
 endfun
 
-fun appendChar(ptr String, i32 chr)
+fun appendChar(ptr String, i64 i)
   i32 stringLength := String.string_length
+  i32 appendLength := charStringLength(i)
   i32 max := String.string_max
-  if stringLength < max then
-    setChar(String, stringLength, chr)
-    String.string_length := stringLength + 1
+  i32 offset := 0
+  if stringLength + appendLength <= max then
+    loop
+      i32 chr := i64_i32(i mod 256)
+      setChar(String, stringLength + offset, chr)
+      offset := offset + 1
+      i := i >>+ 8
+      breakif i = 0
+      breakif offset >= appendLength
+    endloop  
+    String.string_length := stringLength + appendLength
   endif
+endfun
+
+fun i32 charStringLength(i64 i)
+  i32 length := 0
+  loop
+    breakif i = 0
+    i := i >>+ 8
+    length := length + 1
+  endloop
+  return length
 endfun
 
 fun i32 decimalStringLength(i32 i)
@@ -352,22 +393,22 @@ fun bool strCompare(i32 A, i32 B)
   return true
 endfun
 
-fun bool strCompare32(i32 V, i32 a)
-  i32 length := V.string_length
+fun bool strCompare32(i32 String, i32 a)
+  i32 length := String.string_length
   if length = 0 or length > 4 then
     return false
   else
-    if V.string_Chars <> a then return false endif
+    if String.string_Chars <> a then return false endif
   endif
   return true
 endfun
 
-fun bool strCompare64(i32 V, i64 a)
-  i32 length := V.string_length
+fun bool strCompare64(i32 String, i64 a)
+  i32 length := String.string_length
   if length < 5 or length > 8 then
     return false
   else
-    if load64(V + string_Chars) <> a then return false endif
+    if load64(String + string_Chars) <> a then return false endif
   endif
   return true
 endfun
@@ -719,8 +760,8 @@ fun popScope()
   CurrentScope := CurrentScope.scope_Parent
 endfun
 
-fun i32 LookupFunctionScope(i32 Scope)
-  i32 FunScope := Scope
+fun ptr LookupFunctionScope(ptr Scope)
+  ptr FunScope := Scope
   loop
     breakif not FunScope  // error
     breakif FunScope.scope_Node.node_kind = nodes_fun
@@ -730,11 +771,14 @@ fun i32 LookupFunctionScope(i32 Scope)
   return FunScope
 endfun
 
-fun scopeRegister(i32 Scope, i32 Name, i32 Node)
+fun scopeRegister(ptr Scope, ptr Name, ptr Node, ptr Token)
+  if ListSearch(Scope.scope_Symbols, Name) then
+    listAddName(ErrorList, Token, error_duplicateName)
+  endif
   i32 nodeKind := Node.node_kind
   listAddName(Scope.scope_Symbols, Node, Name)
   if nodeKind = nodes_variable or nodeKind = nodes_parameter then
-    i32 FunScope := LookupFunctionScope(Scope)
+    ptr FunScope := LookupFunctionScope(Scope)
     i32 nextIndex := FunScope.scope_localIndex
     Node.node_Scope := FunScope
     Node.node_index := nextIndex
@@ -742,9 +786,9 @@ fun scopeRegister(i32 Scope, i32 Name, i32 Node)
   endif
 endfun
 
-fun i32 ScopeResolve(i32 Scope, i32 Name, i32 Token)
-  i32 Node := 0
-  i32 RecurseScope := Scope
+fun ptr ScopeResolve(ptr Scope, ptr Name, ptr Token)
+  ptr Node := 0
+  ptr RecurseScope := Scope
   loop
     breakif not RecurseScope
     Node := ListSearch(RecurseScope.scope_Symbols, Name)
@@ -752,7 +796,7 @@ fun i32 ScopeResolve(i32 Scope, i32 Name, i32 Token)
     RecurseScope := RecurseScope.scope_Parent
   endloop
   if not Node then
-    listAdd(ErrorList, Token)
+    listAddName(ErrorList, Token, error_notDeclared)
   endif
   return Node
 endfun
@@ -816,7 +860,7 @@ fun eatToken(i32 kind)
   if CurrentToken.token_kind = kind then
     nextToken()
   else
-    listAdd(ErrorList, CurrentToken)
+    listAddName(ErrorList, CurrentToken, error_invalidToken)
   endif
 endfun
 
@@ -858,8 +902,17 @@ fun ptr ParseFunBlock()
   return Node
 endfun
 
-fun i32 ParseFunDeclaration(i32 type, ptr Name)
+fun ptr ParseFun()
+  i32 type := 0
+  eatToken(tokens_fun)
+  if isNativeType(CurrentToken) then
+    type := CurrentToken.token_kind
+    nextToken()
+  endif
+  ptr Name := CurrentToken.token_Value
   ptr Node := NewNode()
+  scopeRegister(CurrentScope, Name, Node, CurrentToken)
+  nextToken()
   ptr Locals := Alloc(list_size)
   Node.node_kind := nodes_fun
   Node.node_index := funIndex
@@ -868,7 +921,6 @@ fun i32 ParseFunDeclaration(i32 type, ptr Name)
   Node.node_dataType := type
   Node.node_String := Name
   Node.node_Nodes := Locals
-  scopeRegister(CurrentScope, Name, Node)
   ptr ParamList := ParseFunParams()
   Node.node_ParamNodes := ParamList
   pushScope(Node)
@@ -876,7 +928,7 @@ fun i32 ParseFunDeclaration(i32 type, ptr Name)
   loop
     breakif not ParamItem
     ptr ParamName := ParamItem.item_Name
-    scopeRegister(CurrentScope, ParamName, ParamItem.item_Object)
+    scopeRegister(CurrentScope, ParamName, ParamItem.item_Object, ParamItem.item_Object.node_Token)
     ParamItem := ParamItem.item_Next
   endloop
   if CurrentToken.token_kind = tokens_export then
@@ -892,18 +944,6 @@ fun i32 ParseFunDeclaration(i32 type, ptr Name)
   popScope()
   eatToken(tokens_endfun)
   return Node
-endfun
-
-fun ptr ParseFun()
-  i32 funType := 0
-  eatToken(tokens_fun)
-  if isNativeType(CurrentToken) then
-    funType := CurrentToken.token_kind
-    nextToken()
-  endif
-  ptr Name := CurrentToken.token_Value
-  nextToken()
-  return ParseFunDeclaration(funType, Name)
 endfun
 
 fun ptr ParseBreak()
@@ -1090,7 +1130,7 @@ endfun
 fun ptr ParseHexwasmStatement()
   ptr Node := NewNode()
   Node.node_kind := nodes_hexwasm
-  Node.node_type := strToI32(CurrentToken.token_Value)
+  Node.node_type := strToI32(CurrentToken.token_Value, CurrentToken)
   eatToken(tokens_hexwasm)
   return Node
 endfun
@@ -1193,13 +1233,14 @@ fun ptr ParseDeclaration()
   i32 type := CurrentToken.token_kind
   nextToken()
   ptr Name := CurrentToken.token_Value
+  ptr NameToken := CurrentToken
   nextToken()
   ptr Node := NewNode()
   Node.node_kind := nodes_variable
   Node.node_type := type
   Node.node_dataType := type
   Node.node_String := Name
-  scopeRegister(CurrentScope, Name, Node)
+  scopeRegister(CurrentScope, Name, Node, NameToken)
   eatToken(tokens_assign)
   Node.node_BNode := ParseExpression(tokens_minPrec)
   if CurrentScope.scope_Parent.ptr then
@@ -1220,10 +1261,10 @@ fun ptr ParseMem()
   ptr MemToken := CurrentToken
   Node.node_kind := nodes_mem
   eatToken(tokens_mem)
-  memMin := strToI32(CurrentToken.token_Value)
+  memMin := strToI32(CurrentToken.token_Value, CurrentToken)
   nextToken()
   if CurrentToken.token_kind = tokens_numLiteral then
-    memMax := strToI32(CurrentToken.token_Value)
+    memMax := strToI32(CurrentToken.token_Value, CurrentToken)
     nextToken()
   endif
   if CurrentToken.token_kind = tokens_export then
@@ -1301,32 +1342,31 @@ endfun
 
 // Compiler XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
-fun i32 strToI32(ptr V)  // Supports ints and 0x-prefixed hex
+fun i32 strToI32(ptr String, ptr Token)  // Supports ints and 0x-prefixed hex
   bool isHex := false
   i32 i := 0
-  i32 length := V.string_length
+  i32 length := String.string_length
   i32 offset := 0
   i32 chr := 0
   if length >= 3 then
-    if getChar(V, 0) = '0' and getChar(V, 1) = 'x' then
-      isHex := true
-    elseif getChar(V, 0) = '-' and getChar(V, 1) = '0' and getChar(V, 2) = 'x' then
+    if getChar(String, 0) = '0' and getChar(String, 1) = 'x' then
       isHex := true
     endif
   endif
   if isHex then
     offset := 2
-    if getChar(V, 2) = 'x' then offset := 3 endif
     loop
       breakif offset >= length
       i := i * 16
-      chr := getChar(V, offset)
+      chr := getChar(String, offset)
       if chr >= '0' and chr <= '9' then
         i := i + chr - '0'
       elseif chr >= 'a' and chr <= 'f' then
         i := i + chr - 'a' + 10
       elseif chr >= 'A' and chr <= 'F' then
         i := i + chr - 'A' + 10
+      else
+        listAddName(ErrorList, Token, error_literalToInt)
       endif
       offset := offset + 1
     endloop
@@ -1334,25 +1374,28 @@ fun i32 strToI32(ptr V)  // Supports ints and 0x-prefixed hex
     loop
       breakif offset >= length
       i := i * 10
-      chr := getChar(V, offset)
+      chr := getChar(String, offset)
       if chr >= '0' and chr <= '9' then
         i := i + chr - '0'
+      elseif offset = 0 and chr = '-' then
+      else
+        listAddName(ErrorList, Token, error_literalToInt)
       endif
       offset := offset + 1
     endloop
   endif
-  if getChar(V, 0) = '-' then i := -i endif
+  if getChar(String, 0) = '-' then i := -i endif
   return i
 endfun
 
-fun i64 strToI64(ptr V)
+fun i64 strToI64(ptr String, ptr Token)
   bool isHex := false
   i64 i := 0
-  i32 length := V.string_length
+  i32 length := String.string_length
   i32 offset := 0
   i32 chr := 0
   if length >= 3 then
-    if getChar(V, 0) = '0' and getChar(V, 1) = 'x' then
+    if getChar(String, 0) = '0' and getChar(String, 1) = 'x' then
       isHex := true
     endif
   endif
@@ -1361,13 +1404,15 @@ fun i64 strToI64(ptr V)
     loop
       breakif offset >= length
       i := i * 16
-      chr := getChar(V, offset)
+      chr := getChar(String, offset)
       if chr >= '0' and chr <= '9' then
         i := i + i32_i64(chr) - '0'
       elseif chr >= 'a' and chr <= 'f' then
         i := i + i32_i64(chr) - 'a' + 10
       elseif chr >= 'A' and chr <= 'F' then
         i := i + i32_i64(chr) - 'A' + 10
+      else
+        listAddName(ErrorList, Token, error_literalToInt)
       endif
       offset := offset + 1
     endloop
@@ -1375,26 +1420,29 @@ fun i64 strToI64(ptr V)
     loop
       breakif offset >= length
       i := i * 10
-      chr := getChar(V, offset)
+      chr := getChar(String, offset)
       if chr >= '0' and chr <= '9' then
         i := i + i32_i64(chr) - '0'
+      elseif offset = 0 and chr = '-' then
+      else
+        listAddName(ErrorList, Token, error_literalToInt)
       endif
       offset := offset + 1
     endloop
   endif
-  if getChar(V, 0) = '-' then i := -i endif
+  if getChar(String, 0) = '-' then i := -i endif
   return i
 endfun
 
-fun f32 strToF32(ptr V)
+fun f32 strToF32(ptr String)
   f32 f := 0
-  i32 length := V.string_length
+  i32 length := String.string_length
   i32 offset := 0
   f32 d := 1
   bool isAfterDot := false
   loop
     breakif offset >= length
-    i32 chr := getChar(V, offset)
+    i32 chr := getChar(String, offset)
     if chr = '.' then
       isAfterDot := true
     else
@@ -1409,19 +1457,19 @@ fun f32 strToF32(ptr V)
     endif
     offset := offset + 1
   endloop
-  if getChar(V, 0) = '-' then f := -f endif
+  if getChar(String, 0) = '-' then f := -f endif
   return f
 endfun
 
-fun f64 strToF64(ptr V)
+fun f64 strToF64(ptr String)
   f64 f := f
-  i32 length := V.string_length
+  i32 length := String.string_length
   i32 offset := 0
   f64 d := 1
   bool isAfterDot := false
   loop
     breakif offset >= length
-    i32 chr := getChar(V, offset)
+    i32 chr := getChar(String, offset)
     if chr = '.' then
       isAfterDot := true
     else
@@ -1436,7 +1484,7 @@ fun f64 strToF64(ptr V)
     endif
     offset := offset + 1
   endloop
-  if getChar(V, 0) = '-' then f := -f endif
+  if getChar(String, 0) = '-' then f := -f endif
   return f
 endfun
 
@@ -1666,9 +1714,9 @@ fun emitNativeGlobal(i32 Node)
   elseif dataType = tokens_f32 then
     emitF32(strToF32(Value))
   elseif dataType = tokens_i64 then
-    emitSleb64(strToI64(Value))
+    emitSleb64(strToI64(Value, Node.node_BNode.node_Token))
   else
-    emitSleb(strToI32(Value))
+    emitSleb(strToI32(Value, Node.node_BNode.node_Token))
   endif
   emitByte(0x0b)  // end
 endfun
@@ -1757,6 +1805,9 @@ fun emitAssignment(ptr Node)
   i32 dataType := ResolvedNode.node_type
   ptr BNode := Node.node_BNode
   Node.node_dataType := dataType
+  if BNode.node_dataType <> 0 and BNode.node_dataType <> dataType then
+    listAddName(ErrorList, Node.node_Token, error_typeMismatch)
+  endif
   BNode.node_dataType := dataType
   emitNode(BNode)
   if ResolvedNode.node_Scope = GlobalScope then
@@ -1898,9 +1949,17 @@ endfun
 fun emitIdentifier(ptr Node)
   ptr ResolvedNode := ScopeResolve(CurrentScope, Node.node_String, Node.node_Token)
   i32 dataType := ResolvedNode.node_dataType
-  if dataType then
-    Node.node_dataType := dataType
+  i32 nodeDataType := Node.node_dataType
+  if dataType = tokens_bool or dataType = tokens_ptr then
+    dataType := tokens_i32
   endif
+  if nodeDataType = tokens_bool or nodeDataType = tokens_ptr then
+    nodeDataType := tokens_i32
+  endif
+  if nodeDataType <> 0 and nodeDataType <> dataType then
+    listAddName(ErrorList, Node.node_Token, error_typeMismatch)
+  endif
+  Node.node_dataType := dataType
   if ResolvedNode.node_Scope = GlobalScope then
     emitByte(0x23)  // get_global
   else
@@ -1929,7 +1988,7 @@ fun emitDotLoad(ptr Node)
       emitByte(0x28)  // i32.load
     else
       if not dataType then
-        listAdd(ErrorList, Node.node_Token)
+        listAddName(ErrorList, Node.node_Token, error_typeNotInferred)
       endif
       if dataType = tokens_f64 then
         emitByte(0x2b)  // f64.load
@@ -1996,10 +2055,10 @@ fun emitNumLiteral(ptr Node, i32 dataType)
     emitF32(strToF32(Node.node_String))
   elseif dataType = tokens_i64 then
     emitByte(0x42)  // i64.const
-    emitSleb64(strToI64(Node.node_String))
+    emitSleb64(strToI64(Node.node_String, Node.node_Token))
   else
     emitByte(0x41)  // i32.const
-    emitSleb(strToI32(Node.node_String))
+    emitSleb(strToI32(Node.node_String, Node.node_Token))
   endif
 endfun
 
@@ -2393,7 +2452,7 @@ fun emitBinary(ptr Node)
     if not dataType then
       dataType := inferDataType(Node)
       if not dataType then
-        listAdd(ErrorList, Node.node_Token)
+        listAddName(ErrorList, Node.node_Token, error_typeNotInferred)
       endif
       Node.node_dataType := dataType
     endif
@@ -2521,7 +2580,7 @@ fun emitDataSection()
     loop
       emitByte(0x00)  // memory index 
       emitByte(0x41)  // i32.const
-      emitUleb(strToI32(DataItem.item_Object.token_Value))  // offset
+      emitUleb(strToI32(DataItem.item_Object.token_Value, DataItem.item_Object))  // offset
       emitByte(0x0b)  // end
       ptr DataString := DataItem.item_Name.token_Value
       i32 dataLength := DataString.string_length
