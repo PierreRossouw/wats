@@ -124,6 +124,8 @@
             let magic = mem[out] + 256*mem[out + 1] + 256*256*mem[out + 2] + 256*256*256*mem[out + 3];
             if (magic == 1836278016) {
               binary.value = byteToHexString(mem.slice(out, out + binLen));
+            } else {
+              binary.value = mem.slice(out, out + binLen);
             };
             if (binLen < 10000) {
               compilerLog.value = byteToDumpString(mem.slice(0, out + binLen));
