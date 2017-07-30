@@ -5,7 +5,11 @@
  * @author Lea Verou
  * PLEASE NOTE: This file has been modified from the original
  */
-body{font-family:Open Sans,Arial}
+body{
+ font-family:Open Sans,Arial;
+ background: #212121;
+ color: #aaa;
+}
 
 code[class*="language-"],
 pre[class*="language-"] {
@@ -18,11 +22,9 @@ pre[class*="language-"] {
 	word-break: normal;
 	word-wrap: normal;
 	line-height: 1.4;
-
 	-moz-tab-size: 4;
 	-o-tab-size: 4;
 	tab-size: 4;
-
 	-webkit-hyphens: none;
 	-moz-hyphens: none;
 	-ms-hyphens: none;
@@ -67,10 +69,7 @@ pre[class*="language-"] {
 	white-space: normal;
 }
 
-.token.comment,
-.token.prolog,
-.token.doctype,
-.token.cdata {
+.token.comment {
 	color: #666666;
 }
 
@@ -85,8 +84,6 @@ pre[class*="language-"] {
 
 .token.boolean,
 .token.number,
-.token.selector,
-.token.attr-name,
 .token.string,
 .token.char,
 .token.builtin,
@@ -94,23 +91,6 @@ pre[class*="language-"] {
 	color: #FF9800;
 }
 
-.token.property,
-.token.tag,
-.token.symbol,
-.token.deleted {
-	color: #fff;; 
-}
-
-.token.entity,
-.token.url,
-.language-css .token.string,
-.style .token.string,
-.token.variable {
-	color: #a67f59;
-}
-
-.token.atrule,
-.token.attr-value,
 .token.function {
 	color: #FFEB3B;
 }
@@ -118,11 +98,6 @@ pre[class*="language-"] {
 .token.operator,
 .token.keyword {
 	color: #E91E63;
-}
-
-.token.regex,
-.token.important {
-	color: #e90;
 }
 
 .token.important,
@@ -135,4 +110,45 @@ pre[class*="language-"] {
 
 .token.entity {
 	cursor: help;
+}
+
+pre.line-numbers {
+	position: relative;
+	padding-left: 3.8em;
+	counter-reset: linenumber;
+}
+
+pre.line-numbers > code {
+	position: relative;
+}
+
+.line-numbers .line-numbers-rows {
+	position: absolute;
+	pointer-events: none;
+	top: 0;
+	font-size: 100%;
+	left: -3.8em;
+	width: 3em; /* works for line-numbers below 1000 lines */
+	letter-spacing: -1px;
+	border-right: 1px solid #666;
+
+	-webkit-user-select: none;
+	-moz-user-select: none;
+	-ms-user-select: none;
+	user-select: none;
+
+}
+
+.line-numbers-rows > span {
+	pointer-events: none;
+	display: block;
+	counter-increment: linenumber;
+}
+
+.line-numbers-rows > span:before {
+	content: counter(linenumber);
+	color: #666;
+	display: block;
+	padding-right: 0.8em;
+	text-align: right;
 }
