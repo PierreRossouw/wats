@@ -1,0 +1,23 @@
+<html>
+  <head>
+    <link href="prism.css" rel="stylesheet" />
+  </head>
+  <body>
+    <h1>dwasm - WebAssembly Compiler</h1>
+    <pre><code id="compilerSource" class="language-clike line-numbers"></code></pre>
+    <style>
+      pre {
+        overflow: auto;
+        font-size: 17px;
+      }
+    </style>
+    <script src="prism.js"></script>
+    <script>
+      var xmlhttp, text;
+      xmlhttp = new XMLHttpRequest();
+      xmlhttp.open('GET', 'compile.dwasm.txt', false);
+      xmlhttp.send();
+      compilerSource.innerHTML = xmlhttp.responseText;
+    </script>
+  </body>
+</html>
