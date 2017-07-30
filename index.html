@@ -3,45 +3,52 @@
     <link href="prism.css" rel="stylesheet" />
   </head>
   <body>
-    <h1>dWasm WebAssembly Compiler</h1>
+    <h1>dwasm - WebAssembly Compiler</h1>
+    <textarea id="ogBinary" style="display:none;"></textarea>
     <table width="99%">
       <tr>
-        <td width="70%">Compiler memory dump</td>
-        <td>Compiler WebAssembly binary</td>
-      </tr><tr>
-        <td><textarea id="compilerLog"></textarea></td>
+        <td width="70%">Compiler source code &nbsp; &nbsp; &nbsp; <a href="compile.dwasm.html"><i>view full source</i></a></td>
+        <td width="0"></td>
+        <td width="30%">Compiler binary</td>
+      </tr>
+      <tr>
+        <td><textarea id="compilerSource"></textarea></td>
+        <td width="0"><button id="compilerCompile">Compile</button></td>
         <td><textarea id="compilerBinary"></textarea></td>
-      </tr><tr>
-        <td colspan="2" align="center"><button id="compile">Compile</button></td>
-      </tr><tr>
-        <td>Code to compile</td>
-        <td>Compiled binary</td>
-      </tr><tr>
-        <td><textarea id="code">
-         </textarea></td>
-        <td><textarea id="binary"></textarea></td>
-      </tr><tr>
-        <td colspan="2" align="center"><button id="execute">Execute</button></td>
-      </tr><tr>
+      </tr>
+      <tr>
+        <td>Test source code</td>
+        <td></td>
+        <td>Test binary</td>
+      </tr>
+      <tr>
+        <td><textarea id="testSource"></textarea></td>
+        <td><button id="testCompile">Compile</button></td>
+        <td><textarea id="testBinary"></textarea></td>
+      </tr>
+      <tr>
         <td>Memory dump</td>
-        <td>main() => <textarea id="execResult" style="height: 20; width: 100" ></textarea></td>
-      </tr><tr>
-        <td><textarea id="execMemDump"></textarea></td>
-        <td><textarea id="execResultString"></textarea></td>
+        <td></td>
+        <td>Results</td>
+      </tr>
+      <tr>
+        <td><textarea id="testMemory"></textarea></td>
+        <td><button id="execute">Execute</button></td>
+        <td><textarea id="execResult"></textarea></td>
       </tr>
     </table>
-    <pre><code id="compilerSource" class="language-c"></code></pre>
     <style>
       textarea {
         height: 300px;
         width: 100%;
+        background: #333;
+        color: #8BC34A;
+       	font-family: Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', monospace;
       }
-      pre {
-        overflow: auto;
-        font-size: 17px;
+      a {
+        color: #8BC34A;
       }
     </style>
-    <script src="prism.js"></script>
     <script>
       if (window.WebAssembly === void 0) {
         alert("Your browser doesn't support WebAssembly!");
@@ -51,13 +58,13 @@
       xmlhttp = new XMLHttpRequest();
       xmlhttp.open('GET', 'compile.dwasm.txt', false);
       xmlhttp.send();
-      compilerSource.innerHTML = xmlhttp.responseText;
+      compilerSource.value = xmlhttp.responseText;
       xmlhttp.open('GET', 'compile.dwasm.bin.txt', false);
       xmlhttp.send();
-      compilerBinary.value = xmlhttp.responseText;
+      ogBinary.value = xmlhttp.responseText;
       xmlhttp.open('GET', 'playtest.dwasm.txt', false);
       xmlhttp.send();
-      code.value = xmlhttp.responseText;
+      testSource.value = xmlhttp.responseText;
 
       function hexStringToByte(str) {
         if (!str) {
@@ -106,15 +113,14 @@
         return hexStr;
       }
 
-      compile.onclick = (e) => {
-        var bytes = compilerBinary.value.trim();
+      compilerCompile.onclick = (e) => {
+        var bytes = ogBinary.value.trim();
         bytes = hexStringToByte(bytes.replace(/,/g, ""));
-        binary.value = "";
-        compilerLog.value = "";
+        compilerBinary.value = "";
         WebAssembly.instantiate(bytes).then(results => {
           let main = results.instance.exports.main;
           let mem = new Uint8Array(results.instance.exports.mem.buffer);
-          let sourcecode = code.value;
+          let sourcecode = compilerSource.value;
           new Uint32Array(mem.buffer)[2] = sourcecode.length;
           for (var i = 0, strLen = sourcecode.length; i < strLen; i++) { mem[i + 12] = sourcecode.charCodeAt(i); }
           let out = main();
@@ -123,28 +129,53 @@
             out = out + 4;
             let magic = mem[out] + 256*mem[out + 1] + 256*256*mem[out + 2] + 256*256*256*mem[out + 3];
             if (magic == 1836278016) {
-              binary.value = byteToHexString(mem.slice(out, out + binLen));
+              compilerBinary.value = byteToHexString(mem.slice(out, out + binLen));
             } else {
-              binary.value = String.fromCharCode.apply(null, mem.slice(out, out + binLen));
+              compilerBinary.value = String.fromCharCode.apply(null, mem.slice(out, out + binLen));
+            };
+          };
+        });
+      };
+
+      testCompile.onclick = (e) => {
+        var bytes = compilerBinary.value.trim();
+        bytes = hexStringToByte(bytes.replace(/,/g, ""));
+        testBinary.value = "";
+        testMemory.value = "";
+        WebAssembly.instantiate(bytes).then(results => {
+          let main = results.instance.exports.main;
+          let mem = new Uint8Array(results.instance.exports.mem.buffer);
+          let sourcecode = testSource.value;
+          new Uint32Array(mem.buffer)[2] = sourcecode.length;
+          for (var i = 0, strLen = sourcecode.length; i < strLen; i++) { mem[i + 12] = sourcecode.charCodeAt(i); }
+          let out = main();
+          let binLen = mem[out] + 256*mem[out + 1] + 256*256*mem[out + 2] + 256*256*256*mem[out + 3];
+          if (out > 0) {
+            out = out + 4;
+            let magic = mem[out] + 256*mem[out + 1] + 256*256*mem[out + 2] + 256*256*256*mem[out + 3];
+            if (magic == 1836278016) {
+              testBinary.value = byteToHexString(mem.slice(out, out + binLen));
+            } else {
+              testBinary.value = String.fromCharCode.apply(null, mem.slice(out, out + binLen));
             };
             if (binLen < 10000) {
-              compilerLog.value = byteToDumpString(mem.slice(0, out + binLen));
+              testMemory.value = byteToDumpString(mem.slice(0, out + binLen));
             };
           };
         });
       };
 
       execute.onclick = (e) => {
-        var bytes = binary.value;
+        var bytes = testBinary.value;
         bytes = hexStringToByte(bytes.replace(/,/g, ""));
         execResult.value = "";
-        execMemDump.value = "";
+        testMemory.value = "";
         WebAssembly.instantiate(bytes).then(results => {
           let main = results.instance.exports.main;
           let mem = new Uint8Array(results.instance.exports.mem.buffer);
           let out = main();
           execResult.value = out;
-          execMemDump.value = byteToDumpString(mem.slice(0, 24000));
+          testMemory.value = byteToDumpString(mem.slice(0, 24000));
         });
       };
     </script>
