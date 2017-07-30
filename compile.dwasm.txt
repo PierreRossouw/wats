@@ -1,4 +1,4 @@
-// Compile.dwasm v0.1.20170729
+// Compile.dwasm v0.1.20170730
 // A simple and readable WebAssembly language with self-hosted compiler
 
 // Style conventions:
@@ -115,13 +115,14 @@ i32 tokens_i32         := 127  // 0x7f
 i32 tokens_bool        := 128  // synonym for i32
 i32 tokens_ptr         := 129  // synonym for i32
 
-i32 error_duplicateName := 1
-i32 error_invalidToken  := 2
-
-i32 error_typeMismatch  := 5
+i32 error_duplicateName   := 1
+i32 error_invalidToken    := 2
+i32 error_missingToken    := 3
+i32 error_expression      := 4
+i32 error_typeMismatch    := 5
 i32 error_typeNotInferred := 7
-i32 error_notDeclared   := 8
-i32 error_literalToInt  := 9
+i32 error_notDeclared     := 8
+i32 error_literalToInt    := 9
 
 // Structs
 i32 string_max    := 0
@@ -222,6 +223,9 @@ fun parseErrorList()
       elseif errorNo = error_invalidToken then
         appendChar(ErrorString, 'Invalid ')
         appendChar(ErrorString, 'token')
+      elseif errorNo = error_missingToken then
+        appendChar(ErrorString, 'Missing ')
+        appendChar(ErrorString, 'token')
       elseif errorNo = error_typeMismatch then
         appendChar(ErrorString, 'Type mis')
         appendChar(ErrorString, 'match')
@@ -233,7 +237,11 @@ fun parseErrorList()
         appendChar(ErrorString, 'Could no')
         appendChar(ErrorString, 't conver')
         appendChar(ErrorString, 't to int')
-      elseif errorNo = error_typeNotInferred then
+      elseif errorNo = error_expression then
+        appendChar(ErrorString, 'Expressi')
+        appendChar(ErrorString, 'on expec')
+        appendChar(ErrorString, 'ted')
+      elseif errorNo = error_typeNotInferred then  
         appendChar(ErrorString, 'Could no')
         appendChar(ErrorString, 't determ')
         appendChar(ErrorString, 'ine type')        
@@ -857,10 +865,15 @@ fun bool isNativeType(ptr Token)
 endfun
 
 fun eatToken(i32 kind)
-  if CurrentToken.token_kind = kind then
-    nextToken()
+  if CurrentToken then
+    if CurrentToken.token_kind = kind then
+      nextToken()
+    else
+      listAddName(ErrorList, CurrentToken, error_invalidToken)
+    endif
   else
-    listAddName(ErrorList, CurrentToken, error_invalidToken)
+    i32 LastToken := TokenList.list_Last.item_Object
+    listAddName(ErrorList, LastToken, error_missingToken)
   endif
 endfun
 
@@ -880,7 +893,7 @@ fun ptr ParseFunParams()
     listAddName(Params, FunParamNode, Name)
     nextToken()
     breakif CurrentToken.token_kind <> tokens_comma
-    nextToken()
+    eatToken(tokens_comma)
   endloop
   eatToken(tokens_rParen)
   return Params
@@ -1800,7 +1813,7 @@ fun emitExportSection()
   endif
 endfun
 
-fun emitAssignment(ptr Node)
+fun emitAssignment(ptr Node, bool isExpression)
   ptr ResolvedNode := ScopeResolve(CurrentScope, Node.node_ANode.node_String, Node.node_Token)
   i32 dataType := ResolvedNode.node_type
   ptr BNode := Node.node_BNode
@@ -1809,11 +1822,19 @@ fun emitAssignment(ptr Node)
     listAddName(ErrorList, Node.node_Token, error_typeMismatch)
   endif
   BNode.node_dataType := dataType
-  emitNode(BNode)
+  emitExpression(BNode)
   if ResolvedNode.node_Scope = GlobalScope then
     emitByte(0x24)  // set_global
+    if isExpression then
+      emitUleb(ResolvedNode.node_index)
+      emitByte(0x23)  // get_global
+    endif
   else
-    emitByte(0x21)  // set_local
+    if isExpression then
+      emitByte(0x22)  // tee_local
+    else
+      emitByte(0x21)  // set_local
+    endif
   endif
   emitUleb(ResolvedNode.node_index)
 endfun
@@ -1942,7 +1963,7 @@ fun emitUnary(ptr Node)
       emitByte(0x00)  // 0
     endif
   endif
-  emitNode(Node.node_BNode)
+  emitExpression(Node.node_BNode)
   emitOperator(type, dataType)
 endfun
 
@@ -2029,7 +2050,7 @@ fun emitDotStore(ptr Node)
     if itemNo < itemCount then
       emitByte(0x28)  // i32.load
     else
-      emitNode(Node.node_ANode)
+      emitExpression(Node.node_ANode)
       if dataType = tokens_f64 then
         emitByte(0x39)  // f64.store
       elseif dataType = tokens_f32 then
@@ -2103,7 +2124,7 @@ fun emitFunCallArguments(ptr CallNode, ptr FunNode)
     ptr ArgumentNode := ArgumentItem.item_Object
     ptr ParamNode := ParamItem.item_Object
     ArgumentNode.node_dataType.i32 := ParamNode.node_dataType
-    emitNode(ArgumentNode)
+    emitExpression(ArgumentNode)
     ArgumentItem := ArgumentItem.item_Next
     ParamItem := ParamItem.item_Next
   endloop
@@ -2116,7 +2137,7 @@ fun emitCallArguments(ptr CallNode, i32 data_Type)
     breakif not ArgumentItem
     ptr ArgumentNode := ArgumentItem.item_Object
     ArgumentNode.node_dataType := data_Type
-    emitNode(ArgumentNode)
+    emitExpression(ArgumentNode)
     ArgumentItem := ArgumentItem.item_Next
   endloop
 endfun
@@ -2133,7 +2154,7 @@ fun emitCallArguments2(ptr CallNode, i32 data_TypeA, i32 data_TypeB)
     else    
       ArgumentNode.node_dataType := data_TypeB
     endif
-    emitNode(ArgumentNode)
+    emitExpression(ArgumentNode)
     ArgumentItem := ArgumentItem.item_Next
     isFirst := false
   endloop
@@ -2350,7 +2371,7 @@ fun emitBlock(ptr Node)
 endfun
 
 fun emitIf(ptr Node)
-  emitNode(Node.node_CNode)  // If condition expression
+  emitExpression(Node.node_CNode)  // If condition expression
   emitByte(0x04)  // if
   emitByte(0x40)  // void
   emitNode(Node.node_ANode)  // Then block
@@ -2441,10 +2462,10 @@ fun i32 inferDataType(ptr Node)
   return dataType
 endfun
 
-fun emitBinary(ptr Node)
+fun emitBinary(ptr Node, bool isExpression)
   i32 type := Node.node_type
   if type = tokens_assign then
-    emitAssignment(Node)
+    emitAssignment(Node, isExpression)
   else
     i32 dataType := Node.node_dataType
     ptr ANode := Node.node_ANode
@@ -2458,8 +2479,8 @@ fun emitBinary(ptr Node)
     endif
     ANode.node_dataType := dataType
     BNode.node_dataType := dataType
-    emitNode(ANode)
-    emitNode(BNode)
+    emitExpression(ANode)
+    emitExpression(BNode)
     emitOperator(type, dataType)
   endif
 endfun
@@ -2468,7 +2489,7 @@ fun emitVariable(ptr Node)
   i32 type := Node.node_type
   ptr BNode := Node.node_BNode
   BNode.node_dataType := type
-  emitNode(BNode)
+  emitExpression(BNode)
   emitByte(0x21)  // set_local
   emitUleb(Node.node_index)
 endfun
@@ -2479,7 +2500,7 @@ fun emitReturn(ptr Node)
   if dataType then
     Node.node_dataType := dataType
     ANode.node_dataType := dataType
-    emitNode(ANode)
+    emitExpression(ANode)
   endif
   if scopeLevel(Node, nodes_fun) > 0 then
     emitByte(0x0f)  // return
@@ -2487,15 +2508,30 @@ fun emitReturn(ptr Node)
 endfun
 
 fun emitBreakif(ptr Node)
-  emitNode(Node.node_CNode)  // If condition expression
+  emitExpression(Node.node_CNode)  // If condition expression
   emitByte(0x0d)  // br_if
   emitUleb(scopeLevel(Node, nodes_loop) + 1)
+endfun
+
+fun emitExpression(ptr Node)
+  i32 kind := Node.node_kind
+  if     kind = nodes_binary     then emitBinary(Node, true)
+  elseif kind = nodes_unary      then emitUnary(Node)
+  elseif kind = nodes_call       then emitCall(Node)
+  elseif kind = nodes_hexwasm    then emitByte(Node.node_type)
+  elseif kind = nodes_literal    then emitLiteral(Node)
+  elseif kind = nodes_identifier then emitIdentifier(Node)
+  elseif kind = nodes_dotLoad    then emitDotLoad(Node)
+  elseif kind = nodes_variable   then emitVariable(Node)
+  else
+    listAddName(ErrorList, Node.node_Token, error_expression)
+  endif
 endfun
 
 fun emitNode(ptr Node)
   i32 kind := Node.node_kind
   if     kind = nodes_block      then emitBlock(Node)
-  elseif kind = nodes_binary     then emitBinary(Node)
+  elseif kind = nodes_binary     then emitBinary(Node, false)
   elseif kind = nodes_unary      then emitUnary(Node)
   elseif kind = nodes_call       then emitCall(Node)
   elseif kind = nodes_return     then emitReturn(Node)
