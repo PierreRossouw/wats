@@ -6,7 +6,7 @@
 // Constants are ALL CAPS
 
 // Memory size in 64kB pages
-mem 100 export
+mem 200 export
 
 data 8 "\ff"  // string length
 data 12 ""  // Source code to compile
@@ -130,6 +130,7 @@ i32 error_typeNotInferred := 7
 i32 error_notDeclared     := 8
 i32 error_literalToInt    := 9
 i32 error_blockStatement  := 10
+i32 error_emitNode        := 11
 
 // Structs
 i32 string_max    := 0
@@ -258,7 +259,11 @@ fun parseErrorList()
         appendChar(ErrorString, 'Could no')
         appendChar(ErrorString, 't determ')
         appendChar(ErrorString, 'ine type')        
-      else
+      elseif errorNo = error_emitNode then  
+        appendChar(ErrorString, 'Unexpect')
+        appendChar(ErrorString, 'ed node ')
+        appendChar(ErrorString, 'type')        
+      else  
         appendChar(ErrorString, 'Error ')
         appendI32(ErrorString, errorNo)
       endif
@@ -1600,10 +1605,9 @@ fun emitString(ptr S)
 endfun
 
 fun i32 uLebLength(i32 i)
-  return iif i <= 127       then 1 else
-         iif i <= 16383     then 2 else
-         iif i <= 2097151   then 2 else
-         iif i <= 268435455 then 4 else 5 endiif endiif endiif endiif
+  return iif i > 2097151 then 4 else
+         iif i > 16383   then 3 else
+         iif i > 127     then 2 else 1 endiif endiif endiif
 endfun
 
 fun emitUleb(i32 i)  // en.wikipedia.org/wiki/LEB128
@@ -2606,43 +2610,43 @@ endfun
 
 fun emitExpression(ptr Node)
   i32 kind := Node.node_kind
-  if     kind = nodes_binary     then emitBinary(Node, true)
-  elseif kind = nodes_unary      then emitUnary(Node)
-  elseif kind = nodes_call       then emitCall(Node)
-  elseif kind = nodes_hexwasm    then emitByte(Node.node_type)
-  elseif kind = nodes_literal    then emitLiteral(Node)
-  elseif kind = nodes_identifier then emitIdentifier(Node)
-  elseif kind = nodes_dotLoad    then emitDotLoad(Node)
-  elseif kind = nodes_variable   then emitVariable(Node)
-  elseif kind = nodes_iif        then emitIif(Node)
-  else
-    listAddName(ErrorList, Node.node_Token, error_expression)
+  if       kind = nodes_binary     then emitBinary(Node, true)
+    elseif kind = nodes_unary      then emitUnary(Node)
+    elseif kind = nodes_call       then emitCall(Node)
+    elseif kind = nodes_hexwasm    then emitByte(Node.node_type)
+    elseif kind = nodes_literal    then emitLiteral(Node)
+    elseif kind = nodes_identifier then emitIdentifier(Node)
+    elseif kind = nodes_dotLoad    then emitDotLoad(Node)
+    elseif kind = nodes_variable   then emitVariable(Node)
+    elseif kind = nodes_iif        then emitIif(Node)
+    else listAddName(ErrorList, Node.node_Token, error_expression)
   endif
 endfun
 
 fun emitNode(ptr Node)
   i32 kind := Node.node_kind
   if     kind = nodes_block      then emitBlock(Node)
-  elseif kind = nodes_binary     then emitBinary(Node, false)
-  elseif kind = nodes_unary      then emitUnary(Node)
-  elseif kind = nodes_call       then emitCall(Node)
-  elseif kind = nodes_return     then emitReturn(Node)
-  elseif kind = nodes_if         then emitIf(Node)
-  elseif kind = nodes_breakif    then emitBreakif(Node)
-  elseif kind = nodes_drop       then emitDrop(Node)
-  elseif kind = nodes_loop       then emitLoop(Node)
-  elseif kind = nodes_hexwasm    then emitByte(Node.node_type)
-  elseif kind = nodes_literal    then emitLiteral(Node)
-  elseif kind = nodes_identifier then emitIdentifier(Node)
-  elseif kind = nodes_dotLoad    then emitDotLoad(Node)
-  elseif kind = nodes_dotStore   then emitDotStore(Node)
-  elseif kind = nodes_variable   then emitVariable(Node)
-  elseif kind = nodes_continue then
-    emitByte(0x0c)  // br
-    emitUleb(scopeLevel(Node, nodes_loop))
-  elseif kind = nodes_break then
-    emitByte(0x0c)  // br
-    emitUleb(scopeLevel(Node, nodes_loop) + 1)
+    elseif kind = nodes_binary     then emitBinary(Node, false)
+    elseif kind = nodes_unary      then emitUnary(Node)
+    elseif kind = nodes_call       then emitCall(Node)
+    elseif kind = nodes_return     then emitReturn(Node)
+    elseif kind = nodes_if         then emitIf(Node)
+    elseif kind = nodes_breakif    then emitBreakif(Node)
+    elseif kind = nodes_drop       then emitDrop(Node)
+    elseif kind = nodes_loop       then emitLoop(Node)
+    elseif kind = nodes_hexwasm    then emitByte(Node.node_type)
+    elseif kind = nodes_literal    then emitLiteral(Node)
+    elseif kind = nodes_identifier then emitIdentifier(Node)
+    elseif kind = nodes_dotLoad    then emitDotLoad(Node)
+    elseif kind = nodes_dotStore   then emitDotStore(Node)
+    elseif kind = nodes_variable   then emitVariable(Node)
+    elseif kind = nodes_continue then
+      emitByte(0x0c)  // br
+      emitUleb(scopeLevel(Node, nodes_loop))
+    elseif kind = nodes_break then
+      emitByte(0x0c)  // br
+      emitUleb(scopeLevel(Node, nodes_loop) + 1)
+    else listAddName(ErrorList, Node.node_Token, error_emitNode)
   endif
 endfun
 
