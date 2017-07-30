@@ -9,8 +9,7 @@ endfun
 
 fun i32 muladd(i32 a, i32 b)
   i32 temp := double(b)
-  temp := temp + a
-  store32(4, temp)
+  store32(4, (temp := temp + a))
   return temp
 endfun
 
