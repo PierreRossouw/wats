@@ -1,4 +1,4 @@
-/* http://prismjs.com/download.html?themes=prism&languages=clike+c */
+/* http://prismjs.com/download.html?themes=prism&languages=clike&plugins=line-numbers */
 var _self = (typeof window !== 'undefined')
 	? window   // if in browser
 	: (
@@ -550,7 +550,7 @@ Prism.languages.clike = {
 		greedy: true
 	},
 	'class-name': {
-		pattern: /((?:\b(?:class|extends|implements|Node|instanceof|new)\s+)|(?:catch\s+\())[a-z0-9_\.\\]+/i,
+		pattern: /((?:\b(?:class|interface|extends|implements|trait|instanceof|new)\s+)|(?:catch\s+\())[a-z0-9_\.\\]+/i,
 		lookbehind: true,
 		inside: {
 			punctuation: /(\.|\\)/
@@ -560,34 +560,65 @@ Prism.languages.clike = {
 	'boolean': /\b(true|false)\b/,
 	'function': /[a-z0-9_]+(?=\()/i,
 	'number': /\b-?(?:0x[\da-f]+|\d*\.?\d+(?:e[+-]?\d+)?)\b/i,
-	'operator': /--?|\+\+?|:=?=?|<=?|>=?|==?=?|&&?|\|\|?|\?|\*|\/|~|\^|%/,
-	'punctuation': /[{}[\];(),.:]/
+	'operator': /--?|\+\+?|<>?=?|<=?|>=?|:=?=?|&&?|\|\|?|\?|\*|\/|~|\^|%/,
+ 'punctuation': /[{}[\];(),.:]/,
+	'constant': /\b(ptr|bool|i32|i64|f32|f64)\b/
 };
 
-Prism.languages.c = Prism.languages.extend('clike', {
-	'keyword': /\b(data|mem|export|or|and|nop|stop|breakif|elseif|if|then|else|endif|loop|endloop|return|fun|endfun|break|continue|not|mod|modu)\b/,
-	'operator': /\-[>-]?|\+\+?|:=?|<<?=?|>>?=?|==?|&&?|\|?\||[~^%?*\/]/,
-	'number': /\b-?(?:0x[\da-f]+|\d*\.?\d+(?:e[+-]?\d+)?)[ful]*\b/i
+(function() {
+
+if (typeof self === 'undefined' || !self.Prism || !self.document) {
+	return;
+}
+
+Prism.hooks.add('complete', function (env) {
+	if (!env.code) {
+		return;
+	}
+
+	// works only for <code> wrapped inside <pre> (not inline)
+	var pre = env.element.parentNode;
+	var clsReg = /\s*\bline-numbers\b\s*/;
+	if (
+		!pre || !/pre/i.test(pre.nodeName) ||
+			// Abort only if nor the <pre> nor the <code> have the class
+		(!clsReg.test(pre.className) && !clsReg.test(env.element.className))
+	) {
+		return;
+	}
+
+	if (env.element.querySelector(".line-numbers-rows")) {
+		// Abort if line numbers already exists
+		return;
+	}
+
+	if (clsReg.test(env.element.className)) {
+		// Remove the class "line-numbers" from the <code>
+		env.element.className = env.element.className.replace(clsReg, '');
+	}
+	if (!clsReg.test(pre.className)) {
+		// Add the class "line-numbers" to the <pre>
+		pre.className += ' line-numbers';
+	}
+
+	var match = env.code.match(/\n(?!$)/g);
+	var linesNum = match ? match.length + 1 : 1;
+	var lineNumbersWrapper;
+
+	var lines = new Array(linesNum + 1);
+	lines = lines.join('<span></span>');
+
+	lineNumbersWrapper = document.createElement('span');
+	lineNumbersWrapper.setAttribute('aria-hidden', 'true');
+	lineNumbersWrapper.className = 'line-numbers-rows';
+	lineNumbersWrapper.innerHTML = lines;
+
+	if (pre.hasAttribute('data-start')) {
+		pre.style.counterReset = 'linenumber ' + (parseInt(pre.getAttribute('data-start'), 10) - 1);
+	}
+
+	env.element.appendChild(lineNumbersWrapper);
+
 });
 
-Prism.languages.insertBefore('c', 'string', {
-	'macro': {
-		// allow for multiline macro definitions
-		// spaces after the # character compile fine with gcc
-		pattern: /(^\s*)#\s*[a-z]+([^\r\n\\]|\\.|\\(?:\r\n?|\n))*/im,
-		lookbehind: true,
-		alias: 'property',
-		inside: {
-			// highlight the path of the include statement as a string
-			'string': {
-				pattern: /(#\s*include\s*)(<.+?>|("|')(\\?.)+?\3)/,
-				lookbehind: true
-			},
-		}
-	},
-	// highlight predefined macros as constants
-	'constant': /\b(ptr|bool|i32|i64|f32|f64)\b/
-});
-
-delete Prism.languages.c['class-name'];
-delete Prism.languages.c['boolean'];
+}());
