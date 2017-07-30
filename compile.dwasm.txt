@@ -37,83 +37,85 @@ i32 nodes_mem        := 0x12
 i32 nodes_data       := 0x13
 i32 nodes_dotLoad    := 0x14
 i32 nodes_dotStore   := 0x15
+i32 nodes_drop       := 0x16
 
-i32 tokens_identifier  := 43
-i32 tokens_strLiteral  := 45
-i32 tokens_charLiteral := 46
-i32 tokens_numLiteral  := 47
-i32 tokens_true        := 48
-i32 tokens_false       := 49
-i32 tokens_lParen      := 50
-i32 tokens_comma       := 51
-i32 tokens_rParen      := 52
-i32 tokens_dot         := 53
-i32 tokens_fun         := 60
-i32 tokens_return      := 61
-i32 tokens_endfun      := 62
-i32 tokens_hexwasm     := 63
-i32 tokens_stop        := 64
-i32 tokens_nop         := 65
-i32 tokens_mem         := 66
-i32 tokens_export      := 67
-i32 tokens_data        := 68
-i32 tokens_loop        := 70
-i32 tokens_continue    := 71
-i32 tokens_break       := 72
-i32 tokens_breakif     := 73
-i32 tokens_endloop     := 74
-i32 tokens_if          := 80
-i32 tokens_then        := 81
-i32 tokens_elseif      := 82
-i32 tokens_else        := 83
-i32 tokens_endif       := 84
-i32 tokens_minPrec     := 89
-i32 tokens_assign      := 90   // :=
-i32 tokens_min         := 91
-i32 tokens_max         := 92
-i32 tokens_copys       := 93
-i32 tokens_or          := 94
-i32 tokens_xor         := 95
-i32 tokens_and         := 96
-i32 tokens_eq          := 97   // =
-i32 tokens_ne          := 98   // <>
-i32 tokens_lt          := 99   // <
-i32 tokens_ltu         := 100  // <+
-i32 tokens_le          := 101  // <=
-i32 tokens_leu         := 102  // <=+
-i32 tokens_gt          := 103  // >
-i32 tokens_gtu         := 104  // >+
-i32 tokens_ge          := 105  // >=
-i32 tokens_geu         := 106  // >=+
-i32 tokens_shl         := 107  // <<
-i32 tokens_shr         := 108  // >>
-i32 tokens_shru        := 109  // >>+
-i32 tokens_rotl        := 110  // <-<
-i32 tokens_rotr        := 111  // >->
-i32 tokens_clz         := 113 
-i32 tokens_ctz         := 114 
-i32 tokens_cnt         := 115 
-i32 tokens_add         := 116  // +
-i32 tokens_sub         := 117  // -
-i32 tokens_mul         := 118  // *
-i32 tokens_div         := 119  // /
-i32 tokens_divu        := 120
-i32 tokens_mod         := 121
-i32 tokens_modu        := 122
-i32 tokens_not         := 123
-i32 tokens_abs         := 130 
-i32 tokens_neg         := 131
-i32 tokens_ceil        := 132
-i32 tokens_floor       := 133
-i32 tokens_trunc       := 134
-i32 tokens_round       := 135
-i32 tokens_sqrt        := 136
-i32 tokens_f64         := 124  // 0x7c  (Data types)
-i32 tokens_f32         := 125  // 0x7d 
-i32 tokens_i64         := 126  // 0x7e
-i32 tokens_i32         := 127  // 0x7f
-i32 tokens_bool        := 128  // synonym for i32
-i32 tokens_ptr         := 129  // synonym for i32
+i32 tokens_identifier  := 0x2f
+i32 tokens_strLiteral  := 0x30
+i32 tokens_charLiteral := 0x31
+i32 tokens_numLiteral  := 0x32
+i32 tokens_true        := 0x33
+i32 tokens_false       := 0x34
+i32 tokens_lParen      := 0x35
+i32 tokens_comma       := 0x36
+i32 tokens_rParen      := 0x37
+i32 tokens_dot         := 0x38
+i32 tokens_fun         := 0x39
+i32 tokens_return      := 0x3a
+i32 tokens_endfun      := 0x3b
+i32 tokens_hexwasm     := 0x3c
+i32 tokens_drop        := 0x3d
+i32 tokens_stop        := 0x3e
+i32 tokens_nop         := 0x3f
+i32 tokens_mem         := 0x40
+i32 tokens_export      := 0x41
+i32 tokens_data        := 0x42
+i32 tokens_loop        := 0x43
+i32 tokens_continue    := 0x44
+i32 tokens_break       := 0x45
+i32 tokens_breakif     := 0x46
+i32 tokens_endloop     := 0x47
+i32 tokens_if          := 0x48
+i32 tokens_then        := 0x49
+i32 tokens_elseif      := 0x4a
+i32 tokens_else        := 0x4b
+i32 tokens_endif       := 0x4c
+i32 tokens_minPrec     := 0x4d
+i32 tokens_assign      := 0x4e  // :=
+i32 tokens_min         := 0x4f
+i32 tokens_max         := 0x50
+i32 tokens_copys       := 0x51
+i32 tokens_or          := 0x52
+i32 tokens_xor         := 0x53
+i32 tokens_and         := 0x54
+i32 tokens_eq          := 0x55   // =
+i32 tokens_ne          := 0x56  // <>
+i32 tokens_lt          := 0x57  // <
+i32 tokens_ltu         := 0x58  // <+
+i32 tokens_le          := 0x59  // <=
+i32 tokens_leu         := 0x5a  // <=+
+i32 tokens_gt          := 0x5b  // >
+i32 tokens_gtu         := 0x5c  // >+
+i32 tokens_ge          := 0x5d  // >=
+i32 tokens_geu         := 0x5e  // >=+
+i32 tokens_shl         := 0x5f  // <<
+i32 tokens_shr         := 0x60  // >>
+i32 tokens_shru        := 0x61  // >>+
+i32 tokens_rotl        := 0x62  // <-<
+i32 tokens_rotr        := 0x63  // >->
+i32 tokens_clz         := 0x64 
+i32 tokens_ctz         := 0x65 
+i32 tokens_cnt         := 0x66 
+i32 tokens_add         := 0x67  // +
+i32 tokens_sub         := 0x68  // -
+i32 tokens_mul         := 0x69  // *
+i32 tokens_div         := 0x6a  // /
+i32 tokens_divu        := 0x6b
+i32 tokens_mod         := 0x6c
+i32 tokens_modu        := 0x6d
+i32 tokens_not         := 0x6e
+i32 tokens_abs         := 0x6f 
+i32 tokens_neg         := 0x70
+i32 tokens_ceil        := 0x71
+i32 tokens_floor       := 0x72
+i32 tokens_trunc       := 0x73
+i32 tokens_round       := 0x74
+i32 tokens_sqrt        := 0x75
+i32 tokens_f64         := 0x7c  // (Data types)
+i32 tokens_f32         := 0x7d 
+i32 tokens_i64         := 0x7e
+i32 tokens_i32         := 0x7f
+i32 tokens_bool        := 0x8f  // synonym for i32
+i32 tokens_ptr         := 0x9f  // synonym for i32
 
 i32 error_duplicateName   := 1
 i32 error_invalidToken    := 2
@@ -197,14 +199,12 @@ ptr ErrorList        := 0
 
 fun ptr Compile() export "main"
   i32 length := Code.string_length
-  i32 i := Alloc(string_Chars + length)  
+  drop Alloc(string_Chars + length)  
   ErrorList := Alloc(list_size)
   lexx()
   if ErrorList.list_count.i32 = 0 then parse() endif
   if ErrorList.list_count.i32 = 0 then emit(length) endif
-  if ErrorList.list_count.i32 > 0 then
-    parseErrorList()
-  endif
+  if ErrorList.list_count.i32 > 0 then parseErrorList() endif
   return CompilerOutput + string_length
 endfun
 
@@ -249,13 +249,15 @@ fun parseErrorList()
         appendChar(ErrorString, 'Error ')
         appendI32(ErrorString, errorNo)
       endif
-      appendChar(ErrorString, ' line ')
-      appendI32(ErrorString, Token.token_line)
-      appendChar(ErrorString, ' column ')
-      appendI32(ErrorString, Token.token_column - Token.token_Value.string_length)
-      appendChar(ErrorString, ' token ')
-      appendString(ErrorString, Token.token_Value)
-      appendChar(ErrorString, 13)
+      if Token then
+        appendChar(ErrorString, ' line ')
+        appendI32(ErrorString, Token.token_line)
+        appendChar(ErrorString, ' column ')
+        appendI32(ErrorString, Token.token_column - Token.token_Value.string_length)
+        appendChar(ErrorString, ' token ')
+        appendString(ErrorString, Token.token_Value)
+        appendChar(ErrorString, 13)
+      endif
       CompilerOutput := ErrorString
       ErrorItem := ErrorItem.item_Next
       breakif not ErrorItem
@@ -524,6 +526,7 @@ fun processToken(i32 Val, i32 line, i32 column)
   elseif strCompare32(Val, 'fun')      then kind := tokens_fun
   elseif strCompare64(Val, 'return')   then kind := tokens_return
   elseif strCompare64(Val, 'endfun')   then kind := tokens_endfun
+  elseif strCompare32(Val, 'drop')     then kind := tokens_drop
   elseif strCompare32(Val, 'stop')     then kind := tokens_stop
   elseif strCompare32(Val, 'nop')      then kind := tokens_nop
   elseif strCompare32(Val, 'mem')      then kind := tokens_mem
@@ -1129,6 +1132,14 @@ fun ptr ParseBreakif()
   return Node
 endfun
 
+fun ptr ParseDrop()
+  ptr Node := NewNode()
+  Node.node_kind := nodes_drop
+  eatToken(tokens_drop)
+  Node.node_CNode := ParseExpression(tokens_minPrec)
+  return Node
+endfun
+
 fun ptr ParseExpression(i32 level)
   ptr Node := ParsePrefix()
   loop
@@ -1324,6 +1335,7 @@ fun ptr ParseStatement()
   elseif kind = tokens_if       then Node := ParseIfStatement(false)
   elseif kind = tokens_loop     then Node := ParseLoopStatement()
   elseif kind = tokens_breakif  then Node := ParseBreakif()
+  elseif kind = tokens_drop     then Node := ParseDrop()
   elseif kind = tokens_continue then Node := ParseContinue()
   elseif kind = tokens_break    then Node := ParseBreak()
   elseif kind = tokens_identifier and NextToken.token_kind = tokens_dot then
@@ -2513,6 +2525,11 @@ fun emitBreakif(ptr Node)
   emitUleb(scopeLevel(Node, nodes_loop) + 1)
 endfun
 
+fun emitDrop(ptr Node)
+  emitExpression(Node.node_CNode)
+  emitByte(0x1a)  // drop
+endfun
+
 fun emitExpression(ptr Node)
   i32 kind := Node.node_kind
   if     kind = nodes_binary     then emitBinary(Node, true)
@@ -2537,6 +2554,7 @@ fun emitNode(ptr Node)
   elseif kind = nodes_return     then emitReturn(Node)
   elseif kind = nodes_if         then emitIf(Node)
   elseif kind = nodes_breakif    then emitBreakif(Node)
+  elseif kind = nodes_drop       then emitDrop(Node)
   elseif kind = nodes_loop       then emitLoop(Node)
   elseif kind = nodes_hexwasm    then emitByte(Node.node_type)
   elseif kind = nodes_literal    then emitLiteral(Node)
