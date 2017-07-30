@@ -556,12 +556,12 @@ Prism.languages.clike = {
 			punctuation: /(\.|\\)/
 		}
 	},
-	'keyword': /\b(data|mem|export|or|and|nop|stop|breakif|elseif|if|then|else|elseif|endif|loop|endloop|return|fun|endfun|break|continue|not|mod|modu)\b/,
+	'keyword': /\b(drop|iif|endiif|data|mem|export|or|and|nop|stop|breakif|elseif|if|then|else|elseif|endif|loop|endloop|return|fun|endfun|break|continue|not|mod|modu)\b/,
 	'boolean': /\b(true|false)\b/,
 	'function': /[a-z0-9_]+(?=\()/i,
 	'number': /\b-?(?:0x[\da-f]+|\d*\.?\d+(?:e[+-]?\d+)?)\b/i,
 	'operator': /--?|\+\+?|<>?=?|<=?|>=?|:=?=?|&&?|\|\|?|\?|\*|\/|~|\^|%/,
- 'punctuation': /[{}[\];(),.:]/,
+	'punctuation': /[{}[\];(),.:]/,
 	'constant': /\b(ptr|bool|i32|i64|f32|f64)\b/
 };
 
