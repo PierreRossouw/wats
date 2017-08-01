@@ -560,7 +560,7 @@ Prism.languages.clike = {
 	'boolean': /\b(true|false)\b/,
 	'function': /[a-z0-9_]+(?=\()/i,
 	'number': /\b-?(?:0x[\da-f]+|\d*\.?\d+(?:e[+-]?\d+)?)\b/i,
-	'operator': /--?|\+\+?|<>?=?|<=?|>=?|:=?=?|&&?|\|\|?|\?|\*|\/|~|\^|%/,
+	'operator': /--?|\+\+?|<>?=?|=|<=?|>=?|:=?=?|&&?|\|\|?|\?|\*|\/|~|\^|%/,
 	'punctuation': /[{}[\];(),.:]/,
 	'constant': /\b(ptr|bool|i32|i64|f32|f64)\b/
 };
