@@ -15,12 +15,6 @@ data 12 ""  // Source code to compile
 i32 SIZEINT := 4  // Most browsers currently only support 32bit sized WASM memories
 i32 DEC0DE := 557785600  // Magic number -0x00dec0de - used for debugging
 
-
-i32 tokens_endfun      := 0x2c
-i32 tokens_endiif      := 0x32
-i32 tokens_endif       := 0x4c
-i32 tokens_endloop     := 0x47
-
 // Enums
 i32 nodes_program    := 0x01  // root node
 i32 nodes_fun        := 0x02
@@ -213,11 +207,11 @@ func ptr Compile() export "main"
   drop Alloc(string_Chars + length)  
   ErrorList := Alloc(list_size)
   lexx()
-  if ErrorList.list_count.i32 = 0 then parse() endif
-  if ErrorList.list_count.i32 = 0 then emit(length) endif
-  if ErrorList.list_count.i32 > 0 then parseErrorList() endif
+  if ErrorList.list_count.i32 = 0 then parse() end
+  if ErrorList.list_count.i32 = 0 then emit(length) end
+  if ErrorList.list_count.i32 > 0 then parseErrorList() end
   return CompilerOutput + string_length
-endfun
+end
 
 // Lexer XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
@@ -229,7 +223,7 @@ func addToken(i32 kind, i32 Value, i32 line, i32 column)
   Token.token_line := line
   Token.token_column := column
   listAdd(TokenList, Token)
-endfun
+end
 
 func processToken(i32 Val, i32 line, i32 column)
   i32 kind := tokens_identifier
@@ -240,7 +234,6 @@ func processToken(i32 Val, i32 line, i32 column)
   elseif strCompare64(Val, 'false')    then kind := tokens_false
   elseif strCompare32(Val, 'func')     then kind := tokens_fun
   elseif strCompare64(Val, 'return')   then kind := tokens_return
-  elseif strCompare64(Val, 'endfun')   then kind := tokens_endfun
   elseif strCompare32(Val, 'end')      then kind := tokens_end
   elseif strCompare32(Val, 'drop')     then kind := tokens_drop
   elseif strCompare32(Val, 'stop')     then kind := tokens_stop
@@ -253,14 +246,11 @@ func processToken(i32 Val, i32 line, i32 column)
   elseif strCompare64(Val, 'continue') then kind := tokens_continue
   elseif strCompare64(Val, 'break')    then kind := tokens_break
   elseif strCompare64(Val, 'breakif')  then kind := tokens_breakif
-  elseif strCompare64(Val, 'endloop')  then kind := tokens_endloop
   elseif strCompare32(Val, 'if')       then kind := tokens_if
   elseif strCompare32(Val, 'then')     then kind := tokens_then
   elseif strCompare32(Val, 'else')     then kind := tokens_else
   elseif strCompare64(Val, 'elseif')   then kind := tokens_elseif
-  elseif strCompare64(Val, 'endif')    then kind := tokens_endif
   elseif strCompare32(Val, 'iif')      then kind := tokens_iif
-  elseif strCompare64(Val, 'endiif')   then kind := tokens_endiif
   elseif strCompare32(Val, 'i32')      then kind := tokens_i32
   elseif strCompare32(Val, 'i64')      then kind := tokens_i64
   elseif strCompare32(Val, 'f32')      then kind := tokens_f32
@@ -303,13 +293,13 @@ func processToken(i32 Val, i32 line, i32 column)
   elseif strCompare32(Val, 'clz')      then kind := tokens_clz 
   elseif strCompare32(Val, 'ctz')      then kind := tokens_ctz 
   elseif strCompare32(Val, 'cnt')      then kind := tokens_cnt 
-  endif
+  end
   addToken(kind, Val, line, column)
-endfun
+end
 
 func bool isAlpha(i32 chr)
   return (chr >= 'a' and chr <= 'z') or (chr >= 'A' and chr <= 'Z') or (chr = '_')
-endfun
+end
 
 func bool isNumber(i32 chr, bool hexNum)
   if chr >= '0' and chr <= '9' then
@@ -317,23 +307,23 @@ func bool isNumber(i32 chr, bool hexNum)
   elseif hexNum then
     if (chr >= 'a' and chr <= 'f') or (chr >= 'A' and chr <= 'F') then 
       return true 
-    endif
-  endif
+    end
+  end
   return false
-endfun
+end
 
 func bool isHexwasm(i32 chr1, i32 chr2, i32 chr3)
   return chr1 = 'x' and isNumber(chr2, true) and isNumber(chr3, true)
-endfun
+end
 
 func bool isPunctuator(i32 chr)
   return chr = '(' or chr = ')' or chr = ','
-endfun
+end
 
 func bool isOperatorChar(i32 chr)
   return chr = '=' or chr = '+' or chr = '-' or chr = '/' or chr = '^' or
          chr = '<' or chr = '>' or chr = '*' or chr = ':' 
-endfun
+end
 
 func lexx()
   TokenList := Alloc(list_size)
@@ -363,11 +353,11 @@ func lexx()
           pos := pos - 1
           column := column - 1
           break
-        endif
+        end
         pos := pos + 1
         column := column + 1
         chr := getChar(Code, pos)
-      endloop
+      end
       Val := Substring(Code, start, pos - start + 1)
       processToken(Val, line, column)
       if getChar(Code, pos + 1) = '.' and isAlpha(getChar(Code, pos + 2)) then
@@ -375,7 +365,7 @@ func lexx()
         column := column + 1
         chr := getChar(Code, pos)
         addToken(tokens_dot, Val, line, column)
-      endif
+      end
     elseif chr = 39 then  // single quote
       pos := pos + 1
       column := column + 1
@@ -386,7 +376,7 @@ func lexx()
         pos := pos + 1
         column := column + 1
         chr := getChar(Code, pos)
-      endloop
+      end
       Val := Substring(Code, start, pos - start)
       addToken(tokens_charLiteral, Val, line, column)
     elseif chr = '"' then
@@ -399,7 +389,7 @@ func lexx()
         pos := pos + 1
         column := column + 1
         chr := getChar(Code, pos)
-      endloop
+      end
       Val := Substring(Code, start, pos - start)
       decodeString(Val)
       addToken(tokens_strLiteral, Val, line, column)
@@ -414,12 +404,12 @@ func lexx()
             pos := pos - 1
             column := column - 1
             break
-          endif
-        endif
+          end
+        end
         pos := pos + 1
         column := column + 1
         chr := getChar(Code, pos)
-      endloop
+      end
       if chr = '.' and not isHex then
         pos := pos + 2
         column := column + 2
@@ -429,12 +419,12 @@ func lexx()
             pos := pos - 1
             column := column - 1
             break
-          endif
+          end
           pos := pos + 1
           column := column + 1
           chr := getChar(Code, pos)
-        endloop
-      endif
+        end
+      end
       Val := Substring(Code, start, pos - start + 1)
       addToken(tokens_numLiteral, Val, line, column)
     elseif chr = '/' and getChar(Code, pos + 1) = '/' then
@@ -443,11 +433,11 @@ func lexx()
           column := 0
           line := line + 1
           break
-        endif
+        end
         pos := pos + 1
         column := column + 1
         chr := getChar(Code, pos)
-      endloop
+      end
     elseif isPunctuator(chr) then
       Val := Substring(Code, pos, 1)
       processToken(Val, line, column)
@@ -461,15 +451,15 @@ func lexx()
           Val := Substring(Code, pos, 2)
           pos := pos + 1
           column := column + 1
-        endif
+        end
       else
         Val := Substring(Code, pos, 1)
-      endif
+      end
       processToken(Val, line, column)
-    endif
+    end
     breakif pos >= length
-  endloop
-endfun
+  end
+end
 
 // Memory XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
@@ -525,7 +515,7 @@ func parseErrorList()
       else  
         appendChar(ErrorString, 'Error ')
         appendI32(ErrorString, errorNo)
-      endif
+      end
       if Token then
         appendChar(ErrorString, ' line ')
         appendI32(ErrorString, Token.token_line)
@@ -536,15 +526,15 @@ func parseErrorList()
           appendString(ErrorString, Token.token_Value)
         else
           appendI32(ErrorString, Token.token_column)
-        endif
+        end
         appendChar(ErrorString, 13)
-      endif
+      end
       CompilerOutput := ErrorString
       ErrorItem := ErrorItem.item_Next
       breakif not ErrorItem
-    endloop
-  endif
-endfun
+    end
+  end
+end
 
 // Memory management
 func ptr Alloc(i32 length)
@@ -552,23 +542,23 @@ func ptr Alloc(i32 length)
   Heap := Heap + length
   if Heap mod SIZEINT then
     Heap := Heap + SIZEINT - Heap mod SIZEINT  // Fix the alignment
-  endif
+  end
   return R
-endfun
+end
 
 // Pascal-style strings: We store the length instead of using a null terminator
 func i32 NewString(i32 length)
   i32 String := Alloc(string_Chars + length)
   String.string_length := length
   return String
-endfun
+end
 
 func i32 NewEmptyString(i32 max)
   i32 String := Alloc(string_Chars + max)
   String.string_length := 0
   String.string_max := max
   return String
-endfun
+end
 
 func appendString(ptr String, ptr AppendString)
   i32 stringLength := String.string_length
@@ -582,10 +572,10 @@ func appendString(ptr String, ptr AppendString)
       breakif stringLength >= max
       offset := offset + 1
       breakif offset >= appendLength
-    endloop
+    end
     String.string_length := stringLength
-  endif
-endfun
+  end
+end
 
 func appendI32(ptr String, i32 i)
   i32 stringLength := String.string_length
@@ -600,10 +590,10 @@ func appendI32(ptr String, i32 i)
       i := i / 10
       breakif not i
       breakif not offset 
-    endloop  
+    end  
     String.string_length := stringLength + appendLength
-  endif
-endfun
+  end
+end
 
 func appendChar(ptr String, i64 i)
   i32 stringLength := String.string_length
@@ -618,10 +608,10 @@ func appendChar(ptr String, i64 i)
       i := i >>+ 8
       breakif i = 0
       breakif offset >= appendLength
-    endloop  
+    end  
     String.string_length := stringLength + appendLength
-  endif
-endfun
+  end
+end
 
 func i32 charStringLength(i64 i)
   i32 length := 0
@@ -629,9 +619,9 @@ func i32 charStringLength(i64 i)
     breakif i = 0
     i := i >>+ 8
     length := length + 1
-  endloop
+  end
   return length
-endfun
+end
 
 func i32 decimalStringLength(i32 i)
   i32 length := 1
@@ -639,33 +629,33 @@ func i32 decimalStringLength(i32 i)
     i := i / 10
     breakif not i
     length := length + 1
-  endloop
+  end
   return length
-endfun
+end
 
 func i32 getChar(i32 String, i32 offset)
   return load8u(String + string_Chars + offset)
-endfun
+end
 
 func setChar(i32 String, i32 offset, i32 chr)
   store8(String + string_Chars + offset, chr)
-endfun
+end
 
 func i32 Substring(i32 String, i32 offset, i32 length)
   if offset >= String.string_length then
     length := 0
-  endif
+  end
   if offset + length >= String.string_length then
     length := String.string_length - offset
-  endif
+  end
   i32 R := NewString(length)
   loop
     breakif length = 0
     length := length - 1
     setChar(R, length, getChar(String, offset + length))
-  endloop
+  end
   return R
-endfun
+end
 
 func bool strCompare(i32 A, i32 B)
   i32 length := A.string_length
@@ -674,35 +664,35 @@ func bool strCompare(i32 A, i32 B)
     loop
       if getChar(A, offset) <> getChar(B, offset) then
         return false
-      endif
+      end
       breakif offset >= length
       offset := offset + 1
-    endloop
+    end
   else
     return false
-  endif
+  end
   return true
-endfun
+end
 
 func bool strCompare32(i32 String, i32 a)
   i32 length := String.string_length
   if length = 0 or length > 4 then
     return false
   else
-    if String.string_Chars <> a then return false endif
-  endif
+    if String.string_Chars <> a then return false end
+  end
   return true
-endfun
+end
 
 func bool strCompare64(i32 String, i64 a)
   i32 length := String.string_length
   if length < 5 or length > 8 then
     return false
   else
-    if load64(String + string_Chars) <> a then return false endif
-  endif
+    if load64(String + string_Chars) <> a then return false end
+  end
   return true
-endfun
+end
 
 func i32 hexCharToInt(i32 char)
   if char >= '0' and char <= '9' then
@@ -711,9 +701,9 @@ func i32 hexCharToInt(i32 char)
     return char - 'a' + 10
   elseif char >= 'A' and char <= 'F' then
     return char - 'A' + 10
-  endif
+  end
   return 0
-endfun
+end
 
 // Strings may contain escaped hex bytes for example "\5a" -> "Z"
 func decodeString(i32 S)
@@ -730,20 +720,20 @@ func decodeString(i32 S)
         char := char + hexCharToInt(getChar(S, i + 1))
         setChar(S, o, char)
         i := i + 1
-      endif
+      end
     elseif i > o then
       setChar(S, o, getChar(S, i))
-    endif
+    end
     i := i + 1
     o := o + 1
-  endloop
+  end
   S.string_length := o
   loop
     breakif o >= length
     setChar(S, o, 0)
     o := o + 1
-  endloop
-endfun
+  end
+end
 
 // Lists
 func listAdd(i32 List, i32 Object)
@@ -753,10 +743,10 @@ func listAdd(i32 List, i32 Object)
     List.list_First := Item
   else
     List.list_Last.item_Next := Item
-  endif
+  end
   List.list_Last := Item
   List.list_count.i32 := List.list_count + 1
-endfun
+end
 
 func listAddName(i32 List, i32 Object, i32 Name)
   i32 Item := Alloc(item_size)
@@ -767,10 +757,10 @@ func listAddName(i32 List, i32 Object, i32 Name)
     List.list_First := Item
   else
     List.list_Last.item_Next := Item
-  endif
+  end
   List.list_Last := Item
   List.list_count.i32 := List.list_count + 1
-endfun
+end
 
 // Find a string in a list
 func i32 ListSearch(i32 List, i32 FindName)
@@ -779,11 +769,11 @@ func i32 ListSearch(i32 List, i32 FindName)
     breakif not Item
     if strCompare(Item.item_Name, FindName) then
       return Item.item_Object
-    endif
+    end
     Item := Item.item_Next
-  endloop
+  end
   return 0
-endfun
+end
 
 // Scoper XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
@@ -795,14 +785,14 @@ func pushScope(i32 Node)
   if CurrentScope then
     Scope.scope_index.i32 := CurrentScope.scope_index + 1
     Scope.scope_Parent := CurrentScope
-  endif
+  end
   Node.node_Scope := Scope
   CurrentScope := Scope
-endfun
+end
 
 func popScope()
   CurrentScope := CurrentScope.scope_Parent
-endfun
+end
 
 func ptr LookupFunctionScope(ptr Scope)
   ptr FunScope := Scope
@@ -811,14 +801,14 @@ func ptr LookupFunctionScope(ptr Scope)
     breakif FunScope.scope_Node.node_kind = nodes_fun
     breakif FunScope.scope_Node.node_kind = nodes_program
     FunScope := FunScope.scope_Parent
-  endloop
+  end
   return FunScope
-endfun
+end
 
 func scopeRegister(ptr Scope, ptr Name, ptr Node, ptr Token)
   if ListSearch(Scope.scope_Symbols, Name) then
     listAddName(ErrorList, Token, error_duplicateName)
-  endif
+  end
   i32 nodeKind := Node.node_kind
   listAddName(Scope.scope_Symbols, Node, Name)
   if nodeKind = nodes_variable or nodeKind = nodes_parameter then
@@ -827,8 +817,8 @@ func scopeRegister(ptr Scope, ptr Name, ptr Node, ptr Token)
     Node.node_Scope := FunScope
     Node.node_index := nextIndex
     FunScope.scope_localIndex := nextIndex + 1
-  endif
-endfun
+  end
+end
 
 func ptr ScopeResolve(ptr Scope, ptr Name, ptr Token)
   ptr Node := 0
@@ -838,12 +828,12 @@ func ptr ScopeResolve(ptr Scope, ptr Name, ptr Token)
     Node := ListSearch(RecurseScope.scope_Symbols, Name)
     breakif Node
     RecurseScope := RecurseScope.scope_Parent
-  endloop
+  end
   if not Node then
     listAddName(ErrorList, Token, error_notDeclared)
-  endif
+  end
   return Node
-endfun
+end
 
 // Parser XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
@@ -853,7 +843,7 @@ func ptr NewNode()
   Node.node_dec0de := 2 - DEC0DE
   Node.node_Token := CurrentToken
   return Node
-endfun
+end
 
 func nextToken()
   CurrentTokenItem := CurrentTokenItem.item_Next
@@ -861,14 +851,14 @@ func nextToken()
     CurrentToken := CurrentTokenItem.item_Object
   else
     CurrentToken := 0
-  endif
+  end
   ptr NextTokenItem := CurrentTokenItem.item_Next
   if NextTokenItem then
     NextToken := NextTokenItem.item_Object
   else
     NextToken := 0
-  endif
-endfun
+  end
+end
 
 func bool isBinaryOperator(ptr Token)
   i32 kind := Token.token_kind
@@ -879,26 +869,26 @@ func bool isBinaryOperator(ptr Token)
          kind = tokens_shr or kind = tokens_xor or kind = tokens_ltu or kind = tokens_leu or 
          kind = tokens_gtu or kind = tokens_geu or kind = tokens_shru or kind = tokens_rotl or
          kind = tokens_rotr or kind = tokens_modu
-endfun
+end
 
 func bool isUnaryOperator(ptr Token)
   i32 kind := Token.token_kind
   return kind = tokens_sub or kind = tokens_not or kind = tokens_cnt or kind = tokens_clz or 
          kind = tokens_ctz or kind = tokens_abs or kind = tokens_neg or kind = tokens_ceil or
          kind = tokens_floor or kind = tokens_trunc or kind = tokens_round or kind = tokens_sqrt 
-endfun
+end
 
 func bool isLiteral(ptr Token)
   i32 kind := Token.token_kind
   return kind = tokens_numLiteral or kind = tokens_charLiteral or 
          kind = tokens_true or kind = tokens_false
-endfun
+end
 
 func bool isNativeType(ptr Token)
   i32 kind := Token.token_kind
   return kind = tokens_i32 or kind = tokens_i64 or kind = tokens_f32 or kind = tokens_f64 or 
          kind = tokens_bool or kind = tokens_ptr
-endfun
+end
 
 func eatToken(i32 kind)
   if CurrentToken then
@@ -906,12 +896,12 @@ func eatToken(i32 kind)
       nextToken()
     else
       listAddName(ErrorList, CurrentToken, error_invalidToken)
-    endif
+    end
   else
     i32 LastToken := TokenList.list_Last.item_Object
     listAddName(ErrorList, LastToken, error_missingToken)
-  endif
-endfun
+  end
+end
 
 func eatTokens(i32 kind, i32 kind2)
   if CurrentToken then
@@ -919,12 +909,12 @@ func eatTokens(i32 kind, i32 kind2)
       nextToken()
     else
       listAddName(ErrorList, CurrentToken, error_invalidToken)
-    endif
+    end
   else
     i32 LastToken := TokenList.list_Last.item_Object
     listAddName(ErrorList, LastToken, error_missingToken)
-  endif
-endfun
+  end
+end
 
 func ptr ParseFunParams()
   ptr Params := Alloc(list_size)
@@ -943,10 +933,10 @@ func ptr ParseFunParams()
     nextToken()
     breakif CurrentToken.token_kind <> tokens_comma
     eatToken(tokens_comma)
-  endloop
+  end
   eatToken(tokens_rParen)
   return Params
-endfun
+end
 
 func ptr ParseFunBlock()
   ptr Node := NewNode()
@@ -957,13 +947,12 @@ func ptr ParseFunBlock()
   loop
     breakif not CurrentToken
     breakif CurrentToken.token_kind = tokens_end
-    breakif CurrentToken.token_kind = tokens_endfun
     ptr ChildNode := ParseStatement()
     breakif not ChildNode
     listAdd(BodyList, ChildNode)
-  endloop
+  end
   return Node
-endfun
+end
 
 func ptr ParseFun()
   i32 type := 0
@@ -971,7 +960,7 @@ func ptr ParseFun()
   if isNativeType(CurrentToken) then
     type := CurrentToken.token_kind
     nextToken()
-  endif
+  end
   ptr Name := CurrentToken.token_Value
   ptr Node := NewNode()
   scopeRegister(CurrentScope, Name, Node, CurrentToken)
@@ -993,7 +982,7 @@ func ptr ParseFun()
     ptr ParamName := ParamItem.item_Name
     scopeRegister(CurrentScope, ParamName, ParamItem.item_Object, ParamItem.item_Object.node_Token)
     ParamItem := ParamItem.item_Next
-  endloop
+  end
   if CurrentToken.token_kind = tokens_export then
     eatToken(tokens_export)
     if CurrentToken.token_kind = tokens_strLiteral then
@@ -1001,27 +990,27 @@ func ptr ParseFun()
       eatToken(tokens_strLiteral)
     else
       listAddName(ExportList, Node, Name)
-    endif
-  endif
+    end
+  end
   Node.node_ANode := ParseFunBlock()
   popScope()
-  eatTokens(tokens_end, tokens_endfun)
+  eatToken(tokens_end)
   return Node
-endfun
+end
 
 func ptr ParseBreak()
   ptr Node := NewNode()
   Node.node_kind := nodes_break
   eatToken(tokens_break)
   return Node
-endfun
+end
 
 func ptr ParseContinue()
   ptr Node := NewNode()
   Node.node_kind := nodes_continue
   eatToken(tokens_continue)
   return Node
-endfun
+end
 
 func ptr ParseLiteral()
   ptr Node := NewNode()
@@ -1030,7 +1019,7 @@ func ptr ParseLiteral()
   Node.node_type.i32 := CurrentToken.token_kind
   nextToken()
   return Node
-endfun
+end
 
 func ptr ParseIdentifier()
   ptr Node := NewNode()
@@ -1039,7 +1028,7 @@ func ptr ParseIdentifier()
   Node.node_type.i32 := CurrentToken.token_kind
   nextToken()
   return Node
-endfun
+end
 
 func ptr ParseCallParams()
   ptr ParamList := Alloc(list_size)
@@ -1049,10 +1038,10 @@ func ptr ParseCallParams()
     listAdd(ParamList, ParseExpression(tokens_minPrec))
     breakif CurrentToken.token_kind <> tokens_comma
     eatToken(tokens_comma)
-  endloop
+  end
   eatToken(tokens_rParen)
   return ParamList
-endfun
+end
 
 func ptr ParseCallExpression(ptr Callee)
   ptr Node := NewNode()
@@ -1060,7 +1049,7 @@ func ptr ParseCallExpression(ptr Callee)
   Node.node_ANode := Callee
   Node.node_ParamNodes := ParseCallParams()
   return Node
-endfun
+end
 
 func ptr parseUnaryExpression()
   ptr Node := NewNode()
@@ -1070,7 +1059,7 @@ func ptr parseUnaryExpression()
   nextToken()
   Node.node_BNode := ParseExpression(tokens_add)
   return Node
-endfun
+end
 
 func ptr ParseDotLoad()
   ptr Node := NewNode()
@@ -1088,10 +1077,10 @@ func ptr ParseDotLoad()
       break
     else
       listAdd(BodyList, ParseIdentifier())
-    endif
-  endloop
+    end
+  end
   return Node
-endfun
+end
 
 // A.B.C.i32 := x
 func ptr ParseDotStore()
@@ -1112,13 +1101,13 @@ func ptr ParseDotStore()
       break
     else
       listAdd(BodyList, ParseIdentifier())
-    endif
-  endloop
+    end
+  end
   eatToken(tokens_assign)
   Node.node_ANode := ParseExpression(tokens_minPrec)
   Node.node_ANode.node_dataType := dataType
   return Node
-endfun
+end
 
 func ptr ParsePrefix()
   ptr Node := 0
@@ -1129,21 +1118,21 @@ func ptr ParsePrefix()
     Node := ParseIifExpression()
   elseif kind = tokens_identifier then
     i32 nextKind := 0
-    if NextToken then nextKind := NextToken.token_kind endif
+    if NextToken then nextKind := NextToken.token_kind end
     if nextKind = tokens_dot then
       Node := ParseDotLoad()
     else
       Node := ParseIdentifier()
-    endif
+    end
   elseif kind = tokens_lParen then
     nextToken()
     Node := ParseExpression(tokens_minPrec)
     eatToken(tokens_rParen)
   elseif isUnaryOperator(CurrentToken) then
     Node := parseUnaryExpression()
-  endif
+  end
   return Node
-endfun
+end
 
 func ptr ParseBinaryExpression(i32 level, ptr Left)
   ptr Node := 0
@@ -1158,9 +1147,9 @@ func ptr ParseBinaryExpression(i32 level, ptr Left)
     Node.node_ANode := Left
     nextToken()
     Node.node_BNode := ParseExpression(precedence)
-  endif
+  end
   return Node
-endfun
+end
 
 func ptr ParseInfix(i32 level, ptr Left)
   ptr Node := 0
@@ -1170,15 +1159,15 @@ func ptr ParseInfix(i32 level, ptr Left)
     Node := ParseCallExpression(Left)
   else
     Node := Left
-  endif
+  end
   return Node
-endfun
+end
 
 func ptr ParseCallStatement()
   ptr IdentifierNode := ParseIdentifier()
   ptr Node := ParseCallExpression(IdentifierNode)
   return Node
-endfun
+end
 
 func ptr ParseBreakif()
   ptr Node := NewNode()
@@ -1186,7 +1175,7 @@ func ptr ParseBreakif()
   eatToken(tokens_breakif)
   Node.node_CNode := ParseExpression(tokens_minPrec)
   return Node
-endfun
+end
 
 func ptr ParseDrop()
   ptr Node := NewNode()
@@ -1194,7 +1183,7 @@ func ptr ParseDrop()
   eatToken(tokens_drop)
   Node.node_CNode := ParseExpression(tokens_minPrec)
   return Node
-endfun
+end
 
 func ptr ParseExpression(i32 level)
   ptr Node := ParsePrefix()
@@ -1203,9 +1192,9 @@ func ptr ParseExpression(i32 level)
     ptr Expr := ParseInfix(level, Node)
     breakif Expr = 0 or Expr = Node
     Node := Expr
-  endloop
+  end
   return Node
-endfun
+end
 
 func ptr ParseHexwasmStatement()
   ptr Node := NewNode()
@@ -1213,7 +1202,7 @@ func ptr ParseHexwasmStatement()
   Node.node_type := strToI32(CurrentToken.token_Value, CurrentToken)
   eatToken(tokens_hexwasm)
   return Node
-endfun
+end
 
 func ptr ParseStopStatement()
   ptr Node := NewNode()
@@ -1221,7 +1210,7 @@ func ptr ParseStopStatement()
   Node.node_type := 0x00
   eatToken(tokens_stop)
   return Node
-endfun
+end
 
 func ptr ParseNopStatement()
   ptr Node := NewNode()
@@ -1229,7 +1218,7 @@ func ptr ParseNopStatement()
   Node.node_type := 0x01
   eatToken(tokens_nop)
   return Node
-endfun
+end
 
 func ptr ParseReturnStatement()
   ptr Node := NewNode()
@@ -1237,7 +1226,7 @@ func ptr ParseReturnStatement()
   Node.node_kind := nodes_return
   Node.node_ANode := ParseExpression(tokens_minPrec)
   return Node
-endfun
+end
 
 func ptr ParseIfBlock()
   ptr Node := NewNode()
@@ -1250,17 +1239,16 @@ func ptr ParseIfBlock()
     breakif CurrentToken.token_kind = tokens_else
     breakif CurrentToken.token_kind = tokens_elseif
     breakif CurrentToken.token_kind = tokens_end
-    breakif CurrentToken.token_kind = tokens_endif
     ptr ChildNode := ParseStatement()
     breakif not ChildNode
     listAdd(BodyList, ChildNode)
-  endloop
+  end
   return Node
-endfun
+end
 
 func ptr ParseIfStatement(bool isElseif)
   ptr Node := NewNode()
-  if not isElseif then eatToken(tokens_if) endif
+  if not isElseif then eatToken(tokens_if) end
   Node.node_kind := nodes_if
   Node.node_CNode := ParseExpression(tokens_minPrec)
   eatToken(tokens_then)
@@ -1272,16 +1260,16 @@ func ptr ParseIfStatement(bool isElseif)
     pushScope(Node)
     Node.node_BNode := ParseIfStatement(true)
     popScope()
-  endif
+  end
   if CurrentToken.token_kind = tokens_else then
     eatToken(tokens_else)
     pushScope(Node)
     Node.node_BNode := ParseIfBlock()
     popScope()
-  endif
-  if not isElseif then eatTokens(tokens_end, tokens_endif) endif
+  end
+  if not isElseif then eatToken(tokens_end) end
   return Node
-endfun
+end
 
 func ptr ParseIifExpression()
   ptr Node := NewNode()
@@ -1292,9 +1280,9 @@ func ptr ParseIifExpression()
   Node.node_ANode := ParseExpression(tokens_minPrec)
   eatToken(tokens_else)
   Node.node_BNode := ParseExpression(tokens_minPrec)
-  eatTokens(tokens_end, tokens_endiif)
+  eatToken(tokens_end)
   return Node
-endfun
+end
 
 func ptr ParseLoopBlock()
   ptr Node := NewNode()
@@ -1305,13 +1293,12 @@ func ptr ParseLoopBlock()
   loop
     breakif not CurrentToken
     breakif CurrentToken.token_kind = tokens_end
-    breakif CurrentToken.token_kind = tokens_endloop
     ptr ChildNode := ParseStatement()
     breakif not ChildNode
     listAdd(BodyList, ChildNode)
-  endloop
+  end
   return Node
-endfun
+end
 
 func ptr ParseLoopStatement()
   ptr Node := NewNode()
@@ -1320,9 +1307,9 @@ func ptr ParseLoopStatement()
   pushScope(Node)
   Node.node_ANode := ParseLoopBlock()
   popScope()
-  eatTokens(tokens_end, tokens_endloop)
+  eatToken(tokens_end)
   return Node
-endfun
+end
 
 func ptr ParseDeclaration()
   i32 type := CurrentToken.token_kind
@@ -1345,11 +1332,11 @@ func ptr ParseDeclaration()
     if not FunLocalsList then
       FunLocalsList := Alloc(list_size)
       FunNode.node_Nodes := FunLocalsList
-    endif
+    end
     listAdd(FunLocalsList, Node)
-  endif
+  end
   return Node
-endfun
+end
 
 func ptr ParseMem()
   ptr Node := NewNode()
@@ -1361,7 +1348,7 @@ func ptr ParseMem()
   if CurrentToken.token_kind = tokens_numLiteral then
     memMax := strToI32(CurrentToken.token_Value, CurrentToken)
     nextToken()
-  endif
+  end
   if CurrentToken.token_kind = tokens_export then
     eatToken(tokens_export)
     if CurrentToken.token_kind = tokens_strLiteral then
@@ -1369,10 +1356,10 @@ func ptr ParseMem()
       nextToken()
     else
       MemExport := MemToken.token_Value
-    endif
-  endif
+    end
+  end
   return Node
-endfun
+end
 
 func ptr ParseData()
   ptr Node := NewNode()
@@ -1386,10 +1373,10 @@ func ptr ParseData()
       listAddName(DataList, OffsetToken, CurrentToken)
       Node.node_BNode := CurrentToken
       nextToken()
-    endif
-  endif
+    end
+  end
   return Node
-endfun
+end
 
 func ptr ParseStatement()
   ptr Node := 0
@@ -1414,10 +1401,10 @@ func ptr ParseStatement()
     Node := ParseExpression(tokens_minPrec)
     if Node.node_kind <> nodes_binary or Node.node_type <> tokens_assign then
       listAddName(ErrorList, StartToken, error_blockStatement)
-    endif
-  endif
+    end
+  end
   return Node
-endfun
+end
 
 func ptr ParseRootStatement()
   ptr Node := 0
@@ -1428,9 +1415,9 @@ func ptr ParseRootStatement()
   elseif kind = tokens_fun      then Node := ParseFun()
   else
     listAddName(ErrorList, CurrentToken, error_rootStatement)
-  endif
+  end
   return Node
-endfun
+end
 
 func parse()
   RootNode := NewNode()
@@ -1448,8 +1435,8 @@ func parse()
     ptr Child := ParseRootStatement()
     breakif not Child
     listAdd(BodyList, Child)
-  endloop
-endfun
+  end
+end
 
 // Compiler XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
@@ -1462,8 +1449,8 @@ func i32 strToI32(ptr String, ptr Token)  // Supports ints and 0x-prefixed hex
   if length >= 3 then
     if getChar(String, 0) = '0' and getChar(String, 1) = 'x' then
       isHex := true
-    endif
-  endif
+    end
+  end
   if isHex then
     offset := 2
     loop
@@ -1478,9 +1465,9 @@ func i32 strToI32(ptr String, ptr Token)  // Supports ints and 0x-prefixed hex
         i := i + chr - 'A' + 10
       else
         listAddName(ErrorList, Token, error_literalToInt)
-      endif
+      end
       offset := offset + 1
-    endloop
+    end
   else
     loop
       breakif offset >= length
@@ -1491,13 +1478,13 @@ func i32 strToI32(ptr String, ptr Token)  // Supports ints and 0x-prefixed hex
       elseif offset = 0 and chr = '-' then
       else
         listAddName(ErrorList, Token, error_literalToInt)
-      endif
+      end
       offset := offset + 1
-    endloop
-  endif
-  if getChar(String, 0) = '-' then i := -i endif
+    end
+  end
+  if getChar(String, 0) = '-' then i := -i end
   return i
-endfun
+end
 
 func i64 strToI64(ptr String, ptr Token)
   bool isHex := false
@@ -1508,8 +1495,8 @@ func i64 strToI64(ptr String, ptr Token)
   if length >= 3 then
     if getChar(String, 0) = '0' and getChar(String, 1) = 'x' then
       isHex := true
-    endif
-  endif
+    end
+  end
   if isHex then
     offset := 2
     loop
@@ -1524,9 +1511,9 @@ func i64 strToI64(ptr String, ptr Token)
         i := i + i32_i64(chr) - 'A' + 10
       else
         listAddName(ErrorList, Token, error_literalToInt)
-      endif
+      end
       offset := offset + 1
-    endloop
+    end
   else
     loop
       breakif offset >= length
@@ -1537,13 +1524,13 @@ func i64 strToI64(ptr String, ptr Token)
       elseif offset = 0 and chr = '-' then
       else
         listAddName(ErrorList, Token, error_literalToInt)
-      endif
+      end
       offset := offset + 1
-    endloop
-  endif
-  if getChar(String, 0) = '-' then i := -i endif
+    end
+  end
+  if getChar(String, 0) = '-' then i := -i end
   return i
-endfun
+end
 
 func f32 strToF32(ptr String)
   f32 f := 0
@@ -1563,14 +1550,14 @@ func f32 strToF32(ptr String)
       else
         if chr >= '0' and chr <= '9' then
           f := f * 10 + i32_f32(chr - '0')
-        endif
-      endif
-    endif
+        end
+      end
+    end
     offset := offset + 1
-  endloop
-  if getChar(String, 0) = '-' then f := -f endif
+  end
+  if getChar(String, 0) = '-' then f := -f end
   return f
-endfun
+end
 
 func f64 strToF64(ptr String)
   f64 f := f
@@ -1590,34 +1577,34 @@ func f64 strToF64(ptr String)
       else
         if chr >= '0' and chr <= '9' then
           f := f * 10 + i32_f64(chr - '0')
-        endif
-      endif
-    endif
+        end
+      end
+    end
     offset := offset + 1
-  endloop
-  if getChar(String, 0) = '-' then f := -f endif
+  end
+  if getChar(String, 0) = '-' then f := -f end
   return f
-endfun
+end
 
 func emitByte(i32 byte)
   store8(BinaryPointer, byte)
   BinaryPointer := BinaryPointer + 1
-endfun
+end
 
 func emitI32(i32 i)
   store32(BinaryPointer, i)
   BinaryPointer := BinaryPointer + 4
-endfun
+end
 
 func emitF32(f32 f)
   storeF32(BinaryPointer, f)
   BinaryPointer := BinaryPointer + 4
-endfun
+end
 
 func emitF64(f64 f)
   storeF64(BinaryPointer, f)
   BinaryPointer := BinaryPointer + 8
-endfun
+end
 
 func emitString(ptr S)
   i32 length := S.string_length
@@ -1626,23 +1613,33 @@ func emitString(ptr S)
     breakif i >= length
     emitByte(getChar(S, i))
     i := i + 1
-  endloop
-endfun
+  end
+end
 
 func i32 uLebLength(i32 i)
-  return iif i > 2097151 then 4 else
-         iif i > 16383   then 3 else
-         iif i > 127     then 2 else 1 endiif endiif endiif
-endfun
+  return iif i > 2097151 then 
+    4 
+  else
+    iif i > 16383 then 
+      3 
+    else
+      iif i > 127 then 
+        2 
+      else 
+        1 
+      end 
+    end 
+  end
+end
 
 func emitUleb(i32 i)  // en.wikipedia.org/wiki/LEB128
   loop
     breakif i < 128
     emitByte(128 + (i mod 128))
     i := i / 128  
-  endloop
+  end
   emitByte(i)
-endfun
+end
 
 func emitSleb(i32 i)
   if i >= 0 then 
@@ -1650,17 +1647,17 @@ func emitSleb(i32 i)
       breakif i < 64
       emitByte(128 + (i mod 128))
       i := i / 128
-    endloop
+    end
     emitByte(i)
   else
     loop
       breakif i >= -64
       emitByte((i mod 128) - 128)
       i := i / 128
-    endloop
+    end
     emitByte(i - 128)
-  endif
-endfun
+  end
+end
 
 func emitSleb64(i64 i)
   if i >= 0 then 
@@ -1668,17 +1665,17 @@ func emitSleb64(i64 i)
       breakif i < 64
       emitByte(i64_i32(128 + (i mod 128)))
       i := i / 128
-    endloop
+    end
     emitByte(i64_i32(i))
   else
     loop
       breakif i >= -64
       emitByte(i64_i32((i mod 128) - 128))
       i := i / 128
-    endloop
+    end
     emitByte(i64_i32(i - 128))
-  endif
-endfun
+  end
+end
 
 func fixUlebGuess(ptr Start, i32 offset)
   ptr Copy := BinaryPointer
@@ -1687,9 +1684,9 @@ func fixUlebGuess(ptr Start, i32 offset)
       Copy := Copy - 1
       breakif Copy < Start
       store8(Copy + offset, load8u(Copy))
-    endloop
-  endif
-endfun
+    end
+  end
+end
 
 func emitType(ptr Node)
   ptr ParamList := Node.node_ParamNodes
@@ -1703,9 +1700,9 @@ func emitType(ptr Node)
       emitByte(tokens_i32)
     else
       emitByte(dataType)
-    endif    
+    end    
     ParamItem := ParamItem.item_Next
-  endloop
+  end
   i32 returnType := Node.node_type
   if returnType then
     emitByte(0x01)  // return count
@@ -1713,11 +1710,11 @@ func emitType(ptr Node)
       emitByte(tokens_i32)
     else
       emitByte(returnType)
-    endif
+    end
   else
     emitByte(0x00)  // return count
-  endif
-endfun
+  end
+end
 
 func emitTypeSection()
   ptr BodyList := RootNode.node_Nodes
@@ -1736,10 +1733,10 @@ func emitTypeSection()
           emitType(Node)
           count := count + 1
           emitFunCount := emitFunCount + 1
-        endif
+        end
         Item := Item.item_Next
         breakif not Item
-      endloop
+      end
       i32 length := BinaryPointer - Start
       i32 offset := uLebLength(count) - 1 + uLebLength(length) - 1
       fixUlebGuess(Start, offset)
@@ -1747,10 +1744,10 @@ func emitTypeSection()
       emitUleb(length + uLebLength(count) - 1)
       emitUleb(count)
       BinaryPointer := BinaryPointer + length - 1
-    endif
-  endif
-  if not emitFunCount then BinaryPointer := Skip endif
-endfun
+    end
+  end
+  if not emitFunCount then BinaryPointer := Skip end
+end
 
 func emitFunctionSection()
   if emitFunCount then
@@ -1763,21 +1760,21 @@ func emitFunctionSection()
       breakif counter >= emitFunCount
       emitUleb(counter)
       counter := counter + 1
-    endloop
+    end
     i32 length := BinaryPointer - Start
     i32 offset := uLebLength(length) - 1
     fixUlebGuess(Start, offset)
     BinaryPointer := Start - 1
     emitUleb(length)
     BinaryPointer := BinaryPointer + length
-  endif
-endfun
+  end
+end
 
 func emitMemorySection()
   if memMin or memMax then
     emitByte(0x05)  // Memory section
     if memMax then
-      if memMax < memMin then memMax := memMin endif
+      if memMax < memMin then memMax := memMin end
       emitUleb(2 + uLebLength(memMin) + uLebLength(memMax))  // Size in bytes
       emitByte(0x01)    // Count. A maximum of 1 currently in WebAssembly
       emitByte(0x01)    // Resizable
@@ -1788,9 +1785,9 @@ func emitMemorySection()
       emitByte(0x01)    // Count
       emitByte(0x00)    // Resizable
       emitUleb(memMin)  // Pages
-    endif
-  endif
-endfun
+    end
+  end
+end
 
 func emitNativeGlobal(i32 Node)
   i32 dataType := Node.node_type  // Native type
@@ -1810,7 +1807,7 @@ func emitNativeGlobal(i32 Node)
     emitByte(tokens_i32)
     emitByte(0x01)  // Mutable
     emitByte(0x41)  // i32.const
-  endif
+  end
   i32 Value := Node.node_BNode.node_String
   i32 nodeType := Node.node_BNode.node_type
   if nodeType = tokens_true then
@@ -1825,9 +1822,9 @@ func emitNativeGlobal(i32 Node)
     emitSleb64(strToI64(Value, Node.node_BNode.node_Token))
   else
     emitSleb(strToI32(Value, Node.node_BNode.node_Token))
-  endif
+  end
   emitByte(0x0b)  // end
-endfun
+end
 
 func emitGlobalSection()
   ptr BodyList := RootNode.node_Nodes
@@ -1846,10 +1843,10 @@ func emitGlobalSection()
           emitNativeGlobal(Node)
           count := count + 1
           emitGlobalCount := emitGlobalCount + 1
-        endif
+        end
         Item := Item.item_Next
         breakif not Item
-      endloop
+      end
       i32 length := BinaryPointer - Start
       i32 offset := uLebLength(count) - 1 + uLebLength(length) - 1
       fixUlebGuess(Start, offset)
@@ -1857,10 +1854,10 @@ func emitGlobalSection()
       emitUleb(length + uLebLength(count) - 1)
       emitUleb(count)
       BinaryPointer := BinaryPointer + length - 1
-    endif
-  endif
-  if not emitGlobalCount then BinaryPointer := Skip endif
-endfun
+    end
+  end
+  if not emitGlobalCount then BinaryPointer := Skip end
+end
 
 func emitExportFuns()
   ptr Item := ExportList.list_First
@@ -1872,21 +1869,21 @@ func emitExportFuns()
     emitUleb(Item.item_Object.node_index)
     Item := Item.item_Next
     breakif not Item
-  endloop
-endfun
+  end
+end
 
 func emitExportMem()
   emitUleb(MemExport.string_length)
   emitString(MemExport)
   emitByte(0x02)  // Type: memory
   emitByte(0x00)  // Memory number 0 
-endfun
+end
 
 func emitExportSection()
   ptr BodyList := RootNode.node_Nodes
   if BodyList then
     i32 count := ExportList.list_count
-    if MemExport then count := count + 1 endif
+    if MemExport then count := count + 1 end
     if count then
       emitByte(0x07)  // Export section
       emitByte(0x00)  // Section size (guess)
@@ -1894,19 +1891,19 @@ func emitExportSection()
       emitUleb(count)  // Export count
       if MemExport then
         emitExportMem()
-      endif
+      end
       if ExportList.list_count.i32 then
         emitExportFuns()
-      endif
+      end
       i32 length := BinaryPointer - Start
       i32 offset := uLebLength(length) - 1
       fixUlebGuess(Start, offset)
       BinaryPointer := Start - 1
       emitUleb(length)
       BinaryPointer := BinaryPointer + length
-    endif
-  endif
-endfun
+    end
+  end
+end
 
 func emitAssignment(ptr Node, bool isExpression)
   ptr ResolvedNode := ScopeResolve(CurrentScope, Node.node_ANode.node_String, Node.node_Token)
@@ -1915,7 +1912,7 @@ func emitAssignment(ptr Node, bool isExpression)
   Node.node_dataType := dataType
   if BNode.node_dataType <> 0 and BNode.node_dataType <> dataType then
     listAddName(ErrorList, Node.node_Token, error_typeMismatch)
-  endif
+  end
   BNode.node_dataType := dataType
   emitExpression(BNode)
   if ResolvedNode.node_Scope = GlobalScope then
@@ -1923,122 +1920,122 @@ func emitAssignment(ptr Node, bool isExpression)
     if isExpression then
       emitUleb(ResolvedNode.node_index)
       emitByte(0x23)  // get_global
-    endif
+    end
   else
     if isExpression then
       emitByte(0x22)  // tee_local
     else
       emitByte(0x21)  // set_local
-    endif
-  endif
+    end
+  end
   emitUleb(ResolvedNode.node_index)
-endfun
+end
 
 func emitOperator(i32 type, i32 dataType)
   if dataType = tokens_f64 then
-    if type = tokens_eq    then emitByte(0x61) endif
-    if type = tokens_ne    then emitByte(0x62) endif
-    if type = tokens_lt    then emitByte(0x63) endif
-    if type = tokens_gt    then emitByte(0x64) endif
-    if type = tokens_le    then emitByte(0x65) endif
-    if type = tokens_ge    then emitByte(0x66) endif
-    if type = tokens_abs   then emitByte(0x99) endif
-    if type = tokens_neg   then emitByte(0x9a) endif
-    if type = tokens_ceil  then emitByte(0x9b) endif
-    if type = tokens_floor then emitByte(0x9c) endif
-    if type = tokens_trunc then emitByte(0x9d) endif
-    if type = tokens_round then emitByte(0x9e) endif
-    if type = tokens_sqrt  then emitByte(0x9f) endif
-    if type = tokens_add   then emitByte(0xa0) endif
-    if type = tokens_sub   then emitByte(0xa1) endif
-    if type = tokens_mul   then emitByte(0xa2) endif
-    if type = tokens_div   then emitByte(0xa3) endif
-    if type = tokens_min   then emitByte(0xa4) endif
-    if type = tokens_max   then emitByte(0xa5) endif
-    if type = tokens_copys then emitByte(0xa6) endif
+    if type = tokens_eq    then emitByte(0x61) end
+    if type = tokens_ne    then emitByte(0x62) end
+    if type = tokens_lt    then emitByte(0x63) end
+    if type = tokens_gt    then emitByte(0x64) end
+    if type = tokens_le    then emitByte(0x65) end
+    if type = tokens_ge    then emitByte(0x66) end
+    if type = tokens_abs   then emitByte(0x99) end
+    if type = tokens_neg   then emitByte(0x9a) end
+    if type = tokens_ceil  then emitByte(0x9b) end
+    if type = tokens_floor then emitByte(0x9c) end
+    if type = tokens_trunc then emitByte(0x9d) end
+    if type = tokens_round then emitByte(0x9e) end
+    if type = tokens_sqrt  then emitByte(0x9f) end
+    if type = tokens_add   then emitByte(0xa0) end
+    if type = tokens_sub   then emitByte(0xa1) end
+    if type = tokens_mul   then emitByte(0xa2) end
+    if type = tokens_div   then emitByte(0xa3) end
+    if type = tokens_min   then emitByte(0xa4) end
+    if type = tokens_max   then emitByte(0xa5) end
+    if type = tokens_copys then emitByte(0xa6) end
   elseif dataType = tokens_f32 then
-    if type = tokens_eq    then emitByte(0x5b) endif
-    if type = tokens_ne    then emitByte(0x5c) endif
-    if type = tokens_lt    then emitByte(0x5d) endif
-    if type = tokens_gt    then emitByte(0x5e) endif
-    if type = tokens_le    then emitByte(0x5f) endif
-    if type = tokens_ge    then emitByte(0x60) endif
-    if type = tokens_abs   then emitByte(0x8b) endif
-    if type = tokens_neg   then emitByte(0x8c) endif
-    if type = tokens_ceil  then emitByte(0x8d) endif
-    if type = tokens_floor then emitByte(0x8e) endif
-    if type = tokens_trunc then emitByte(0x8f) endif
-    if type = tokens_round then emitByte(0x90) endif
-    if type = tokens_sqrt  then emitByte(0x91) endif
-    if type = tokens_add   then emitByte(0x92) endif
-    if type = tokens_sub   then emitByte(0x93) endif
-    if type = tokens_mul   then emitByte(0x94) endif
-    if type = tokens_div   then emitByte(0x95) endif
-    if type = tokens_min   then emitByte(0x96) endif
-    if type = tokens_max   then emitByte(0x97) endif
-    if type = tokens_copys then emitByte(0x98) endif
+    if type = tokens_eq    then emitByte(0x5b) end
+    if type = tokens_ne    then emitByte(0x5c) end
+    if type = tokens_lt    then emitByte(0x5d) end
+    if type = tokens_gt    then emitByte(0x5e) end
+    if type = tokens_le    then emitByte(0x5f) end
+    if type = tokens_ge    then emitByte(0x60) end
+    if type = tokens_abs   then emitByte(0x8b) end
+    if type = tokens_neg   then emitByte(0x8c) end
+    if type = tokens_ceil  then emitByte(0x8d) end
+    if type = tokens_floor then emitByte(0x8e) end
+    if type = tokens_trunc then emitByte(0x8f) end
+    if type = tokens_round then emitByte(0x90) end
+    if type = tokens_sqrt  then emitByte(0x91) end
+    if type = tokens_add   then emitByte(0x92) end
+    if type = tokens_sub   then emitByte(0x93) end
+    if type = tokens_mul   then emitByte(0x94) end
+    if type = tokens_div   then emitByte(0x95) end
+    if type = tokens_min   then emitByte(0x96) end
+    if type = tokens_max   then emitByte(0x97) end
+    if type = tokens_copys then emitByte(0x98) end
   elseif dataType = tokens_i64 then
-    if type = tokens_not  then emitByte(0x50) endif
-    if type = tokens_eq   then emitByte(0x51) endif
-    if type = tokens_ne   then emitByte(0x52) endif
-    if type = tokens_lt   then emitByte(0x53) endif
-    if type = tokens_ltu  then emitByte(0x54) endif
-    if type = tokens_gt   then emitByte(0x55) endif
-    if type = tokens_gtu  then emitByte(0x56) endif
-    if type = tokens_le   then emitByte(0x57) endif
-    if type = tokens_leu  then emitByte(0x58) endif
-    if type = tokens_ge   then emitByte(0x59) endif
-    if type = tokens_geu  then emitByte(0x5a) endif
-    if type = tokens_clz  then emitByte(0x79) endif
-    if type = tokens_ctz  then emitByte(0x7a) endif
-    if type = tokens_cnt  then emitByte(0x7b) endif
-    if type = tokens_add  then emitByte(0x7c) endif
-    if type = tokens_sub  then emitByte(0x7d) endif
-    if type = tokens_mul  then emitByte(0x7e) endif
-    if type = tokens_div  then emitByte(0x7f) endif
-    if type = tokens_divu then emitByte(0x80) endif
-    if type = tokens_mod  then emitByte(0x81) endif
-    if type = tokens_modu then emitByte(0x82) endif
-    if type = tokens_and  then emitByte(0x83) endif
-    if type = tokens_or   then emitByte(0x84) endif
-    if type = tokens_xor  then emitByte(0x85) endif
-    if type = tokens_shl  then emitByte(0x86) endif
-    if type = tokens_shr  then emitByte(0x87) endif
-    if type = tokens_shru then emitByte(0x88) endif
-    if type = tokens_rotl then emitByte(0x89) endif
-    if type = tokens_rotr then emitByte(0x8a) endif
+    if type = tokens_not  then emitByte(0x50) end
+    if type = tokens_eq   then emitByte(0x51) end
+    if type = tokens_ne   then emitByte(0x52) end
+    if type = tokens_lt   then emitByte(0x53) end
+    if type = tokens_ltu  then emitByte(0x54) end
+    if type = tokens_gt   then emitByte(0x55) end
+    if type = tokens_gtu  then emitByte(0x56) end
+    if type = tokens_le   then emitByte(0x57) end
+    if type = tokens_leu  then emitByte(0x58) end
+    if type = tokens_ge   then emitByte(0x59) end
+    if type = tokens_geu  then emitByte(0x5a) end
+    if type = tokens_clz  then emitByte(0x79) end
+    if type = tokens_ctz  then emitByte(0x7a) end
+    if type = tokens_cnt  then emitByte(0x7b) end
+    if type = tokens_add  then emitByte(0x7c) end
+    if type = tokens_sub  then emitByte(0x7d) end
+    if type = tokens_mul  then emitByte(0x7e) end
+    if type = tokens_div  then emitByte(0x7f) end
+    if type = tokens_divu then emitByte(0x80) end
+    if type = tokens_mod  then emitByte(0x81) end
+    if type = tokens_modu then emitByte(0x82) end
+    if type = tokens_and  then emitByte(0x83) end
+    if type = tokens_or   then emitByte(0x84) end
+    if type = tokens_xor  then emitByte(0x85) end
+    if type = tokens_shl  then emitByte(0x86) end
+    if type = tokens_shr  then emitByte(0x87) end
+    if type = tokens_shru then emitByte(0x88) end
+    if type = tokens_rotl then emitByte(0x89) end
+    if type = tokens_rotr then emitByte(0x8a) end
   else
-    if type = tokens_not  then emitByte(0x45) endif
-    if type = tokens_eq   then emitByte(0x46) endif
-    if type = tokens_ne   then emitByte(0x47) endif
-    if type = tokens_lt   then emitByte(0x48) endif
-    if type = tokens_ltu  then emitByte(0x49) endif
-    if type = tokens_gt   then emitByte(0x4a) endif
-    if type = tokens_gtu  then emitByte(0x4b) endif
-    if type = tokens_le   then emitByte(0x4c) endif
-    if type = tokens_leu  then emitByte(0x4d) endif
-    if type = tokens_ge   then emitByte(0x4e) endif
-    if type = tokens_geu  then emitByte(0x4f) endif
-    if type = tokens_clz  then emitByte(0x67) endif
-    if type = tokens_ctz  then emitByte(0x68) endif
-    if type = tokens_cnt  then emitByte(0x69) endif
-    if type = tokens_add  then emitByte(0x6a) endif
-    if type = tokens_sub  then emitByte(0x6b) endif
-    if type = tokens_mul  then emitByte(0x6c) endif
-    if type = tokens_div  then emitByte(0x6d) endif
-    if type = tokens_divu then emitByte(0x6e) endif
-    if type = tokens_mod  then emitByte(0x6f) endif
-    if type = tokens_modu then emitByte(0x70) endif
-    if type = tokens_and  then emitByte(0x71) endif
-    if type = tokens_or   then emitByte(0x72) endif
-    if type = tokens_xor  then emitByte(0x73) endif
-    if type = tokens_shl  then emitByte(0x74) endif
-    if type = tokens_shr  then emitByte(0x75) endif
-    if type = tokens_shru then emitByte(0x76) endif
-    if type = tokens_rotl then emitByte(0x77) endif
-    if type = tokens_rotr then emitByte(0x78) endif
-  endif
-endfun
+    if type = tokens_not  then emitByte(0x45) end
+    if type = tokens_eq   then emitByte(0x46) end
+    if type = tokens_ne   then emitByte(0x47) end
+    if type = tokens_lt   then emitByte(0x48) end
+    if type = tokens_ltu  then emitByte(0x49) end
+    if type = tokens_gt   then emitByte(0x4a) end
+    if type = tokens_gtu  then emitByte(0x4b) end
+    if type = tokens_le   then emitByte(0x4c) end
+    if type = tokens_leu  then emitByte(0x4d) end
+    if type = tokens_ge   then emitByte(0x4e) end
+    if type = tokens_geu  then emitByte(0x4f) end
+    if type = tokens_clz  then emitByte(0x67) end
+    if type = tokens_ctz  then emitByte(0x68) end
+    if type = tokens_cnt  then emitByte(0x69) end
+    if type = tokens_add  then emitByte(0x6a) end
+    if type = tokens_sub  then emitByte(0x6b) end
+    if type = tokens_mul  then emitByte(0x6c) end
+    if type = tokens_div  then emitByte(0x6d) end
+    if type = tokens_divu then emitByte(0x6e) end
+    if type = tokens_mod  then emitByte(0x6f) end
+    if type = tokens_modu then emitByte(0x70) end
+    if type = tokens_and  then emitByte(0x71) end
+    if type = tokens_or   then emitByte(0x72) end
+    if type = tokens_xor  then emitByte(0x73) end
+    if type = tokens_shl  then emitByte(0x74) end
+    if type = tokens_shr  then emitByte(0x75) end
+    if type = tokens_shru then emitByte(0x76) end
+    if type = tokens_rotl then emitByte(0x77) end
+    if type = tokens_rotr then emitByte(0x78) end
+  end
+end
 
 func emitUnary(ptr Node)
   i32 type := Node.node_type
@@ -2056,11 +2053,11 @@ func emitUnary(ptr Node)
     else
       emitByte(0x41)  // i32.const 
       emitByte(0x00)  // 0
-    endif
-  endif
+    end
+  end
   emitExpression(Node.node_BNode)
   emitOperator(type, dataType)
-endfun
+end
 
 func emitIdentifier(ptr Node)
   ptr ResolvedNode := ScopeResolve(CurrentScope, Node.node_String, Node.node_Token)
@@ -2068,21 +2065,21 @@ func emitIdentifier(ptr Node)
   i32 nodeDataType := Node.node_dataType
   if dataType = tokens_bool or dataType = tokens_ptr then
     dataType := tokens_i32
-  endif
+  end
   if nodeDataType = tokens_bool or nodeDataType = tokens_ptr then
     nodeDataType := tokens_i32
-  endif
+  end
   if nodeDataType <> 0 and nodeDataType <> dataType then
     listAddName(ErrorList, Node.node_Token, error_typeMismatch)
-  endif
+  end
   Node.node_dataType := dataType
   if ResolvedNode.node_Scope = GlobalScope then
     emitByte(0x23)  // get_global
   else
     emitByte(0x20)  // get_local
-  endif
+  end
   emitUleb(ResolvedNode.node_index)
-endfun
+end
 
 // A.B.C.D
 // loadX(load(load(A + B) + C) + D)
@@ -2105,7 +2102,7 @@ func emitDotLoad(ptr Node)
     else
       if not dataType then
         listAddName(ErrorList, Node.node_Token, error_typeNotInferred)
-      endif
+      end
       if dataType = tokens_f64 then
         emitByte(0x2b)  // f64.load
       elseif dataType = tokens_f32 then
@@ -2114,13 +2111,13 @@ func emitDotLoad(ptr Node)
         emitByte(0x29)  // i64.load
       else
         emitByte(0x28)  // i32.load
-      endif
-    endif
+      end
+    end
     emitByte(0x00)  // alignment
     emitByte(0x00)  // offset
     Item := Item.item_Next
-  endloop
-endfun
+  end
+end
 
 // A.B.C.D := x
 // storeX(load(load(A + B) + C) + D, x)
@@ -2130,7 +2127,7 @@ func emitDotStore(ptr Node)
   if not dataType then
     dataType := inferDataType(Node.node_ANode)
     Node.node_dataType := dataType
-  endif
+  end
   ptr IdentList := Node.node_Nodes
   i32 Item := IdentList.list_First
   i32 itemCount := IdentList.list_count
@@ -2154,13 +2151,13 @@ func emitDotStore(ptr Node)
         emitByte(0x37)  // i64.store
       else
         emitByte(0x36)  // i32.store
-      endif
-    endif
+      end
+    end
     emitByte(0x00)  // alignment
     emitByte(0x00)  // offset
     Item := Item.item_Next
-  endloop
-endfun
+  end
+end
 
 func emitNumLiteral(ptr Node, i32 dataType)
   if dataType = tokens_f64 then
@@ -2175,8 +2172,8 @@ func emitNumLiteral(ptr Node, i32 dataType)
   else
     emitByte(0x41)  // i32.const
     emitSleb(strToI32(Node.node_String, Node.node_Token))
-  endif
-endfun
+  end
+end
 
 func emitCharLiteral(ptr Node, i32 dataType)
   ptr Name := Node.node_String
@@ -2186,12 +2183,12 @@ func emitCharLiteral(ptr Node, i32 dataType)
       emitSleb64(load64(Name + string_Chars))
     else
       emitSleb(Name.string_Chars)
-    endif
+    end
   else
     emitByte(0x41)  // i32.const
     emitSleb(Name.string_Chars)
-  endif
-endfun
+  end
+end
 
 func emitLiteral(ptr Node)
   i32 type := Node.node_type
@@ -2206,8 +2203,8 @@ func emitLiteral(ptr Node)
   elseif type = tokens_false then
     emitByte(0x41)  // i32.const
     emitByte(0x00)  // 0
-  endif
-endfun
+  end
+end
 
 func emitFunCallArguments(ptr CallNode, ptr FunNode)
   ptr ArgumentList := CallNode.node_ParamNodes
@@ -2222,8 +2219,8 @@ func emitFunCallArguments(ptr CallNode, ptr FunNode)
     emitExpression(ArgumentNode)
     ArgumentItem := ArgumentItem.item_Next
     ParamItem := ParamItem.item_Next
-  endloop
-endfun
+  end
+end
 
 func emitCallArguments(ptr CallNode, i32 data_Type)
   ptr ArgumentList := CallNode.node_ParamNodes
@@ -2234,8 +2231,8 @@ func emitCallArguments(ptr CallNode, i32 data_Type)
     ArgumentNode.node_dataType := data_Type
     emitExpression(ArgumentNode)
     ArgumentItem := ArgumentItem.item_Next
-  endloop
-endfun
+  end
+end
 
 func emitCallArguments2(ptr CallNode, i32 data_TypeA, i32 data_TypeB)
   ptr ArgumentList := CallNode.node_ParamNodes
@@ -2248,12 +2245,12 @@ func emitCallArguments2(ptr CallNode, i32 data_TypeA, i32 data_TypeB)
       ArgumentNode.node_dataType := data_TypeA
     else    
       ArgumentNode.node_dataType := data_TypeB
-    endif
+    end
     emitExpression(ArgumentNode)
     ArgumentItem := ArgumentItem.item_Next
     isFirst := false
-  endloop
-endfun
+  end
+end
 
 func emitCall(ptr Node)
   ptr Name := Node.node_ANode.node_String
@@ -2448,9 +2445,9 @@ func emitCall(ptr Node)
       emitFunCallArguments(Node, ResolvedNode)
       emitByte(0x10)  // call
       emitUleb(ResolvedNode.node_index)
-    endif
-  endif
-endfun
+    end
+  end
+end
 
 func emitBlock(ptr Node)
   ptr Scope := Node.node_Scope
@@ -2461,9 +2458,9 @@ func emitBlock(ptr Node)
     breakif not Item
     emitNode(Item.item_Object)
     Item := Item.item_Next
-  endloop
+  end
   CurrentScope := Scope.scope_Parent
-endfun
+end
 
 func emitIf(ptr Node)
   emitExpression(Node.node_CNode)  // If condition expression
@@ -2474,9 +2471,9 @@ func emitIf(ptr Node)
   if ElseBlock then
     emitByte(0x05)  // else
     emitNode(ElseBlock)
-  endif
+  end
   emitByte(0x0b)  // end
-endfun
+end
 
 func i32 scopeLevel(ptr Node, i32 kind) 
   ptr Scope := Node.node_Scope
@@ -2486,9 +2483,9 @@ func i32 scopeLevel(ptr Node, i32 kind)
     breakif Scope.scope_Node.node_kind = kind
     level := level + 1
     Scope := Scope.scope_Parent
-  endloop
+  end
   return level
-endfun
+end
 
 func emitLoop(ptr Node)
   emitByte(0x02)  // block
@@ -2500,7 +2497,7 @@ func emitLoop(ptr Node)
   emitByte(0x00)  // level 
   emitByte(0x0b)  // end
   emitByte(0x0b)  // end
-endfun
+end
 
 func i32 inferCallDataType(ptr Node)
   ptr Name := Node.node_String
@@ -2534,9 +2531,9 @@ func i32 inferCallDataType(ptr Node)
   else
     ptr ResolvedNode := ScopeResolve(CurrentScope, Name, Node.node_Token)
     return ResolvedNode.node_dataType
-  endif
+  end
   return 0
-endfun
+end
 
 func i32 inferDataType(ptr Node)
   i32 dataType := Node.node_dataType
@@ -2545,7 +2542,7 @@ func i32 inferDataType(ptr Node)
     dataType := inferDataType(Node.node_ANode)
     if not dataType then
       dataType := inferDataType(Node.node_BNode)
-    endif
+    end
   elseif kind = nodes_identifier then
     ptr ResolvedNode := ScopeResolve(CurrentScope, Node.node_String, Node.node_Token)
     dataType := ResolvedNode.node_dataType
@@ -2553,9 +2550,9 @@ func i32 inferDataType(ptr Node)
     dataType := inferDataType(Node.node_BNode)
   elseif kind = nodes_call then
     dataType := inferCallDataType(Node.node_ANode)
-  endif
+  end
   return dataType
-endfun
+end
 
 func emitBinary(ptr Node, bool isExpression)
   i32 type := Node.node_type
@@ -2569,16 +2566,16 @@ func emitBinary(ptr Node, bool isExpression)
       dataType := inferDataType(Node)
       if not dataType then
         listAddName(ErrorList, Node.node_Token, error_typeNotInferred)
-      endif
+      end
       Node.node_dataType := dataType
-    endif
+    end
     ANode.node_dataType := dataType
     BNode.node_dataType := dataType
     emitExpression(ANode)
     emitExpression(BNode)
     emitOperator(type, dataType)
-  endif
-endfun
+  end
+end
 
 func emitIif(ptr Node)
   i32 dataType := Node.node_dataType
@@ -2589,16 +2586,16 @@ func emitIif(ptr Node)
     dataType := inferDataType(Node)
     if not dataType then
       listAddName(ErrorList, Node.node_Token, error_typeNotInferred)
-    endif
+    end
     Node.node_dataType := dataType
-  endif
+  end
   ANode.node_dataType := dataType
   BNode.node_dataType := dataType
   emitExpression(ANode)
   emitExpression(BNode)
   emitExpression(CNode)
   emitByte(0x1b)  // select
-endfun
+end
 
 func emitVariable(ptr Node)
   i32 type := Node.node_type
@@ -2607,7 +2604,7 @@ func emitVariable(ptr Node)
   emitExpression(BNode)
   emitByte(0x21)  // set_local
   emitUleb(Node.node_index)
-endfun
+end
 
 func emitReturn(ptr Node)
   ptr ANode := Node.node_ANode
@@ -2616,22 +2613,22 @@ func emitReturn(ptr Node)
     Node.node_dataType := dataType
     ANode.node_dataType := dataType
     emitExpression(ANode)
-  endif
+  end
   if scopeLevel(Node, nodes_fun) > 0 then
     emitByte(0x0f)  // return
-  endif
-endfun
+  end
+end
 
 func emitBreakif(ptr Node)
   emitExpression(Node.node_CNode)  // If condition expression
   emitByte(0x0d)  // br_if
   emitUleb(scopeLevel(Node, nodes_loop) + 1)
-endfun
+end
 
 func emitDrop(ptr Node)
   emitExpression(Node.node_CNode)
   emitByte(0x1a)  // drop
-endfun
+end
 
 func emitExpression(ptr Node)
   i32 kind := Node.node_kind
@@ -2645,8 +2642,8 @@ func emitExpression(ptr Node)
     elseif kind = nodes_variable   then emitVariable(Node)
     elseif kind = nodes_iif        then emitIif(Node)
     else listAddName(ErrorList, Node.node_Token, error_expression)
-  endif
-endfun
+  end
+end
 
 func emitNode(ptr Node)
   i32 kind := Node.node_kind
@@ -2672,8 +2669,8 @@ func emitNode(ptr Node)
       emitByte(0x0c)  // br
       emitUleb(scopeLevel(Node, nodes_loop) + 1)
     else listAddName(ErrorList, Node.node_Token, error_emitNode)
-  endif
-endfun
+  end
+end
 
 func emitFunNode(ptr Node)
   CurrentFunNode := Node
@@ -2690,9 +2687,9 @@ func emitFunNode(ptr Node)
       emitByte(tokens_i32)
     else
       emitByte(dataType)
-    endif
+    end
     LocalItem := LocalItem.item_Next
-  endloop
+  end
   emitNode(Node.node_ANode)  // Body block node
   emitByte(0x0b)  // end
   i32 length := BinaryPointer - Start
@@ -2701,7 +2698,7 @@ func emitFunNode(ptr Node)
   BinaryPointer := Start - 1
   emitUleb(length)
   BinaryPointer := BinaryPointer + length
-endfun
+end
 
 func emitCodeSection()
   if emitFunCount then
@@ -2714,18 +2711,18 @@ func emitCodeSection()
       ptr FunNode := FunItem.item_Object
       if FunNode.node_kind = nodes_fun then
         emitFunNode(FunNode)
-      endif
+      end
       FunItem := FunItem.item_Next
       breakif not FunItem
-    endloop
+    end
     i32 length := BinaryPointer - Start
     i32 offset := uLebLength(length) - 1
     fixUlebGuess(Start, offset)
     BinaryPointer := Start - 1
     emitUleb(length)
     BinaryPointer := BinaryPointer + length
-  endif
-endfun
+  end
+end
 
 func emitDataSection()
   i32 count := DataList.list_count
@@ -2748,18 +2745,18 @@ func emitDataSection()
         breakif i >= dataLength
         emitByte(getChar(DataString, i))
         i := i + 1
-      endloop
+      end
       DataItem := DataItem.item_Next
       breakif not DataItem
-    endloop
+    end
     i32 length := BinaryPointer - Start
     i32 offset := uLebLength(length) - 1
     fixUlebGuess(Start, offset)
     BinaryPointer := Start - 1
     emitUleb(length)
     BinaryPointer := BinaryPointer + length
-  endif
-endfun
+  end
+end
 
 func emit(i32 length)
   CompilerOutput := NewString(length + 256)  // Heuristic: binary will be smaller than length(source) + 256
@@ -2778,6 +2775,6 @@ func emit(i32 length)
   emitCodeSection()
   emitDataSection()
   CompilerOutput.string_length := BinaryPointer - (CompilerOutput + string_Chars)  // Fix up the length
-endfun
+end
 
 // Pierre Rossouw 2017  https://github.com/PierreRossouw/dwasm
