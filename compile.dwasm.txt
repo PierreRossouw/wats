@@ -15,6 +15,12 @@ data 12 ""  // Source code to compile
 i32 SIZEINT := 4  // Most browsers currently only support 32bit sized WASM memories
 i32 DEC0DE := 557785600  // Magic number -0x00dec0de - used for debugging
 
+
+i32 tokens_endfun      := 0x2c
+i32 tokens_endiif      := 0x32
+i32 tokens_endif       := 0x4c
+i32 tokens_endloop     := 0x47
+
 // Enums
 i32 nodes_program    := 0x01  // root node
 i32 nodes_fun        := 0x02
@@ -53,13 +59,13 @@ i32 tokens_dot         := 0x29
 i32 tokens_fun         := 0x2a
 i32 tokens_return      := 0x2b
 i32 tokens_end         := 0x1f
-i32 tokens_endfun      := 0x2c
+
+
 i32 tokens_hexwasm     := 0x2d
 i32 tokens_drop        := 0x2e
 i32 tokens_stop        := 0x2f
 i32 tokens_nop         := 0x30
 i32 tokens_iif         := 0x31
-i32 tokens_endiif      := 0x32
 i32 tokens_mem         := 0x40
 i32 tokens_export      := 0x41
 i32 tokens_data        := 0x42
@@ -67,12 +73,10 @@ i32 tokens_loop        := 0x43
 i32 tokens_continue    := 0x44
 i32 tokens_break       := 0x45
 i32 tokens_breakif     := 0x46
-i32 tokens_endloop     := 0x47
 i32 tokens_if          := 0x48
 i32 tokens_then        := 0x49
 i32 tokens_elseif      := 0x4a
 i32 tokens_else        := 0x4b
-i32 tokens_endif       := 0x4c
 i32 tokens_minPrec     := 0x4d
 i32 tokens_assign      := 0x4e  // :=
 i32 tokens_min         := 0x4f
@@ -237,6 +241,7 @@ func processToken(i32 Val, i32 line, i32 column)
   elseif strCompare32(Val, 'func')     then kind := tokens_fun
   elseif strCompare64(Val, 'return')   then kind := tokens_return
   elseif strCompare64(Val, 'endfun')   then kind := tokens_endfun
+  elseif strCompare32(Val, 'end')      then kind := tokens_end
   elseif strCompare32(Val, 'drop')     then kind := tokens_drop
   elseif strCompare32(Val, 'stop')     then kind := tokens_stop
   elseif strCompare32(Val, 'nop')      then kind := tokens_nop
@@ -1244,6 +1249,7 @@ func ptr ParseIfBlock()
     breakif not CurrentToken
     breakif CurrentToken.token_kind = tokens_else
     breakif CurrentToken.token_kind = tokens_elseif
+    breakif CurrentToken.token_kind = tokens_end
     breakif CurrentToken.token_kind = tokens_endif
     ptr ChildNode := ParseStatement()
     breakif not ChildNode
@@ -1273,7 +1279,7 @@ func ptr ParseIfStatement(bool isElseif)
     Node.node_BNode := ParseIfBlock()
     popScope()
   endif
-  if not isElseif then eatToken(tokens_endif) endif
+  if not isElseif then eatTokens(tokens_end, tokens_endif) endif
   return Node
 endfun
 
@@ -1286,7 +1292,7 @@ func ptr ParseIifExpression()
   Node.node_ANode := ParseExpression(tokens_minPrec)
   eatToken(tokens_else)
   Node.node_BNode := ParseExpression(tokens_minPrec)
-  eatToken(tokens_endiif)
+  eatTokens(tokens_end, tokens_endiif)
   return Node
 endfun
 
@@ -1298,6 +1304,7 @@ func ptr ParseLoopBlock()
   Node.node_Scope := CurrentScope
   loop
     breakif not CurrentToken
+    breakif CurrentToken.token_kind = tokens_end
     breakif CurrentToken.token_kind = tokens_endloop
     ptr ChildNode := ParseStatement()
     breakif not ChildNode
@@ -1313,7 +1320,7 @@ func ptr ParseLoopStatement()
   pushScope(Node)
   Node.node_ANode := ParseLoopBlock()
   popScope()
-  eatToken(tokens_endloop)
+  eatTokens(tokens_end, tokens_endloop)
   return Node
 endfun
 
