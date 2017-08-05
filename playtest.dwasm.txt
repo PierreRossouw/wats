@@ -1,18 +1,17 @@
-mem 1 export
-data 8 "xxxxxx"
-data 16 "yyyy\00y"
+memory 1 export "mem"
 
-fun i32 main() export
-  i32 X := muladd(12, 50)
-  return X
-endfun
+data 8 "xxxxxx123456"
 
-fun i32 muladd(i32 a, i32 b)
+func i32 main() export
+  return muladd(12, 50)
+end
+
+func i32 muladd(i32 a, i32 b)
   i32 temp := double(b)
   store32(4, (temp := temp + a))
   return temp
-endfun
+end
 
-fun i32 double(i32 i)
+func i32 double(i32 i)
   return 2 * i
-endfun
+end
