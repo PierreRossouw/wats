@@ -10,15 +10,14 @@ Write the length as a 32 bit int in bytes 8-11.
 The compiler will return a memory location for the compiled binary.  
 
 ### Roadmap
-- Implement rest of WebAssembly spec
+- Decompiler to dwasm
 - Better playground
 - Inline string support
-- Decompiler to dwasm
 
 ### Updates
 2017-07-30: Support drop and tee_local, added some compiler error messages   
 2017-07-29: Specify data types to load or store using a dotted suffix:  a.b.f32   
-2017-07-27: Syntactic sugar: a.b.c.d := e ->  storeX(load32(load32(a + b) + c) + d, e)  
+2017-07-27: Syntactic sugar: a.b.c.d = e ->  storeX(load32(load32(a + b) + c) + d, e)  
 2017-07-26: Syntactic sugar: a.b.c.d  ->  loadX(load32(load32(a + b) + c) + d)  
 2017-07-25: Named exports of functions and memory. Wasm data section support   
 2017-07-23: i64, f32 and f64 types. All native types are now supported  
