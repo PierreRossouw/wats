@@ -53,8 +53,6 @@ i32 tokens_dot         = 0x29
 i32 tokens_fun         = 0x2a
 i32 tokens_return      = 0x2b
 i32 tokens_end         = 0x1f
-
-
 i32 tokens_hexwasm     = 0x2d
 i32 tokens_drop        = 0x2e
 i32 tokens_stop        = 0x2f
@@ -91,7 +89,7 @@ i32 tokens_ge          = 0x5d  // >=
 i32 tokens_geu         = 0x5e  // >=+
 i32 tokens_shl         = 0x5f  // <<
 i32 tokens_shr         = 0x60  // >>
-i32 tokens_shru        = 0x61  // >>+
+i32 tokens_shru        = 0x61  // >>>
 i32 tokens_rotl        = 0x62  // <-<
 i32 tokens_rotr        = 0x63  // >->
 i32 tokens_clz         = 0x64 
@@ -227,72 +225,72 @@ end
 
 func processToken(i32 Val, i32 line, i32 column)
   i32 kind = tokens_identifier
-  if     strCompare32(Val, '(')        then kind = tokens_lParen 
-  elseif strCompare32(Val, ',')        then kind = tokens_comma 
-  elseif strCompare32(Val, ')')        then kind = tokens_rParen 
-  elseif strCompare32(Val, 'true')     then kind = tokens_true
-  elseif strCompare64(Val, 'false')    then kind = tokens_false
-  elseif strCompare32(Val, 'func')     then kind = tokens_fun
-  elseif strCompare64(Val, 'return')   then kind = tokens_return
-  elseif strCompare32(Val, 'end')      then kind = tokens_end
-  elseif strCompare32(Val, 'drop')     then kind = tokens_drop
-  elseif strCompare32(Val, 'stop')     then kind = tokens_stop
-  elseif strCompare32(Val, 'nop')      then kind = tokens_nop
-  elseif strCompare64(Val, 'memory')   then kind = tokens_mem
-  elseif strCompare32(Val, 'mem')      then kind = tokens_mem
-  elseif strCompare32(Val, 'data')     then kind = tokens_data
-  elseif strCompare64(Val, 'export')   then kind = tokens_export
-  elseif strCompare32(Val, 'loop')     then kind = tokens_loop
-  elseif strCompare64(Val, 'continue') then kind = tokens_continue
-  elseif strCompare64(Val, 'break')    then kind = tokens_break
-  elseif strCompare64(Val, 'breakif')  then kind = tokens_breakif
-  elseif strCompare32(Val, 'if')       then kind = tokens_if
-  elseif strCompare32(Val, 'then')     then kind = tokens_then
-  elseif strCompare32(Val, 'else')     then kind = tokens_else
-  elseif strCompare64(Val, 'elseif')   then kind = tokens_elseif
-  elseif strCompare32(Val, 'iif')      then kind = tokens_iif
-  elseif strCompare32(Val, 'i32')      then kind = tokens_i32
-  elseif strCompare32(Val, 'i64')      then kind = tokens_i64
-  elseif strCompare32(Val, 'f32')      then kind = tokens_f32
-  elseif strCompare32(Val, 'f64')      then kind = tokens_f64
-  elseif strCompare32(Val, 'bool')     then kind = tokens_bool
-  elseif strCompare32(Val, 'ptr')      then kind = tokens_ptr
-  elseif strCompare32(Val, '=')        then kind = tokens_assign
-  elseif strCompare32(Val, 'or')       then kind = tokens_or
-  elseif strCompare32(Val, 'xor')      then kind = tokens_xor
-  elseif strCompare32(Val, 'and')      then kind = tokens_and
-  elseif strCompare32(Val, '==')       then kind = tokens_eq
-  elseif strCompare32(Val, '<>')       then kind = tokens_ne
-  elseif strCompare32(Val, '<')        then kind = tokens_lt
-  elseif strCompare32(Val, '<+')       then kind = tokens_ltu
-  elseif strCompare32(Val, '<=')       then kind = tokens_le 
-  elseif strCompare32(Val, '<=+')      then kind = tokens_leu 
-  elseif strCompare32(Val, '>')        then kind = tokens_gt 
-  elseif strCompare32(Val, '>+')       then kind = tokens_gtu 
-  elseif strCompare32(Val, '>=')       then kind = tokens_ge 
-  elseif strCompare32(Val, '>=+')      then kind = tokens_geu   
-  elseif strCompare32(Val, '<<')       then kind = tokens_shl 
-  elseif strCompare32(Val, '>>')       then kind = tokens_shr 
-  elseif strCompare32(Val, '>>+')      then kind = tokens_shru 
-  elseif strCompare32(Val, '<-<')      then kind = tokens_rotl 
-  elseif strCompare32(Val, '>->')      then kind = tokens_rotr 
-  elseif strCompare32(Val, '+')        then kind = tokens_add 
-  elseif strCompare32(Val, '-')        then kind = tokens_sub 
-  elseif strCompare32(Val, '*')        then kind = tokens_mul 
-  elseif strCompare32(Val, '/')        then kind = tokens_div 
-  elseif strCompare32(Val, 'mod')      then kind = tokens_mod 
-  elseif strCompare32(Val, 'modu')     then kind = tokens_modu 
-  elseif strCompare32(Val, 'not')      then kind = tokens_not 
-  elseif strCompare32(Val, 'neg')      then kind = tokens_neg 
-  elseif strCompare64(Val, 'ceiling')  then kind = tokens_ceil
-  elseif strCompare64(Val, 'floor')    then kind = tokens_floor
-  elseif strCompare64(Val, 'trunc')    then kind = tokens_trunc
-  elseif strCompare64(Val, 'round')    then kind = tokens_round
-  elseif strCompare64(Val, 'sqrt')     then kind = tokens_sqrt
-  elseif strCompare32(Val, 'abs')      then kind = tokens_abs
-  elseif strCompare32(Val, 'clz')      then kind = tokens_clz 
-  elseif strCompare32(Val, 'ctz')      then kind = tokens_ctz 
-  elseif strCompare32(Val, 'cnt')      then kind = tokens_cnt 
+  if     strEqChar(Val, '(')        then kind = tokens_lParen 
+  elseif strEqChar(Val, ',')        then kind = tokens_comma 
+  elseif strEqChar(Val, ')')        then kind = tokens_rParen 
+  elseif strEqChar(Val, 'true')     then kind = tokens_true
+  elseif strEqChar(Val, 'false')    then kind = tokens_false
+  elseif strEqChar(Val, 'func')     then kind = tokens_fun
+  elseif strEqChar(Val, 'return')   then kind = tokens_return
+  elseif strEqChar(Val, 'end')      then kind = tokens_end
+  elseif strEqChar(Val, 'drop')     then kind = tokens_drop
+  elseif strEqChar(Val, 'stop')     then kind = tokens_stop
+  elseif strEqChar(Val, 'nop')      then kind = tokens_nop
+  elseif strEqChar(Val, 'memory')   then kind = tokens_mem
+  elseif strEqChar(Val, 'mem')      then kind = tokens_mem
+  elseif strEqChar(Val, 'data')     then kind = tokens_data
+  elseif strEqChar(Val, 'export')   then kind = tokens_export
+  elseif strEqChar(Val, 'loop')     then kind = tokens_loop
+  elseif strEqChar(Val, 'continue') then kind = tokens_continue
+  elseif strEqChar(Val, 'break')    then kind = tokens_break
+  elseif strEqChar(Val, 'breakif')  then kind = tokens_breakif
+  elseif strEqChar(Val, 'if')       then kind = tokens_if
+  elseif strEqChar(Val, 'then')     then kind = tokens_then
+  elseif strEqChar(Val, 'else')     then kind = tokens_else
+  elseif strEqChar(Val, 'elseif')   then kind = tokens_elseif
+  elseif strEqChar(Val, 'iif')      then kind = tokens_iif
+  elseif strEqChar(Val, 'i32')      then kind = tokens_i32
+  elseif strEqChar(Val, 'i64')      then kind = tokens_i64
+  elseif strEqChar(Val, 'f32')      then kind = tokens_f32
+  elseif strEqChar(Val, 'f64')      then kind = tokens_f64
+  elseif strEqChar(Val, 'bool')     then kind = tokens_bool
+  elseif strEqChar(Val, 'ptr')      then kind = tokens_ptr
+  elseif strEqChar(Val, '=')        then kind = tokens_assign
+  elseif strEqChar(Val, 'or')       then kind = tokens_or
+  elseif strEqChar(Val, 'xor')      then kind = tokens_xor
+  elseif strEqChar(Val, 'and')      then kind = tokens_and
+  elseif strEqChar(Val, '==')       then kind = tokens_eq
+  elseif strEqChar(Val, '<>')       then kind = tokens_ne
+  elseif strEqChar(Val, '<')        then kind = tokens_lt
+  elseif strEqChar(Val, '<+')       then kind = tokens_ltu
+  elseif strEqChar(Val, '<=')       then kind = tokens_le 
+  elseif strEqChar(Val, '<=+')      then kind = tokens_leu 
+  elseif strEqChar(Val, '>')        then kind = tokens_gt 
+  elseif strEqChar(Val, '>+')       then kind = tokens_gtu 
+  elseif strEqChar(Val, '>=')       then kind = tokens_ge 
+  elseif strEqChar(Val, '>=+')      then kind = tokens_geu   
+  elseif strEqChar(Val, '<<')       then kind = tokens_shl 
+  elseif strEqChar(Val, '>>')       then kind = tokens_shr 
+  elseif strEqChar(Val, '>>>')      then kind = tokens_shru 
+  elseif strEqChar(Val, '<-<')      then kind = tokens_rotl 
+  elseif strEqChar(Val, '>->')      then kind = tokens_rotr 
+  elseif strEqChar(Val, '+')        then kind = tokens_add 
+  elseif strEqChar(Val, '-')        then kind = tokens_sub 
+  elseif strEqChar(Val, '*')        then kind = tokens_mul 
+  elseif strEqChar(Val, '/')        then kind = tokens_div 
+  elseif strEqChar(Val, 'mod')      then kind = tokens_mod 
+  elseif strEqChar(Val, 'modu')     then kind = tokens_modu 
+  elseif strEqChar(Val, 'not')      then kind = tokens_not 
+  elseif strEqChar(Val, 'neg')      then kind = tokens_neg 
+  elseif strEqChar(Val, 'ceiling')  then kind = tokens_ceil
+  elseif strEqChar(Val, 'floor')    then kind = tokens_floor
+  elseif strEqChar(Val, 'trunc')    then kind = tokens_trunc
+  elseif strEqChar(Val, 'round')    then kind = tokens_round
+  elseif strEqChar(Val, 'sqrt')     then kind = tokens_sqrt
+  elseif strEqChar(Val, 'abs')      then kind = tokens_abs
+  elseif strEqChar(Val, 'clz')      then kind = tokens_clz 
+  elseif strEqChar(Val, 'ctz')      then kind = tokens_ctz 
+  elseif strEqChar(Val, 'cnt')      then kind = tokens_cnt 
   end
   addToken(kind, Val, line, column)
 end
@@ -605,7 +603,7 @@ func appendChar(ptr String, i64 i)
       i32 chr = i64_i32(i mod 256)
       setChar(String, stringLength + offset, chr)
       offset = offset + 1
-      i = i >>+ 8
+      i = i >>> 8
       breakif i == 0
       breakif offset >= appendLength
     end  
@@ -617,7 +615,7 @@ func i32 charStringLength(i64 i)
   i32 length = 0
   loop
     breakif i == 0
-    i = i >>+ 8
+    i = i >>> 8
     length = length + 1
   end
   return length
@@ -657,7 +655,7 @@ func i32 Substring(i32 String, i32 offset, i32 length)
   return R
 end
 
-func bool strCompare(i32 A, i32 B)
+func bool strEq(i32 A, i32 B)
   i32 length = A.string_length
   if length == B.string_length then
     i32 offset = 0
@@ -674,17 +672,7 @@ func bool strCompare(i32 A, i32 B)
   return true
 end
 
-func bool strCompare32(i32 String, i32 a)
-  i32 length = String.string_length
-  if length == 0 or length > 4 then
-    return false
-  else
-    if String.string_Chars <> a then return false end
-  end
-  return true
-end
-
-func bool strCompare64(i32 String, i64 a)
+func bool strEqChar(i32 String, i64 a)
   i32 length = String.string_length
   if length > 8 then
     return false
@@ -771,7 +759,7 @@ func i32 ListSearch(i32 List, i32 FindName)
   i32 Item = List.list_First
   loop
     breakif not Item
-    if strCompare(Item.item_Name, FindName) then
+    if strEq(Item.item_Name, FindName) then
       return Item.item_Object
     end
     Item = Item.item_Next
@@ -2258,188 +2246,188 @@ end
 
 func emitCall(ptr Node)
   ptr Name = Node.node_ANode.node_String
-  if strCompare64(Name, 'i64_i32') then
+  if strEqChar(Name, 'i64_i32') then
     emitCallArguments(Node, tokens_i64)
     emitByte(0xa7)  // i32.wrap/i64
-  elseif strCompare64(Name, 'f32_i32') then
+  elseif strEqChar(Name, 'f32_i32') then
     emitCallArguments(Node, tokens_f32)
     emitByte(0xa8)  // i32.trunc_s/f32
-  elseif strCompare64(Name, 'f32_i32u') then
+  elseif strEqChar(Name, 'f32_i32u') then
     emitCallArguments(Node, tokens_f32)
     emitByte(0xa9)  // i32.trunc_u/f32
-  elseif strCompare64(Name, 'f64_i32') then
+  elseif strEqChar(Name, 'f64_i32') then
     emitCallArguments(Node, tokens_f64)
     emitByte(0xaa)  // i32.trunc_s/f64
-  elseif strCompare64(Name, 'f64_i32u') then
+  elseif strEqChar(Name, 'f64_i32u') then
     emitCallArguments(Node, tokens_f64)
     emitByte(0xab)  // i32.trunc_u/f64
-  elseif strCompare64(Name, 'i32_i64') then
+  elseif strEqChar(Name, 'i32_i64') then
     emitCallArguments(Node, tokens_i32)
     emitByte(0xac)  // i64.extend_s/i32
-  elseif strCompare64(Name, 'i32_i64u') then
+  elseif strEqChar(Name, 'i32_i64u') then
     emitCallArguments(Node, tokens_i32)
     emitByte(0xad)  // i64.extend_u/i32
-  elseif strCompare64(Name, 'f32_i64') then
+  elseif strEqChar(Name, 'f32_i64') then
     emitCallArguments(Node, tokens_f32)
     emitByte(0xae)  // i64.trunc_s/f32
-  elseif strCompare64(Name, 'f32_i64u') then
+  elseif strEqChar(Name, 'f32_i64u') then
     emitCallArguments(Node, tokens_f32)
     emitByte(0xaf)  // i64.trunc_u/f32
-  elseif strCompare64(Name, 'f64_i64') then
+  elseif strEqChar(Name, 'f64_i64') then
     emitCallArguments(Node, tokens_f64)
     emitByte(0xb0)  // i64.trunc_s/f64
-  elseif strCompare64(Name, 'f64_i64u') then
+  elseif strEqChar(Name, 'f64_i64u') then
     emitCallArguments(Node, tokens_f64)
     emitByte(0xb1)  // i64.trunc_u/f64
-  elseif strCompare64(Name, 'i32_f32') then
+  elseif strEqChar(Name, 'i32_f32') then
     emitCallArguments(Node, tokens_i32)
     emitByte(0xb2)  // f32.convert_s/i32    
-  elseif strCompare64(Name, 'i32_f32u') then
+  elseif strEqChar(Name, 'i32_f32u') then
     emitCallArguments(Node, tokens_i32)
     emitByte(0xb3)  // f32.convert_u/i32   
-  elseif strCompare64(Name, 'i64_f32') then
+  elseif strEqChar(Name, 'i64_f32') then
     emitCallArguments(Node, tokens_i64)
     emitByte(0xb4)  // f32.convert_s/i64
-  elseif strCompare64(Name, 'i64_f32u') then
+  elseif strEqChar(Name, 'i64_f32u') then
     emitCallArguments(Node, tokens_i64)
     emitByte(0xb5)  // f32.convert_u/i64
-  elseif strCompare64(Name, 'f64_f32') then
+  elseif strEqChar(Name, 'f64_f32') then
     emitCallArguments(Node, tokens_f64)
     emitByte(0xb6)  // f32.demote/f64
-  elseif strCompare64(Name, 'i32_f64') then
+  elseif strEqChar(Name, 'i32_f64') then
     emitCallArguments(Node, tokens_i32)
     emitByte(0xb7)  // f64.convert_s/i32
-  elseif strCompare64(Name, 'i32_f64u') then
+  elseif strEqChar(Name, 'i32_f64u') then
     emitCallArguments(Node, tokens_i32)
     emitByte(0xb8)  // f64.convert_u/i32
-  elseif strCompare64(Name, 'i64_f64') then
+  elseif strEqChar(Name, 'i64_f64') then
     emitCallArguments(Node, tokens_i64)
     emitByte(0xb9)  // f64.convert_s/i64
-  elseif strCompare64(Name, 'i64_f64u') then
+  elseif strEqChar(Name, 'i64_f64u') then
     emitCallArguments(Node, tokens_i64)
     emitByte(0xba)  // f64.convert_u/i64
-  elseif strCompare64(Name, 'f32_f64') then
+  elseif strEqChar(Name, 'f32_f64') then
     emitCallArguments(Node, tokens_f32)
     emitByte(0xbb)  // f64.promote/f32
-  elseif strCompare64(Name, 'load32') then
+  elseif strEqChar(Name, 'load32') then
     emitCallArguments(Node, tokens_i32)
     emitByte(0x28)  // i32.load
     emitByte(0x00)  // alignment
     emitByte(0x00)  // offset
-  elseif strCompare64(Name, 'load64') then
+  elseif strEqChar(Name, 'load64') then
     emitCallArguments(Node, tokens_i32)
     emitByte(0x29)  // i64.load
     emitByte(0x00)  // alignment
     emitByte(0x00)  // offset
-  elseif strCompare64(Name, 'loadf32') then
+  elseif strEqChar(Name, 'loadf32') then
     emitCallArguments(Node, tokens_i32)
     emitByte(0x2a)  // f32.load
     emitByte(0x00)  // alignment
     emitByte(0x00)  // offset
-  elseif strCompare64(Name, 'loadf64') then
+  elseif strEqChar(Name, 'loadf64') then
     emitCallArguments(Node, tokens_i32)
     emitByte(0x2b)  // f64.load
     emitByte(0x00)  // alignment
     emitByte(0x00)  // offset
-  elseif strCompare64(Name, 'load8') then
+  elseif strEqChar(Name, 'load8') then
     emitCallArguments(Node, tokens_i32)
     emitByte(0x2c)  // i32.load8_s
     emitByte(0x00)  // alignment
     emitByte(0x00)  // offset
-  elseif strCompare64(Name, 'load8u') then
+  elseif strEqChar(Name, 'load8u') then
     emitCallArguments(Node, tokens_i32)
     emitByte(0x2d)  // i32.load8_u
     emitByte(0x00)  // alignment
     emitByte(0x00)  // offset
-  elseif strCompare64(Name, 'load16') then
+  elseif strEqChar(Name, 'load16') then
     emitCallArguments(Node, tokens_i32)
     emitByte(0x2e)  // i32.load16_s
     emitByte(0x00)  // alignment
     emitByte(0x00)  // offset
-  elseif strCompare64(Name, 'load16u') then
+  elseif strEqChar(Name, 'load16u') then
     emitCallArguments(Node, tokens_i32)
     emitByte(0x2f)  // i32.load16_u
     emitByte(0x00)  // alignment
     emitByte(0x00)  // offset
-  elseif strCompare64(Name, 'loa8i64') then
+  elseif strEqChar(Name, 'loa8i64') then
     emitCallArguments(Node, tokens_i32)
     emitByte(0x30)  // i64.load8_s
     emitByte(0x00)  // alignment
     emitByte(0x00)  // offset
-  elseif strCompare64(Name, 'loa8u64') then
+  elseif strEqChar(Name, 'loa8u64') then
     emitCallArguments(Node, tokens_i32)
     emitByte(0x31)  // i64.load8_u
     emitByte(0x00)  // alignment
     emitByte(0x00)  // offset
-  elseif strCompare64(Name, 'loa16i64') then
+  elseif strEqChar(Name, 'loa16i64') then
     emitCallArguments(Node, tokens_i32)
     emitByte(0x32)  // i64.load16_s
     emitByte(0x00)  // alignment
     emitByte(0x00)  // offset    
-  elseif strCompare64(Name, 'loa16u64') then
+  elseif strEqChar(Name, 'loa16u64') then
     emitCallArguments(Node, tokens_i32)
     emitByte(0x33)  // i64.load16_u
     emitByte(0x00)  // alignment
     emitByte(0x00)  // offset 
-  elseif strCompare64(Name, 'loa32i64') then
+  elseif strEqChar(Name, 'loa32i64') then
     emitCallArguments(Node, tokens_i32)
     emitByte(0x34)  // i64.load32_s
     emitByte(0x00)  // alignment
     emitByte(0x00)  // offset    
-  elseif strCompare64(Name, 'loa32u64') then
+  elseif strEqChar(Name, 'loa32u64') then
     emitCallArguments(Node, tokens_i32)
     emitByte(0x35)  // i64.load32_u
     emitByte(0x00)  // alignment
     emitByte(0x00)  // offset    
-  elseif strCompare64(Name, 'store32') then
+  elseif strEqChar(Name, 'store32') then
     emitCallArguments(Node, tokens_i32)
     emitByte(0x36)  // i32.store
     emitByte(0x00)  // alignment
     emitByte(0x00)  // offset
-  elseif strCompare64(Name, 'store64') then
+  elseif strEqChar(Name, 'store64') then
     emitCallArguments2(Node, tokens_i32, tokens_i64)
     emitByte(0x37)  // i64.store
     emitByte(0x00)  // alignment
     emitByte(0x00)  // offset
-  elseif strCompare64(Name, 'storeF32') then
+  elseif strEqChar(Name, 'storeF32') then
     emitCallArguments2(Node, tokens_i32, tokens_f32)
     emitByte(0x38)  // f32.store
     emitByte(0x00)  // alignment
     emitByte(0x00)  // offset
-  elseif strCompare64(Name, 'storeF64') then
+  elseif strEqChar(Name, 'storeF64') then
     emitCallArguments2(Node, tokens_i32, tokens_f64)
     emitByte(0x39)  // f64.store
     emitByte(0x00)  // alignment
     emitByte(0x00)  // offset
-  elseif strCompare64(Name, 'store8') then
+  elseif strEqChar(Name, 'store8') then
     emitCallArguments(Node, tokens_i32)
     emitByte(0x3a)  // i32.store8
     emitByte(0x00)  // alignment
     emitByte(0x00)  // offset
-  elseif strCompare64(Name, 'store16') then
+  elseif strEqChar(Name, 'store16') then
     emitCallArguments(Node, tokens_i32)
     emitByte(0x3b)  // i32.store16
     emitByte(0x00)  // alignment
     emitByte(0x00)  // offset
-  elseif strCompare64(Name, 'i64sto8') then
+  elseif strEqChar(Name, 'i64sto8') then
     emitCallArguments2(Node, tokens_i32, tokens_i64)
     emitByte(0x3c)  // i64.store8
     emitByte(0x00)  // alignment
     emitByte(0x00)  // offset
-  elseif strCompare64(Name, 'i64sto16') then
+  elseif strEqChar(Name, 'i64sto16') then
     emitCallArguments2(Node, tokens_i32, tokens_i64)
     emitByte(0x3d)  // i64.store16
     emitByte(0x00)  // alignment
     emitByte(0x00)  // offset
-  elseif strCompare64(Name, 'i64sto32') then
+  elseif strEqChar(Name, 'i64sto32') then
     emitCallArguments2(Node, tokens_i32, tokens_i64)
     emitByte(0x3e)  // i64.store32
     emitByte(0x00)  // alignment
     emitByte(0x00)  // offset
-  elseif strCompare64(Name, 'memsize') then
+  elseif strEqChar(Name, 'memsize') then
     emitByte(0x3f)  // current_memory
     emitByte(0x00)  // memory number
-  elseif strCompare64(Name, 'memgrow') then
+  elseif strEqChar(Name, 'memgrow') then
     emitCallArguments(Node, tokens_i32)
     emitByte(0x40)  // grow_memory
     emitByte(0x00)  // memory number
@@ -2505,33 +2493,33 @@ end
 
 func i32 inferCallDataType(ptr Node)
   ptr Name = Node.node_String
-  if     strCompare64(Name, 'load64')   then return tokens_i64
-  elseif strCompare64(Name, 'load32')   then return tokens_i32
-  elseif strCompare64(Name, 'load8')    then return tokens_i32
-  elseif strCompare64(Name, 'load8u')   then return tokens_i32
-  elseif strCompare64(Name, 'memsize')  then return tokens_i32
-  elseif strCompare64(Name, 'loa_f32')  then return tokens_f32
-  elseif strCompare64(Name, 'loa_f64')  then return tokens_f64
-  elseif strCompare64(Name, 'f32_i32')  then return tokens_i32
-  elseif strCompare64(Name, 'f32_i32u') then return tokens_i32
-  elseif strCompare64(Name, 'f64_i32')  then return tokens_i32
-  elseif strCompare64(Name, 'f64_i32u') then return tokens_i32
-  elseif strCompare64(Name, 'i32_i64')  then return tokens_i64
-  elseif strCompare64(Name, 'i32_i64u') then return tokens_i64
-  elseif strCompare64(Name, 'f32_i64')  then return tokens_i64
-  elseif strCompare64(Name, 'f32_i64u') then return tokens_i64
-  elseif strCompare64(Name, 'f64_i64')  then return tokens_i64
-  elseif strCompare64(Name, 'f64_i64u') then return tokens_i64
-  elseif strCompare64(Name, 'i32_f32')  then return tokens_f32
-  elseif strCompare64(Name, 'i32_f32u') then return tokens_f32
-  elseif strCompare64(Name, 'i64_f32')  then return tokens_f32
-  elseif strCompare64(Name, 'i64_f32u') then return tokens_f32
-  elseif strCompare64(Name, 'f64_f32')  then return tokens_f32
-  elseif strCompare64(Name, 'i32_f64')  then return tokens_f64
-  elseif strCompare64(Name, 'i32_f64u') then return tokens_f64
-  elseif strCompare64(Name, 'i64_f64')  then return tokens_f64
-  elseif strCompare64(Name, 'i64_f64u') then return tokens_f64
-  elseif strCompare64(Name, 'f32_f64')  then return tokens_f64
+  if     strEqChar(Name, 'load64')   then return tokens_i64
+  elseif strEqChar(Name, 'load32')   then return tokens_i32
+  elseif strEqChar(Name, 'load8')    then return tokens_i32
+  elseif strEqChar(Name, 'load8u')   then return tokens_i32
+  elseif strEqChar(Name, 'memsize')  then return tokens_i32
+  elseif strEqChar(Name, 'loa_f32')  then return tokens_f32
+  elseif strEqChar(Name, 'loa_f64')  then return tokens_f64
+  elseif strEqChar(Name, 'f32_i32')  then return tokens_i32
+  elseif strEqChar(Name, 'f32_i32u') then return tokens_i32
+  elseif strEqChar(Name, 'f64_i32')  then return tokens_i32
+  elseif strEqChar(Name, 'f64_i32u') then return tokens_i32
+  elseif strEqChar(Name, 'i32_i64')  then return tokens_i64
+  elseif strEqChar(Name, 'i32_i64u') then return tokens_i64
+  elseif strEqChar(Name, 'f32_i64')  then return tokens_i64
+  elseif strEqChar(Name, 'f32_i64u') then return tokens_i64
+  elseif strEqChar(Name, 'f64_i64')  then return tokens_i64
+  elseif strEqChar(Name, 'f64_i64u') then return tokens_i64
+  elseif strEqChar(Name, 'i32_f32')  then return tokens_f32
+  elseif strEqChar(Name, 'i32_f32u') then return tokens_f32
+  elseif strEqChar(Name, 'i64_f32')  then return tokens_f32
+  elseif strEqChar(Name, 'i64_f32u') then return tokens_f32
+  elseif strEqChar(Name, 'f64_f32')  then return tokens_f32
+  elseif strEqChar(Name, 'i32_f64')  then return tokens_f64
+  elseif strEqChar(Name, 'i32_f64u') then return tokens_f64
+  elseif strEqChar(Name, 'i64_f64')  then return tokens_f64
+  elseif strEqChar(Name, 'i64_f64u') then return tokens_f64
+  elseif strEqChar(Name, 'f32_f64')  then return tokens_f64
   else
     ptr ResolvedNode = ScopeResolve(CurrentScope, Name, Node.node_Token)
     return ResolvedNode.node_dataType
