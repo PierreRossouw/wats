@@ -7,8 +7,8 @@ func i32 main() export
 end
 
 func i32 muladd(i32 a, i32 b)
-  i32 temp := double(b)
-  store32(4, (temp := temp + a))
+  i32 temp = double(b)
+  store32(4, (temp = temp + a))  // tee_local example
   return temp
 end
 
