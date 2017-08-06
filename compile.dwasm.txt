@@ -1,4 +1,4 @@
-// Compile.dwasm v0.1.20170805
+// Compile.dwasm v0.1.20170806
 // A simple and readable WebAssembly language with self-hosted compiler
 
 // Style conventions:
@@ -77,7 +77,7 @@ i32 tokens_copys       = 0x51
 i32 tokens_or          = 0x52
 i32 tokens_xor         = 0x53
 i32 tokens_and         = 0x54
-i32 tokens_eq          = 0x55  // =
+i32 tokens_eq          = 0x55  // ==
 i32 tokens_ne          = 0x56  // <>
 i32 tokens_lt          = 0x57  // <
 i32 tokens_ltu         = 0x58  // <+
@@ -89,7 +89,7 @@ i32 tokens_ge          = 0x5d  // >=
 i32 tokens_geu         = 0x5e  // >=+
 i32 tokens_shl         = 0x5f  // <<
 i32 tokens_shr         = 0x60  // >>
-i32 tokens_shru        = 0x61  // >>>
+i32 tokens_shru        = 0x61  // >>+
 i32 tokens_rotl        = 0x62  // <-<
 i32 tokens_rotr        = 0x63  // >->
 i32 tokens_clz         = 0x64 
@@ -205,9 +205,15 @@ func ptr Compile() export "main"
   drop Alloc(string_Chars + length)  
   ErrorList = Alloc(list_size)
   lexx()
-  if ErrorList.list_count.i32 == 0 then parse() end
-  if ErrorList.list_count.i32 == 0 then emit(length) end
-  if ErrorList.list_count.i32 > 0 then parseErrorList() end
+  if ErrorList.list_count.i32 == 0 then 
+    parse() 
+  end
+  if ErrorList.list_count.i32 == 0 then
+    emit(length) 
+  end
+  if ErrorList.list_count.i32 > 0 then 
+    parseErrorList() 
+  end
   return CompilerOutput + string_length
 end
 
@@ -272,6 +278,7 @@ func processToken(i32 Val, i32 line, i32 column)
   elseif strEqChar(Val, '<<')       then kind = tokens_shl 
   elseif strEqChar(Val, '>>')       then kind = tokens_shr 
   elseif strEqChar(Val, '>>>')      then kind = tokens_shru 
+  elseif strEqChar(Val, '>>+')      then kind = tokens_shru 
   elseif strEqChar(Val, '<-<')      then kind = tokens_rotl 
   elseif strEqChar(Val, '>->')      then kind = tokens_rotr 
   elseif strEqChar(Val, '+')        then kind = tokens_add 
@@ -291,6 +298,7 @@ func processToken(i32 Val, i32 line, i32 column)
   elseif strEqChar(Val, 'clz')      then kind = tokens_clz 
   elseif strEqChar(Val, 'ctz')      then kind = tokens_ctz 
   elseif strEqChar(Val, 'cnt')      then kind = tokens_cnt 
+  else
   end
   addToken(kind, Val, line, column)
 end
@@ -335,15 +343,21 @@ func lexx()
     pos = pos + 1
     column = column + 1
     i32 chr = getChar(Code, pos) 
-    if chr == 10 then  // newline
+
+    // newline char
+    if chr == 10 then
       line = line + 1
       column = 0
+    
+    // x00 - xff 
     elseif isHexwasm(chr, getChar(Code, pos + 1), getChar(Code, pos + 2)) then
       Val = Substring(Code, pos - 1, 4)
       setChar(Val, 0, '0')
       addToken(tokens_hexwasm, Val, line, column)
       pos = pos + 2
       column = column + 2
+
+    // Identifiers and reserved words
     elseif isAlpha(chr) then
       start = pos
       loop
@@ -364,7 +378,9 @@ func lexx()
         chr = getChar(Code, pos)
         addToken(tokens_dot, Val, line, column)
       end
-    elseif chr == 39 then  // single quote
+    
+    // Single quoted chars or long chars up to 64 bit
+    elseif chr == 39 then
       pos = pos + 1
       column = column + 1
       chr = getChar(Code, pos)
@@ -377,6 +393,8 @@ func lexx()
       end
       Val = Substring(Code, start, pos - start)
       addToken(tokens_charLiteral, Val, line, column)
+
+    // Double quoted strings
     elseif chr == '"' then
       pos = pos + 1
       column = column + 1
@@ -391,6 +409,8 @@ func lexx()
       Val = Substring(Code, start, pos - start)
       decodeString(Val)
       addToken(tokens_strLiteral, Val, line, column)
+
+    // Number literals, for example -42, 3.14, 0x8d4f0
     elseif isNumber(chr, false) or ((chr == '-') and isNumber(getChar(Code, pos + 1), false)) then
       start = pos
       bool isHex = false
@@ -425,6 +445,8 @@ func lexx()
       end
       Val = Substring(Code, start, pos - start + 1)
       addToken(tokens_numLiteral, Val, line, column)
+
+    // Comments
     elseif chr == '/' and getChar(Code, pos + 1) == '/' then
       loop
         if chr == 10 or chr == 13 then  // LF or CR
@@ -436,9 +458,13 @@ func lexx()
         column = column + 1
         chr = getChar(Code, pos)
       end
+    
+    // Parenthases and commas
     elseif isPunctuator(chr) then
       Val = Substring(Code, pos, 1)
       processToken(Val, line, column)
+
+    // Mathematical operators
     elseif isOperatorChar(chr) then
       if isOperatorChar(getChar(Code, pos + 1)) then
         if isOperatorChar(getChar(Code, pos + 2)) then
@@ -603,7 +629,7 @@ func appendChar(ptr String, i64 i)
       i32 chr = i64_i32(i mod 256)
       setChar(String, stringLength + offset, chr)
       offset = offset + 1
-      i = i >>> 8
+      i = i >>+ 8
       breakif i == 0
       breakif offset >= appendLength
     end  
@@ -615,7 +641,7 @@ func i32 charStringLength(i64 i)
   i32 length = 0
   loop
     breakif i == 0
-    i = i >>> 8
+    i = i >>+ 8
     length = length + 1
   end
   return length
@@ -1609,17 +1635,21 @@ func emitString(ptr S)
 end
 
 func i32 uLebLength(i32 i)
-  return iif i > 2097151 then 
-    4 
-  else
-    iif i > 16383 then 
-      3 
+  return iif i >+ 268435456 then 
+    5
+  else 
+    iif i >+ 2097151 then 
+      4 
     else
-      iif i > 127 then 
-        2 
-      else 
-        1 
-      end 
+      iif i >+ 16383 then 
+        3 
+      else
+        iif i >+ 127 then 
+          2 
+        else 
+          1 
+        end 
+      end
     end 
   end
 end
@@ -1638,14 +1668,14 @@ func emitSleb(i32 i)
     loop
       breakif i < 64
       emitByte(128 + (i mod 128))
-      i = i / 128
+      i = i >> 7
     end
     emitByte(i)
   else
     loop
       breakif i >= -64
-      emitByte((i mod 128) - 128)
-      i = i / 128
+      emitByte((i modu 128) - 128)
+      i = i >> 7
     end
     emitByte(i - 128)
   end
@@ -1656,14 +1686,14 @@ func emitSleb64(i64 i)
     loop
       breakif i < 64
       emitByte(i64_i32(128 + (i mod 128)))
-      i = i / 128
+      i = i >> 7
     end
     emitByte(i64_i32(i))
   else
     loop
       breakif i >= -64
-      emitByte(i64_i32((i mod 128) - 128))
-      i = i / 128
+      emitByte(i64_i32((i modu 128) - 128))
+      i = i >> 7
     end
     emitByte(i64_i32(i - 128))
   end
