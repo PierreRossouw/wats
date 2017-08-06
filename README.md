@@ -1,20 +1,21 @@
 # compile.dwasm
-dWasm is a simple and readable WebAssembly language with a self-hosted compiler
+dwasm is a simple and readable WebAssembly language with a self-hosted compiler
 
 Try it out at https://pierrerossouw.github.io/dwasm/
 
 ### Using the compiler
-WebAssembly does not have IO so some JavaScript is needed to use the compiler.  
-Write the source code to the shared memory starting at byte 12.  
-Write the length as a 32 bit int in bytes 8-11.  
-The compiler will return a memory location for the compiled binary.  
+WebAssembly does not have IO so some JavaScript is needed to use the compiler  
+Write the source code to the shared memory starting at byte 12  
+Write the length as a 32 bit int in bytes 8-11  
+The compiler will return a memory location for the compiled binary  
 
 ### Roadmap
 - Decompiler to dwasm
 - Better playground
-- Inline string support
+- Imports, Name section, a few other WebAssembly bits not yet implemented
 
 ### Updates
+2017-08-06: Changed the syntax a bit and updated some key words to match WAT conventions   
 2017-07-30: Support drop and tee_local, added some compiler error messages   
 2017-07-29: Specify data types to load or store using a dotted suffix:  a.b.f32   
 2017-07-27: Syntactic sugar: a.b.c.d = e ->  storeX(load32(load32(a + b) + c) + d, e)  
@@ -30,6 +31,6 @@ The compiler will return a memory location for the compiled binary.
 2017-06-29: Added http://prismjs.com/ syntax highlighting.  
 
 ### Useful links
-WebAssembly binary specification: https://github.com/WebAssembly/design/blob/master/BinaryEncoding.md  
 The WebAssembly Binary Toolkit https://github.com/WebAssembly/wabt  
+WebAssembly binary specification: https://github.com/WebAssembly/design/blob/master/BinaryEncoding.md  
 Originally based on https://github.com/maierfelix/mini-c by Felix Maier http://www.felixmaier.info/
