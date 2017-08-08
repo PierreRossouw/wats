@@ -1,31 +1,25 @@
-// HEADER: Wasm magic and version     // 00 61 73 6d 01 00 00 00     
-// TYPES: type0 = i32 fun()           // 01 05 01 60 00 01 7f        
-// FUNCTIONS: func0 = type 0          // 03 02 01 00                 
-// EXPORTS:                           // 07 08 01                   
-// export 0 = func0, name = "main"    //   04 6d 61 69 6e 00 00       
-// CODE:                              // 0a 6d 01                    
-func i32 main() export                // 6b 04 01 7f 01 7f 01 7f 01 7f
-  bool isPrime = true                 //   41 01 21 00
-  i32 numPrimes = 0                   //   41 00 21 01
-  i32 i = 100000                      //   41 a0 8d 06 21 02
-  loop                                //   02 40 03 40
-    breakif i <= 1                    //     20 02 41 01 4c 0d 01
-    i32 j = 2                         //     41 02 21 03
-    loop                              //     02 40 03 40
-      breakif j >= i                  //       20 03 20 02 4e 0d 01
-      if i mod j == 0 then            //       20 02 20 03 6f 41 00 46 04 40
-        isPrime = false               //         41 00 21 00
-        break                         //         0c 02
-      end                             //       0b
-      j = j + 1                       //       20 03 41 01 6a 21 03
-    end                               //     0c 00 0b 0b
-    if isPrime then                   //     20 00 04 40
-      numPrimes = numPrimes + 1       //       20 01 41 01 6a 21 01
-    end                               //     0b
-    isPrime = true                    //     41 01 21 00
-    i = i - 1                         //     20 02 41 01 6b 21 02
-  end                                 //   0c 00 0b 0b
-  return numPrimes                    //   20 01
-end                                   // 0b
+func i32 main() export
+  bool isPrime = true
+  i32 numPrimes = 0
+  i32 i = 100000
+  loop
+    breakif i <= 1
+    i32 j = 2
+    loop
+      breakif j >= i
+      if i mod j == 0 then
+        isPrime = false
+        break
+      end
+      j = j + 1
+    end
+    if isPrime then
+      numPrimes = numPrimes + 1
+    end
+    isPrime = true
+    i = i - 1
+  end
+  return numPrimes
+end
 
 memory 1 export "mem" // not used
