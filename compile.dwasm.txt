@@ -133,6 +133,7 @@ i32 error_emitNode        = 11
 i32 string_max    = 0
 i32 string_length = 4
 i32 string_Chars  = 8
+i32 string_size   = 8
 
 i32 list_dec0de = 0  // debugging marker
 i32 list_First  = 4
@@ -179,7 +180,7 @@ i32 scope_size       = 24
 
 // Global variables
 ptr Code             = 4
-i32 Heap             = 8  // Memory management - reserve 0-7 for null pointers
+i32 Heap             = 4  // Memory management - reserve 0-3 for null pointers
 ptr TokenList        = 0
 ptr ExportList       = 0
 ptr DataList         = 0
@@ -201,15 +202,14 @@ i32 memMax           = 0
 ptr ErrorList        = 0
 
 func ptr Compile() export "main"
-  i32 length = Code.string_length
-  drop Alloc(string_Chars + length)  
+  drop Alloc(string_size + Code.string_length)  
   ErrorList = Alloc(list_size)
   lexx()
   if ErrorList.list_count.i32 == 0 then 
     parse() 
   end
   if ErrorList.list_count.i32 == 0 then
-    emit(length) 
+    emit() 
   end
   if ErrorList.list_count.i32 > 0 then 
     parseErrorList() 
@@ -217,7 +217,8 @@ func ptr Compile() export "main"
   return CompilerOutput + string_length
 end
 
-// Lexer XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// Lexer 
 
 func addToken(i32 kind, i32 Value, i32 line, i32 column)
   i32 Token = Alloc(token_size)
@@ -303,21 +304,6 @@ func processToken(i32 Val, i32 line, i32 column)
   addToken(kind, Val, line, column)
 end
 
-func bool isAlpha(i32 chr)
-  return (chr >= 'a' and chr <= 'z') or (chr >= 'A' and chr <= 'Z') or (chr == '_')
-end
-
-func bool isNumber(i32 chr, bool hexNum)
-  if chr >= '0' and chr <= '9' then
-    return true
-  elseif hexNum then
-    if (chr >= 'a' and chr <= 'f') or (chr >= 'A' and chr <= 'F') then 
-      return true 
-    end
-  end
-  return false
-end
-
 func bool isHexwasm(i32 chr1, i32 chr2, i32 chr3)
   return chr1 == 'x' and isNumber(chr2, true) and isNumber(chr3, true)
 end
@@ -392,6 +378,7 @@ func lexx()
         chr = getChar(Code, pos)
       end
       Val = Substring(Code, start, pos - start)
+      decodeString(Val)
       addToken(tokens_charLiteral, Val, line, column)
 
     // Double quoted strings
@@ -486,7 +473,8 @@ func lexx()
   end
 end
 
-// Memory XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// Errors
 
 func parseErrorList()
   ptr ErrorItem = ErrorList.list_First
@@ -520,7 +508,7 @@ func parseErrorList()
       elseif errorNo == error_notDeclared then
         appendChar(ErrorString, 'Identifi')
         appendChar(ErrorString, 'er not d')
-        appendChar(ErrorString, 'eclare')
+        appendChar(ErrorString, 'eclared')
       elseif errorNo == error_literalToInt then
         appendChar(ErrorString, 'Could no')
         appendChar(ErrorString, 't conver')
@@ -561,7 +549,9 @@ func parseErrorList()
   end
 end
 
+////////////////////////////////////////////////////////////////////////////////////////////////////
 // Memory management
+
 func ptr Alloc(i32 length)
   ptr R = Heap
   Heap = Heap + length
@@ -570,6 +560,9 @@ func ptr Alloc(i32 length)
   end
   return R
 end
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// Strings
 
 // Pascal-style strings: We store the length instead of using a null terminator
 func i32 NewString(i32 length)
@@ -752,6 +745,21 @@ func decodeString(i32 S)
     setChar(S, o, 0)
     o = o + 1
   end
+end
+
+func bool isAlpha(i32 chr)
+  return (chr >= 'a' and chr <= 'z') or (chr >= 'A' and chr <= 'Z') or (chr == '_')
+end
+
+func bool isNumber(i32 chr, bool hexNum)
+  if chr >= '0' and chr <= '9' then
+    return true
+  elseif hexNum then
+    if (chr >= 'a' and chr <= 'f') or (chr >= 'A' and chr <= 'F') then 
+      return true 
+    end
+  end
+  return false
 end
 
 // Lists
@@ -1176,6 +1184,7 @@ func ptr ParseInfix(i32 level, ptr Left)
     Node = ParseBinaryExpression(level, Left)
   elseif CurrentToken.token_kind == tokens_lParen then
     Node = ParseCallExpression(Left)
+    Node.node_Token.i32 = Left.node_Token
   else
     Node = Left
   end
@@ -2822,15 +2831,19 @@ func emitDataSection()
   end
 end
 
-func emit(i32 length)
-  CompilerOutput = NewString(length + 256)  // Heuristic: binary will be smaller than length(source) + 256
-  BinaryPointer = CompilerOutput + string_Chars
-  CurrentScope = RootNode.node_Scope
+func emitHeader()
   emitByte(0x00)  // Wasm magic: 00 61 73 6d
   emitByte(0x61)  // a
   emitByte(0x73)  // s
   emitByte(0x6d)  // m
   emitI32(1)      // Wasm version
+end
+
+func emit()
+  CompilerOutput = NewString(Code.string_length + 256)  // Binary will be smaller than the source (+256 just in case)
+  BinaryPointer = CompilerOutput + string_Chars
+  CurrentScope = RootNode.node_Scope
+  emitHeader()
   emitTypeSection()
   emitFunctionSection()
   emitMemorySection()
