@@ -1398,28 +1398,39 @@ func emitFunNode(ptr Node)
   CurrentFunNode = Node
   emitByte(0x00)  // Function size (guess)
   ptr Start = BinaryPointer
+  emitByte(0x00)  // Local declaration count (guess)
   ptr LocalList = Node.node_Nodes
-  emitUleb(LocalList.list_count)
   ptr LocalItem = LocalList.list_First
+  i32 declCount = 0
   loop
     breakif not LocalItem
-    emitByte(0x01)  // count
     i32 dataType = LocalItem.item_Object.node_type
+    i32 count = 1
+    loop
+      ptr NextItem = LocalItem.item_Next
+      breakif not NextItem
+      breakif dataType <> NextItem.item_Object.node_type
+      LocalItem = NextItem
+      count = count + 1
+    end
+    emitByte(count)  // count
     if dataType == tokens_bool or dataType == tokens_ptr then
       emitByte(tokens_i32)
     else
       emitByte(dataType)
     end
     LocalItem = LocalItem.item_Next
+    declCount = declCount + 1
   end
   emitNode(Node.node_ANode)  // Body block node
   emitByte(0x0b)  // end
   i32 length = BinaryPointer - Start
-  i32 offset = uLebLength(length) - 1
+  i32 offset = uLebLength(length) - 1 + uLebLength(declCount) - 1
   fixUlebGuess(Start, offset)
   BinaryPointer = Start - 1
   emitUleb(length)
-  BinaryPointer = BinaryPointer + length
+  emitUleb(declCount)
+  BinaryPointer = BinaryPointer + length - 1
 end
 
 func emitNode(ptr Node)
