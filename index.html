@@ -159,7 +159,7 @@
               testBinary.value = String.fromCharCode.apply(null, mem.slice(out, out + binLen));
             };
             if (binLen < 10000) {
-              testMemory.value = byteToDumpString(mem.slice(0, out + binLen));
+              testMemory.value = byteToDumpString(mem.slice(0, out + binLen + 2000));
             };
           };
         });
