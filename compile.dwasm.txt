@@ -1,4 +1,4 @@
-// Compile.dwasm v0.1.20170809
+// Compile.dwasm v0.1.20170810
 // A simple and readable WebAssembly language with self-hosted compiler
 
 // Style conventions:
@@ -13,33 +13,15 @@ data 12 ""  // Source code to compile
 
 // Constants
 i32 SIZEINT = 4  // Most browsers currently only support 32bit sized WASM memories
-i32 DEC0DE = 557785600  // Magic number -0x00dec0de - used for debugging
+i32 DEC0DE  = 557785600  // Magic number -0x00dec0de - used for debugging
 
 // Global variables
-ptr Code             = 0  // String containing the dwasm to compile
-ptr Heap             = 0  // Next free memory location
-ptr TokenList        = 0
-ptr ExportList       = 0
-ptr DataList         = 0
-ptr CurrentTokenItem = 0
-ptr CurrentToken     = 0
-ptr NextToken        = 0
-ptr CurrentScope     = 0
-ptr GlobalScope      = 0
-ptr RootNode         = 0
-ptr CompilerOutput   = 0
-ptr BinaryPointer    = 0
-ptr CurrentFunNode   = 0
-ptr MemExport        = 0
-ptr ErrorList        = 0
-i32 funIndex         = 0  // Next function index number
-i32 emitGlobalCount  = 0
-i32 emitFunCount     = 0
-i32 memMin           = 0
-i32 memMax           = 0
+ptr Code           = 0  // String containing the dwasm to compile
+ptr CompilerOutput = 0
+ptr ErrorList      = 0
 
-func ptr Compile() export "main"
-  drop Alloc(string_size + Code.string_length)  
+func ptr main() export
+  drop NewString(Code.string_length)  // Fix the heap pointer to include the source string
   ErrorList = NewList()
   lexx()
   if ErrorList.list_count.i32 == 0 then 
@@ -51,7 +33,7 @@ func ptr Compile() export "main"
   if ErrorList.list_count.i32 > 0 then 
     parseErrorList() 
   end
-  return CompilerOutput + string_length
+  return CompilerOutput + string_length  // Return the memory location of the string
 end
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -135,13 +117,19 @@ i32 tokens_i32         = 0x7f
 i32 tokens_bool        = 0x8f  // synonym for i32
 i32 tokens_ptr         = 0x9f  // synonym for i32
 
-// Structs
+// Struct
 i32 token_dec0de = 0  // debugging marker
 i32 token_kind   = 4
 i32 token_Value  = 8
 i32 token_line   = 12
 i32 token_column = 16
 i32 token_size   = 20
+
+// Globals
+ptr TokenList        = 0
+ptr CurrentToken     = 0
+ptr CurrentTokenItem = 0
+ptr NextToken        = 0
 
 func addToken(i32 kind, i32 Value, i32 line, i32 column)
   i32 Token = Alloc(token_size)
@@ -236,8 +224,8 @@ func bool isPunctuator(i32 chr)
 end
 
 func bool isOperatorChar(i32 chr)
-  return chr == '=' or chr == '+' or chr == '-' or chr == '/' or chr == '^' or
-         chr == '<' or chr == '>' or chr == '*' or chr == ':' 
+  return chr == '=' or chr == '+' or chr == '-' or chr == '/' or chr == '*' or
+         chr == '<' or chr == '>' 
 end
 
 func lexx()
@@ -398,94 +386,6 @@ func lexx()
 end
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// Errors
-
-i32 error_duplicateName   = 1
-i32 error_invalidToken    = 2
-i32 error_missingToken    = 3
-i32 error_expression      = 4
-i32 error_typeMismatch    = 5
-i32 error_rootStatement   = 6
-i32 error_typeNotInferred = 7
-i32 error_notDeclared     = 8
-i32 error_literalToInt    = 9
-i32 error_blockStatement  = 10
-i32 error_emitNode        = 11
-
-func parseErrorList()
-  ptr ErrorItem = ErrorList.list_First
-  if ErrorItem then
-    ptr ErrorString = NewEmptyString(1000)
-    loop
-      ptr Token = ErrorItem.item_Object
-      i32 errorNo = ErrorItem.item_number
-      if errorNo == error_duplicateName then
-        appendChar(ErrorString, 'Duplicat')
-        appendChar(ErrorString, 'e identi')
-        appendChar(ErrorString, 'fier nam')
-        appendChar(ErrorString, 'e')
-      elseif errorNo == error_invalidToken then
-        appendChar(ErrorString, 'Invalid ')
-        appendChar(ErrorString, 'token')
-      elseif errorNo == error_missingToken then
-        appendChar(ErrorString, 'Missing ')
-        appendChar(ErrorString, 'token')
-      elseif errorNo == error_rootStatement then
-        appendChar(ErrorString, 'Invalid ')
-        appendChar(ErrorString, 'root sta')
-        appendChar(ErrorString, 'tement')
-      elseif errorNo == error_blockStatement then
-        appendChar(ErrorString, 'Invalid ')
-        appendChar(ErrorString, 'block st')
-        appendChar(ErrorString, 'atement')
-      elseif errorNo == error_typeMismatch then
-        appendChar(ErrorString, 'Type mis')
-        appendChar(ErrorString, 'match')
-      elseif errorNo == error_notDeclared then
-        appendChar(ErrorString, 'Identifi')
-        appendChar(ErrorString, 'er not d')
-        appendChar(ErrorString, 'eclared')
-      elseif errorNo == error_literalToInt then
-        appendChar(ErrorString, 'Could no')
-        appendChar(ErrorString, 't conver')
-        appendChar(ErrorString, 't to int')
-      elseif errorNo == error_expression then
-        appendChar(ErrorString, 'Expressi')
-        appendChar(ErrorString, 'on expec')
-        appendChar(ErrorString, 'ted')
-      elseif errorNo == error_typeNotInferred then  
-        appendChar(ErrorString, 'Could no')
-        appendChar(ErrorString, 't determ')
-        appendChar(ErrorString, 'ine type')        
-      elseif errorNo == error_emitNode then  
-        appendChar(ErrorString, 'Unexpect')
-        appendChar(ErrorString, 'ed node ')
-        appendChar(ErrorString, 'type')        
-      else  
-        appendChar(ErrorString, 'Error ')
-        appendI32(ErrorString, errorNo)
-      end
-      if Token then
-        appendChar(ErrorString, ' line ')
-        appendI32(ErrorString, Token.token_line)
-        appendChar(ErrorString, ' column ')
-        if Token.token_Value.i32 then
-          appendI32(ErrorString, Token.token_column - Token.token_Value.string_length)
-          appendChar(ErrorString, ' token ')
-          appendString(ErrorString, Token.token_Value)
-        else
-          appendI32(ErrorString, Token.token_column)
-        end
-        appendChar(ErrorString, 13)
-      end
-      CompilerOutput = ErrorString
-      ErrorItem = ErrorItem.item_Next
-      breakif not ErrorItem
-    end
-  end
-end
-
-////////////////////////////////////////////////////////////////////////////////////////////////////
 // Scoper
 
 // Struct
@@ -496,6 +396,10 @@ i32 scope_Parent     = 12
 i32 scope_Symbols    = 16
 i32 scope_localIndex = 20
 i32 scope_size       = 24
+
+// Globals
+ptr CurrentScope = 0
+ptr GlobalScope  = 0
 
 func pushScope(i32 Node)
   i32 Scope = Alloc(scope_size)
@@ -599,10 +503,19 @@ i32 node_dataType   = 44  // inferred data type
 i32 node_Token      = 48
 i32 node_size       = 52
 
+// Globals
+ptr RootNode   = 0
+ptr ExportList = 0
+ptr DataList   = 0
+ptr MemExport  = 0
+i32 funIndex   = 0  // Next function index number
+i32 memMin     = 0
+i32 memMax     = 0
+
 func ptr NewNode(i32 kind)
   ptr Node = Alloc(node_size)
-  Node.node_Scope = CurrentScope
   Node.node_dec0de = 2 - DEC0DE
+  Node.node_Scope = CurrentScope
   Node.node_Token = CurrentToken
   Node.node_kind = kind
   return Node
@@ -1195,12 +1108,23 @@ end
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Compiler 
 
+// Globals
+ptr BinaryPointer    = 0
+ptr CurrentFunNode   = 0
+ptr TypeList         = 0
+ptr FunTypeList      = 0
+i32 emitGlobalCount  = 0
+
 func emit()
   CompilerOutput = NewString(Code.string_length + 256)  // Binary will be smaller than the source (+256 just in case)
   BinaryPointer = CompilerOutput + string_Chars
   CurrentScope = RootNode.node_Scope
   emitHeader()
+  TypeList = NewList()
+  FunTypeList = NewList()
   emitTypeSection()
+  store32(4, TypeList.list_count)
+  store32(8, FunTypeList.list_count)
   emitFunctionSection()
   emitMemorySection()
   emitGlobalSection()
@@ -1227,18 +1151,18 @@ func emitTypeSection()
       emitByte(0x00)  // section size (guess)
       ptr Start = BinaryPointer 
       emitByte(0x00)  // types count (guess)  
-      i32 count = 0
+      i32 index = 0
       i32 Item = BodyList.list_First
       loop
         i32 Node = Item.item_Object
         if Node.node_kind == nodes_fun then
-          emitType(Node)
-          count = count + 1
-          emitFunCount = emitFunCount + 1
+          emitType(Node, index)
+          index = index + 1
         end
         Item = Item.item_Next
         breakif not Item
       end
+      i32 count = TypeList.list_count
       i32 length = BinaryPointer - Start
       i32 offset = uLebLength(count) - 1 + uLebLength(length) - 1
       fixUlebGuess(Start, offset)
@@ -1248,48 +1172,59 @@ func emitTypeSection()
       BinaryPointer = BinaryPointer + length - 1
     end
   end
-  if not emitFunCount then BinaryPointer = Skip end
+  if not FunTypeList.list_count.i32 then BinaryPointer = Skip end
 end
 
-func emitType(ptr Node)
+func emitType(ptr Node, i32 funcNo)
   ptr ParamList = Node.node_ParamNodes
-  emitByte(0x60)  // func type
-  emitUleb(ParamList.list_count)
+  i32 params = ParamList.list_count
+  i32 returns = iif Node.node_type.i32 then 1 else 0 end
+  ptr TypeString = NewEmptyString(1 + uLebLength(params) + params + uLebLength(returns) + returns)
+  appendChar(TypeString, 0x60)  // func type
+  appendUleb(TypeString, params)
   ptr ParamItem = ParamList.list_First
   loop
     breakif not ParamItem
     i32 dataType = ParamItem.item_Object.node_type
     if dataType == tokens_bool or dataType == tokens_ptr then 
-      emitByte(tokens_i32)
+      appendChar(TypeString, i32_i64(tokens_i32))
     else
-      emitByte(dataType)
+      appendChar(TypeString, i32_i64(dataType))
     end    
     ParamItem = ParamItem.item_Next
   end
   i32 returnType = Node.node_type
   if returnType then
-    emitByte(0x01)  // return count
+    appendUleb(TypeString, 0x01)  // return count
     if returnType == tokens_bool or returnType == tokens_ptr then 
-      emitByte(tokens_i32)
+      appendChar(TypeString, i32_i64(tokens_i32))
     else
-      emitByte(returnType)
+      appendChar(TypeString, i32_i64(returnType))
     end
   else
-    emitByte(0x00)  // return count
+    appendUleb(TypeString, 0x00)  // return count
   end
+  i32 typeIndex = indexListSearch(TypeList, TypeString)
+  if typeIndex == -1 then
+    typeIndex = TypeList.list_count
+    listAddName(TypeList, 0, TypeString)
+    emitString(TypeString)
+  end
+  listAdd(FunTypeList, typeIndex)
 end
 
 func emitFunctionSection()
-  if emitFunCount then
+  i32 funCount = FunTypeList.list_count
+  if funCount then
     emitByte(0x03)  // Function section
     emitByte(0x00)  // section size (guess)
     ptr Start = BinaryPointer 
-    emitUleb(emitFunCount)  // types count
-    i32 counter = 0
+    emitUleb(funCount)  // types count
+    ptr FunType = FunTypeList.list_First
     loop
-      breakif counter >= emitFunCount
-      emitUleb(counter)
-      counter = counter + 1
+      breakif not FunType
+      emitUleb(FunType.item_Object)
+      FunType = FunType.item_Next
     end
     i32 length = BinaryPointer - Start
     i32 offset = uLebLength(length) - 1
@@ -1436,11 +1371,11 @@ func emitExportMem()
 end
 
 func emitCodeSection()
-  if emitFunCount then
+  if FunTypeList.list_count.i32 then
     emitByte(0x0a)  // Code section
     emitByte(0x00)  // Section size (guess)
     ptr Start = BinaryPointer 
-    emitUleb(emitFunCount)
+    emitUleb(FunTypeList.list_count)
     ptr FunItem = RootNode.node_Nodes.list_First
     loop
       ptr FunNode = FunItem.item_Object
@@ -2315,6 +2250,94 @@ func emitDataSection()
 end
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+// Errors
+
+i32 error_duplicateName   = 1
+i32 error_invalidToken    = 2
+i32 error_missingToken    = 3
+i32 error_expression      = 4
+i32 error_typeMismatch    = 5
+i32 error_rootStatement   = 6
+i32 error_typeNotInferred = 7
+i32 error_notDeclared     = 8
+i32 error_literalToInt    = 9
+i32 error_blockStatement  = 10
+i32 error_emitNode        = 11
+
+func parseErrorList()
+  ptr ErrorItem = ErrorList.list_First
+  if ErrorItem then
+    ptr ErrorString = NewEmptyString(1000)
+    loop
+      ptr Token = ErrorItem.item_Object
+      i32 errorNo = ErrorItem.item_number
+      if errorNo == error_duplicateName then
+        appendChar(ErrorString, 'Duplicat')
+        appendChar(ErrorString, 'e identi')
+        appendChar(ErrorString, 'fier nam')
+        appendChar(ErrorString, 'e')
+      elseif errorNo == error_invalidToken then
+        appendChar(ErrorString, 'Invalid ')
+        appendChar(ErrorString, 'token')
+      elseif errorNo == error_missingToken then
+        appendChar(ErrorString, 'Missing ')
+        appendChar(ErrorString, 'token')
+      elseif errorNo == error_rootStatement then
+        appendChar(ErrorString, 'Invalid ')
+        appendChar(ErrorString, 'root sta')
+        appendChar(ErrorString, 'tement')
+      elseif errorNo == error_blockStatement then
+        appendChar(ErrorString, 'Invalid ')
+        appendChar(ErrorString, 'block st')
+        appendChar(ErrorString, 'atement')
+      elseif errorNo == error_typeMismatch then
+        appendChar(ErrorString, 'Type mis')
+        appendChar(ErrorString, 'match')
+      elseif errorNo == error_notDeclared then
+        appendChar(ErrorString, 'Identifi')
+        appendChar(ErrorString, 'er not d')
+        appendChar(ErrorString, 'eclared')
+      elseif errorNo == error_literalToInt then
+        appendChar(ErrorString, 'Could no')
+        appendChar(ErrorString, 't conver')
+        appendChar(ErrorString, 't to int')
+      elseif errorNo == error_expression then
+        appendChar(ErrorString, 'Expressi')
+        appendChar(ErrorString, 'on expec')
+        appendChar(ErrorString, 'ted')
+      elseif errorNo == error_typeNotInferred then  
+        appendChar(ErrorString, 'Could no')
+        appendChar(ErrorString, 't determ')
+        appendChar(ErrorString, 'ine type')        
+      elseif errorNo == error_emitNode then  
+        appendChar(ErrorString, 'Unexpect')
+        appendChar(ErrorString, 'ed node ')
+        appendChar(ErrorString, 'type')        
+      else  
+        appendChar(ErrorString, 'Error ')
+        appendI32(ErrorString, errorNo)
+      end
+      if Token then
+        appendChar(ErrorString, ' line ')
+        appendI32(ErrorString, Token.token_line)
+        appendChar(ErrorString, ' column ')
+        if Token.token_Value.i32 then
+          appendI32(ErrorString, Token.token_column - Token.token_Value.string_length)
+          appendChar(ErrorString, ' token ')
+          appendString(ErrorString, Token.token_Value)
+        else
+          appendI32(ErrorString, Token.token_column)
+        end
+        appendChar(ErrorString, 13)
+      end
+      CompilerOutput = ErrorString
+      ErrorItem = ErrorItem.item_Next
+      breakif not ErrorItem
+    end
+  end
+end
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
 // Emit helper functions
 
 func i32 strToI32(ptr String, ptr Token)  // Supports ints and 0x-prefixed hex
@@ -2644,7 +2667,25 @@ func appendChar(ptr String, i64 i)
       i = i >>+ 8
       breakif i == 0
       breakif offset >= appendLength
-    end  
+    end
+    String.string_length = stringLength + appendLength
+  end
+end
+
+func appendUleb(ptr String, i32 i)
+  i32 stringLength = String.string_length
+  i32 appendLength = uLebLength(i)
+  i32 maxLength = String.string_max
+  i32 offset = 0
+  if stringLength + appendLength <= maxLength then
+    loop
+      breakif i < 128
+      i32 chr = 128 + (i mod 128)
+      setChar(String, stringLength + offset, chr)
+      offset = offset + 1
+      i = i >>+ 7
+    end
+    setChar(String, stringLength + offset, i)
     String.string_length = stringLength + appendLength
   end
 end
@@ -2793,7 +2834,7 @@ i32 list_size   = 16
 
 i32 item_dec0de = 0  // debugging marker
 i32 item_Next   = 4
-i32 item_Object = 8 
+i32 item_Object = 8
 i32 item_Name   = 12
 i32 item_number = 12
 i32 item_size   = 16
@@ -2806,6 +2847,7 @@ end
 
 func listAdd(i32 List, i32 Object)
   i32 Item = Alloc(item_size)
+  Item.item_dec0de = 5 - DEC0DE
   Item.item_Object = Object
   if not List.list_First.ptr then
     List.list_First = Item
@@ -2830,7 +2872,7 @@ func listAddName(i32 List, i32 Object, i32 Name)
   List.list_count.i32 = List.list_count + 1
 end
 
-// Find a string in a list
+// Find a string in a list and return the object
 func i32 ListSearch(i32 List, i32 FindName)
   i32 Item = List.list_First
   loop
@@ -2843,8 +2885,26 @@ func i32 ListSearch(i32 List, i32 FindName)
   return 0
 end
 
+// Find a string in a list and return the index
+func i32 indexListSearch(i32 List, i32 FindName)
+  i32 Item = List.list_First
+  i32 index = 0
+  loop
+    breakif not Item
+    if strEq(Item.item_Name, FindName) then
+      return index
+    end
+    Item = Item.item_Next
+    index = index + 1
+  end
+  return -1
+end
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Memory management
+
+// Globals
+ptr Heap = 0  // Next free memory location
 
 func ptr Alloc(i32 length)
   ptr R = Heap
