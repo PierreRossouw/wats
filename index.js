@@ -1,0 +1,125 @@
+
+if (window.WebAssembly === void 0) {
+  alert("Your browser doesn't support WebAssembly!");
+}
+
+var xmlhttp, ogWasm, compilerWasm, testWasm;
+xmlhttp = new XMLHttpRequest();
+xmlhttp.open('GET', 'compile.dwasm.txt', false);
+xmlhttp.send();
+compilerSource.value = xmlhttp.responseText;
+
+xmlhttp.open('GET', 'compile.dwasm.bin.txt', false);
+xmlhttp.send();
+ogWasm = xmlhttp.responseText.trim();
+ogWasm = hexStringToByte(ogWasm.replace(/,/g, ""));
+
+xmlhttp.open('GET', 'decompile.dwasm.txt', false);
+xmlhttp.send();
+testSource.value = xmlhttp.responseText;
+
+function hexStringToByte(str) {
+  if (!str) {
+    return new Uint8Array();
+  }
+  var a = [];
+  for (var i = 0, len = str.length; i < len; i += 2) {
+    a.push(parseInt(str.substr(i, 2), 16));
+  }
+  return new Uint8Array(a);
+};
+
+function byteToHexString(uint8arr) {
+  if (!uint8arr) {
+    return '';
+  }
+  var hexStr = '';
+  for (var i = 0; i < uint8arr.length; i++) {
+    var hex = (uint8arr[i] & 0xff).toString(16);
+    hex = (hex.length === 1) ? '0' + hex : hex;
+    hexStr += hex + ',';
+  }
+  return hexStr.slice(0, -1);
+}
+
+function byteToDumpString(uint8arr) {
+  if (!uint8arr) {
+    return '';
+  }
+  var hexStr = '';
+  for (var i = 0; i < uint8arr.length; i++) {
+    var hex = (uint8arr[i] & 0xff).toString(16);
+    hex = (hex.length === 1) ? '0' + hex : hex;
+    hexStr += hex;
+    if (i % 4 == 3) {
+      hexStr += ' ';
+    };
+  };
+  hexStr = hexStr.replace(/01dec0de/g, '\nDEBUG   ');
+  hexStr = hexStr.replace(/02dec0de/g, '\nNode    ');
+  hexStr = hexStr.replace(/03dec0de/g, '\nScope   ');
+  hexStr = hexStr.replace(/04dec0de/g, '\nList    ');
+  hexStr = hexStr.replace(/05dec0de/g, '\nItem    ');
+  hexStr = hexStr.replace(/06dec0de/g, '\nToken   ');
+  hexStr = hexStr.replace(/07dec0de/g, '\nString  ');
+  return hexStr;
+}
+
+compilerCompile.onclick = (e) => {
+  compilerBinary.value = "";
+  WebAssembly.instantiate(ogWasm).then(results => {
+    let mem = new Uint8Array(results.instance.exports.mem.buffer);
+    let sourcecode = compilerSource.value;
+    new Uint32Array(mem.buffer)[2] = sourcecode.length;
+    for (var i = 0, strLen = sourcecode.length; i < strLen; i++) { mem[i + 12] = sourcecode.charCodeAt(i); }
+    let out = results.instance.exports.main();
+    let binLen = mem[out] + (mem[out + 1] << 8) + (mem[out + 2] << 16) + (mem[out + 3] << 24);
+    if (out > 0) {
+      out = out + 4;
+      if (0x6d7361 == mem[out + 1] + (mem[out + 2] << 8) + (mem[out + 3] << 16)) {
+        compilerWasm = mem.slice(out, out + binLen)
+        compilerBinary.value = byteToHexString(compilerWasm);
+      } else {
+        compilerBinary.value = String.fromCharCode.apply(null, mem.slice(out, out + binLen));
+      };
+    };
+  });
+};
+
+testCompile.onclick = (e) => {
+  testBinary.value = "";
+  WebAssembly.instantiate(compilerWasm).then(results => {
+    let mem = new Uint8Array(results.instance.exports.mem.buffer);
+    let sourcecode = testSource.value;
+    new Uint32Array(mem.buffer)[2] = sourcecode.length;
+    for (var i = 0, strLen = sourcecode.length; i < strLen; i++) { mem[i + 12] = sourcecode.charCodeAt(i); }
+    let out = results.instance.exports.main();
+    let outLen = mem[out] + (mem[out + 1] << 8) + (mem[out + 2] << 16) + (mem[out + 3] << 24);
+    out = out + 4;
+    if (0x6d7361 == mem[out + 1] + (mem[out + 2] << 8) + (mem[out + 3] << 16)) {
+      testWasm = mem.slice(out, out + outLen);
+      testBinary.value = byteToHexString(testWasm)
+    } else {   // Error message
+      testBinary.value = String.fromCharCode.apply(null, mem.slice(out, out + outLen));
+    };
+  });
+};
+
+execute.onclick = (e) => {
+  testMemory.value = "";
+  WebAssembly.instantiate(testWasm).then(results => {
+    let mem = new Uint8Array(results.instance.exports.mem.buffer);
+    execResult.value = results.instance.exports.main();
+    testMemory.value = byteToDumpString(mem.slice(0, 24000));
+  });
+};
+
+function fetchAndInstantiate(url) {
+  return fetch(url).then(response =>
+    response.arrayBuffer()
+  ).then(bytes =>
+    WebAssembly.instantiate(bytes)
+  ).then(results =>
+    results.instance
+  );
+}
