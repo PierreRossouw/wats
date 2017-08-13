@@ -68,20 +68,18 @@ function byteToDumpString(uint8arr) {
 compilerCompile.onclick = (e) => {
   compilerBinary.value = "";
   WebAssembly.instantiate(ogWasm).then(results => {
-    let mem = new Uint8Array(results.instance.exports.mem.buffer);
+    let mem = new Uint8Array(results.instance.exports.memory.buffer);
     let sourcecode = compilerSource.value;
     new Uint32Array(mem.buffer)[2] = sourcecode.length;
     for (var i = 0, strLen = sourcecode.length; i < strLen; i++) { mem[i + 12] = sourcecode.charCodeAt(i); }
     let out = results.instance.exports.main();
     let binLen = mem[out] + (mem[out + 1] << 8) + (mem[out + 2] << 16) + (mem[out + 3] << 24);
-    if (out > 0) {
-      out = out + 4;
-      if (0x6d7361 == mem[out + 1] + (mem[out + 2] << 8) + (mem[out + 3] << 16)) {
-        compilerWasm = mem.slice(out, out + binLen)
-        compilerBinary.value = byteToHexString(compilerWasm);
-      } else {
-        compilerBinary.value = String.fromCharCode.apply(null, mem.slice(out, out + binLen));
-      };
+    out = out + 4;
+    if (0x6d7361 == mem[out + 1] + (mem[out + 2] << 8) + (mem[out + 3] << 16)) {
+      compilerWasm = mem.slice(out, out + binLen)
+      compilerBinary.value = byteToHexString(compilerWasm);
+    } else {
+      compilerBinary.value = String.fromCharCode.apply(null, mem.slice(out, out + binLen));
     };
   });
 };
@@ -89,7 +87,7 @@ compilerCompile.onclick = (e) => {
 testCompile.onclick = (e) => {
   testBinary.value = "";
   WebAssembly.instantiate(compilerWasm).then(results => {
-    let mem = new Uint8Array(results.instance.exports.mem.buffer);
+    let mem = new Uint8Array(results.instance.exports.memory.buffer);
     let sourcecode = testSource.value;
     new Uint32Array(mem.buffer)[2] = sourcecode.length;
     for (var i = 0, strLen = sourcecode.length; i < strLen; i++) { mem[i + 12] = sourcecode.charCodeAt(i); }
@@ -111,19 +109,9 @@ execute.onclick = (e) => {
     if (results.instance.exports.memory) {
       let mem = new Uint8Array(results.instance.exports.memory.buffer);
       execResult.value = results.instance.exports.main();
-      testMemory.value = byteToDumpString(mem.slice(0, 24000));
+      testMemory.value = byteToDumpString(mem.slice(0, 64000));
     } else {
       execResult.value = results.instance.exports.main();
     }
   });
 };
-
-function fetchAndInstantiate(url) {
-  return fetch(url).then(response =>
-    response.arrayBuffer()
-  ).then(bytes =>
-    WebAssembly.instantiate(bytes)
-  ).then(results =>
-    results.instance
-  );
-}
