@@ -108,9 +108,13 @@ testCompile.onclick = (e) => {
 execute.onclick = (e) => {
   testMemory.value = "";
   WebAssembly.instantiate(testWasm).then(results => {
-    let mem = new Uint8Array(results.instance.exports.mem.buffer);
-    execResult.value = results.instance.exports.main();
-    testMemory.value = byteToDumpString(mem.slice(0, 24000));
+    if (results.instance.exports.memory) {
+      let mem = new Uint8Array(results.instance.exports.memory.buffer);
+      execResult.value = results.instance.exports.main();
+      testMemory.value = byteToDumpString(mem.slice(0, 24000));
+    } else {
+      execResult.value = results.instance.exports.main();
+    }
   });
 };
 
