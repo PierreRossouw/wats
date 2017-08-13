@@ -15,6 +15,7 @@ The compiler will return a memory location for the compiled binary
 - Imports, Name section, a few other WebAssembly bits not yet implemented
 
 ### Updates
+2017-08-13: Playground improvements    
 2017-08-09: Started on the decompiler    
 2017-08-06: Changed the syntax a bit and updated some key words to match WAT conventions   
 2017-07-30: Support drop and tee_local, added some compiler error messages   
