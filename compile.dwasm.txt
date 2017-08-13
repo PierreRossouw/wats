@@ -55,7 +55,7 @@ i32 tokens_return      = 0x2b
 i32 tokens_end         = 0x1f
 i32 tokens_hexwasm     = 0x2d
 i32 tokens_drop        = 0x2e
-i32 tokens_stop        = 0x2f
+i32 tokens_unreachable = 0x2f
 i32 tokens_nop         = 0x30
 i32 tokens_iif         = 0x31
 i32 tokens_mem         = 0x40
@@ -69,8 +69,9 @@ i32 tokens_if          = 0x48
 i32 tokens_then        = 0x49
 i32 tokens_elseif      = 0x4a
 i32 tokens_else        = 0x4b
-i32 tokens_minPrec     = 0x4d
-i32 tokens_assign      = 0x4e  // =
+i32 tokens_minPrec     = 0x4c
+i32 tokens_assign      = 0x4d  // =
+i32 tokens_tee         = 0x4e  // :=
 i32 tokens_min         = 0x4f
 i32 tokens_max         = 0x50
 i32 tokens_copysign    = 0x51
@@ -152,8 +153,6 @@ func processToken(i32 Val, i32 line, i32 column)
   elseif strEqChar(Val, 'return')   then kind = tokens_return
   elseif strEqChar(Val, 'end')      then kind = tokens_end
   elseif strEqChar(Val, 'drop')     then kind = tokens_drop
-  elseif strEqChar(Val, 'stop')     then kind = tokens_stop
-  elseif strEqChars(Val, 'unreacha', 'ble') then kind = tokens_stop
   elseif strEqChar(Val, 'nop')      then kind = tokens_nop
   elseif strEqChar(Val, 'memory')   then kind = tokens_mem
   elseif strEqChar(Val, 'data')     then kind = tokens_data
@@ -174,6 +173,7 @@ func processToken(i32 Val, i32 line, i32 column)
   elseif strEqChar(Val, 'bool')     then kind = tokens_bool
   elseif strEqChar(Val, 'ptr')      then kind = tokens_ptr
   elseif strEqChar(Val, '=')        then kind = tokens_assign
+  elseif strEqChar(Val, ':=')       then kind = tokens_tee
   elseif strEqChar(Val, 'or')       then kind = tokens_or
   elseif strEqChar(Val, 'xor')      then kind = tokens_xor
   elseif strEqChar(Val, 'and')      then kind = tokens_and
@@ -212,6 +212,7 @@ func processToken(i32 Val, i32 line, i32 column)
   elseif strEqChar(Val, 'ctz')      then kind = tokens_ctz 
   elseif strEqChar(Val, 'cnt')      then kind = tokens_cnt 
   elseif strEqChar(Val, 'copysign') then kind = tokens_copysign
+  elseif strEqChars(Val, 'unreacha', 'ble') then kind = tokens_unreachable
   end
   addToken(kind, Val, line, column)
 end
@@ -226,7 +227,7 @@ end
 
 func bool isOperatorChar(i32 chr)
   return chr == '=' or chr == '+' or chr == '-' or chr == '/' or chr == '*' or
-         chr == '<' or chr == '>' 
+         chr == '<' or chr == '>' or chr == ':' 
 end
 
 func lexx()
@@ -487,17 +488,18 @@ i32 nodes_dotLoad    = 0x14
 i32 nodes_dotStore   = 0x15
 i32 nodes_drop       = 0x16
 i32 nodes_iif        = 0x17
+i32 nodes_assign     = 0x18
 
 // Structs
 i32 node_dec0de     = 0   // debugging marker
 i32 node_kind       = 4   // From the nodes_ enum
 i32 node_index      = 8   // Zero based index number for funs, variables, parameters
 i32 node_String     = 12  // Literal value, or fun/var/parameter name
-i32 node_Scope      = 16  // Scope for program/block/loop/func used for name resolution
-i32 node_ANode      = 20  // Binary left, call fun, return expression, then block, or func body
-i32 node_BNode      = 24  // Binary/unary right, else block, func return, variable assignment
+i32 node_Scope      = 16  // Scope for program/block/loop/fun used for name resolution
+i32 node_ANode      = 20  // Binary left, call fun, return expression, then block, or fun body
+i32 node_BNode      = 24  // Binary/unary right, else block, fun return, variable assignment
 i32 node_CNode      = 28  // If statement condition node
-i32 node_Nodes      = 32  // List of child nodes for program/block, or func locals
+i32 node_Nodes      = 32  // List of child nodes for program/block, or fun locals
 i32 node_ParamNodes = 36  // List of params for call/fun
 i32 node_type       = 40  // From the tokens_ enum
 i32 node_dataType   = 44  // inferred data type
@@ -539,13 +541,13 @@ end
 
 func bool isBinaryOperator(ptr Token)
   i32 kind = Token.token_kind
-  return kind == tokens_assign or kind == tokens_add or kind == tokens_sub or kind == tokens_mul or
-         kind == tokens_div or kind == tokens_mod or kind == tokens_or or kind == tokens_and or
+  return kind == tokens_add or kind == tokens_sub or kind == tokens_mul or kind == tokens_div or
+         kind == tokens_mod or kind == tokens_modu or kind == tokens_or or kind == tokens_and or
          kind == tokens_lt or kind == tokens_eq or kind == tokens_ne or kind == tokens_lt or
          kind == tokens_le or kind == tokens_gt or kind == tokens_ge or kind == tokens_shl or
          kind == tokens_shr or kind == tokens_xor or kind == tokens_ltu or kind == tokens_leu or 
          kind == tokens_gtu or kind == tokens_geu or kind == tokens_shru or kind == tokens_rotl or
-         kind == tokens_rotr or kind == tokens_modu
+         kind == tokens_rotr or kind == tokens_tee
 end
 
 func bool isUnaryOperator(ptr Token)
@@ -816,6 +818,16 @@ func ptr ParseBinaryExpression(i32 level, ptr Left)
   return Node
 end
 
+func ptr ParseAssignStatement()
+  ptr Node = NewNode(nodes_assign)
+  Node.node_ANode = ParseIdentifier()
+  Node.node_type = tokens_assign
+  Node.node_String.ptr = CurrentToken.token_Value
+  eatToken(tokens_assign)
+  Node.node_BNode = ParseExpression(tokens_minPrec)
+  return Node
+end
+
 func ptr ParseInfix(i32 level, ptr Left)
   ptr Node = 0
   if isBinaryOperator(CurrentToken) then
@@ -867,10 +879,10 @@ func ptr ParseHexwasmStatement()
   return Node
 end
 
-func ptr ParseStopStatement()
+func ptr ParseUnreachableStatement()
   ptr Node = NewNode(nodes_hexwasm)
   Node.node_type = 0x00
-  eatToken(tokens_stop)
+  eatToken(tokens_unreachable)
   return Node
 end
 
@@ -1039,8 +1051,8 @@ func ptr ParseStatement()
     Node = ParseReturnStatement()
   elseif kind == tokens_hexwasm then
     Node = ParseHexwasmStatement()
-  elseif kind == tokens_stop then
-    Node = ParseStopStatement()
+  elseif kind == tokens_unreachable then
+    Node = ParseUnreachableStatement()
   elseif kind == tokens_nop then
     Node = ParseNopStatement()
   elseif kind == tokens_if then
@@ -1059,12 +1071,10 @@ func ptr ParseStatement()
     Node = ParseDotStore()
   elseif kind == tokens_identifier and NextToken.token_kind == tokens_lParen then
     Node = ParseCallStatement()
+  elseif kind == tokens_identifier and NextToken.token_kind == tokens_assign then
+    Node = ParseAssignStatement()
   else
-    i32 StartToken = CurrentToken
-    Node = ParseExpression(tokens_minPrec)
-    if Node.node_kind <> nodes_binary or Node.node_type <> tokens_assign then
-      listAddName(ErrorList, StartToken, error_blockStatement)
-    end
+    listAddName(ErrorList, CurrentToken, error_blockStatement)  // Error
   end
   return Node
 end
@@ -1438,7 +1448,7 @@ func emitNode(ptr Node)
   i32 kind = Node.node_kind
   if kind == nodes_block then
     emitBlock(Node)
-  elseif kind == nodes_binary and Node.node_type == tokens_assign then
+  elseif kind == nodes_assign then
     emitAssignment(Node, false)
   elseif kind == nodes_unary then
     emitUnary(Node)
@@ -1530,7 +1540,7 @@ end
 
 func emitBinary(ptr Node)
   i32 type = Node.node_type
-  if type == tokens_assign then
+  if type == tokens_tee then
     emitAssignment(Node, true)
   else
     i32 dataType = Node.node_dataType
@@ -1547,113 +1557,125 @@ func emitBinary(ptr Node)
     BNode.node_dataType = dataType
     emitExpression(ANode)
     emitExpression(BNode)
-    emitOperator(type, dataType)
+    emitOperator(type, dataType, Node)
   end
 end
 
-func emitOperator(i32 type, i32 dataType)
+func emitOperator(i32 type, i32 dataType, ptr Node)
   if dataType == tokens_f64 then
-    if type == tokens_eq       then emitByte(0x61) end
-    if type == tokens_ne       then emitByte(0x62) end
-    if type == tokens_lt       then emitByte(0x63) end
-    if type == tokens_gt       then emitByte(0x64) end
-    if type == tokens_le       then emitByte(0x65) end
-    if type == tokens_ge       then emitByte(0x66) end
-    if type == tokens_abs      then emitByte(0x99) end
-    if type == tokens_neg      then emitByte(0x9a) end
-    if type == tokens_ceil     then emitByte(0x9b) end
-    if type == tokens_floor    then emitByte(0x9c) end
-    if type == tokens_trunc    then emitByte(0x9d) end
-    if type == tokens_round    then emitByte(0x9e) end
-    if type == tokens_sqrt     then emitByte(0x9f) end
-    if type == tokens_add      then emitByte(0xa0) end
-    if type == tokens_sub      then emitByte(0xa1) end
-    if type == tokens_mul      then emitByte(0xa2) end
-    if type == tokens_div      then emitByte(0xa3) end
-    if type == tokens_min      then emitByte(0xa4) end
-    if type == tokens_max      then emitByte(0xa5) end
-    if type == tokens_copysign then emitByte(0xa6) end
+    if     type == tokens_eq       then emitByte(0x61)
+    elseif type == tokens_ne       then emitByte(0x62)
+    elseif type == tokens_lt       then emitByte(0x63)
+    elseif type == tokens_gt       then emitByte(0x64)
+    elseif type == tokens_le       then emitByte(0x65)
+    elseif type == tokens_ge       then emitByte(0x66)
+    elseif type == tokens_abs      then emitByte(0x99)
+    elseif type == tokens_neg      then emitByte(0x9a)
+    elseif type == tokens_ceil     then emitByte(0x9b)
+    elseif type == tokens_floor    then emitByte(0x9c)
+    elseif type == tokens_trunc    then emitByte(0x9d)
+    elseif type == tokens_round    then emitByte(0x9e)
+    elseif type == tokens_sqrt     then emitByte(0x9f)
+    elseif type == tokens_add      then emitByte(0xa0)
+    elseif type == tokens_sub      then emitByte(0xa1)
+    elseif type == tokens_mul      then emitByte(0xa2)
+    elseif type == tokens_div      then emitByte(0xa3)
+    elseif type == tokens_min      then emitByte(0xa4)
+    elseif type == tokens_max      then emitByte(0xa5)
+    elseif type == tokens_copysign then emitByte(0xa6) 
+    else
+      listAddName(ErrorList, Node.node_Token, error_invalidOperator)
+    end
   elseif dataType == tokens_f32 then
-    if type == tokens_eq       then emitByte(0x5b) end
-    if type == tokens_ne       then emitByte(0x5c) end
-    if type == tokens_lt       then emitByte(0x5d) end
-    if type == tokens_gt       then emitByte(0x5e) end
-    if type == tokens_le       then emitByte(0x5f) end
-    if type == tokens_ge       then emitByte(0x60) end
-    if type == tokens_abs      then emitByte(0x8b) end
-    if type == tokens_neg      then emitByte(0x8c) end
-    if type == tokens_ceil     then emitByte(0x8d) end
-    if type == tokens_floor    then emitByte(0x8e) end
-    if type == tokens_trunc    then emitByte(0x8f) end
-    if type == tokens_round    then emitByte(0x90) end
-    if type == tokens_sqrt     then emitByte(0x91) end
-    if type == tokens_add      then emitByte(0x92) end
-    if type == tokens_sub      then emitByte(0x93) end
-    if type == tokens_mul      then emitByte(0x94) end
-    if type == tokens_div      then emitByte(0x95) end
-    if type == tokens_min      then emitByte(0x96) end
-    if type == tokens_max      then emitByte(0x97) end
-    if type == tokens_copysign then emitByte(0x98) end
+    if     type == tokens_eq       then emitByte(0x5b)
+    elseif type == tokens_ne       then emitByte(0x5c)
+    elseif type == tokens_lt       then emitByte(0x5d)
+    elseif type == tokens_gt       then emitByte(0x5e)
+    elseif type == tokens_le       then emitByte(0x5f)
+    elseif type == tokens_ge       then emitByte(0x60)
+    elseif type == tokens_abs      then emitByte(0x8b)
+    elseif type == tokens_neg      then emitByte(0x8c)
+    elseif type == tokens_ceil     then emitByte(0x8d)
+    elseif type == tokens_floor    then emitByte(0x8e)
+    elseif type == tokens_trunc    then emitByte(0x8f)
+    elseif type == tokens_round    then emitByte(0x90)
+    elseif type == tokens_sqrt     then emitByte(0x91)
+    elseif type == tokens_add      then emitByte(0x92)
+    elseif type == tokens_sub      then emitByte(0x93)
+    elseif type == tokens_mul      then emitByte(0x94)
+    elseif type == tokens_div      then emitByte(0x95)
+    elseif type == tokens_min      then emitByte(0x96)
+    elseif type == tokens_max      then emitByte(0x97)
+    elseif type == tokens_copysign then emitByte(0x98)
+    else
+      listAddName(ErrorList, Node.node_Token, error_invalidOperator)
+    end
   elseif dataType == tokens_i64 then
-    if type == tokens_not  then emitByte(0x50) end
-    if type == tokens_eq   then emitByte(0x51) end
-    if type == tokens_ne   then emitByte(0x52) end
-    if type == tokens_lt   then emitByte(0x53) end
-    if type == tokens_ltu  then emitByte(0x54) end
-    if type == tokens_gt   then emitByte(0x55) end
-    if type == tokens_gtu  then emitByte(0x56) end
-    if type == tokens_le   then emitByte(0x57) end
-    if type == tokens_leu  then emitByte(0x58) end
-    if type == tokens_ge   then emitByte(0x59) end
-    if type == tokens_geu  then emitByte(0x5a) end
-    if type == tokens_clz  then emitByte(0x79) end
-    if type == tokens_ctz  then emitByte(0x7a) end
-    if type == tokens_cnt  then emitByte(0x7b) end
-    if type == tokens_add  then emitByte(0x7c) end
-    if type == tokens_sub  then emitByte(0x7d) end
-    if type == tokens_mul  then emitByte(0x7e) end
-    if type == tokens_div  then emitByte(0x7f) end
-    if type == tokens_divu then emitByte(0x80) end
-    if type == tokens_mod  then emitByte(0x81) end
-    if type == tokens_modu then emitByte(0x82) end
-    if type == tokens_and  then emitByte(0x83) end
-    if type == tokens_or   then emitByte(0x84) end
-    if type == tokens_xor  then emitByte(0x85) end
-    if type == tokens_shl  then emitByte(0x86) end
-    if type == tokens_shr  then emitByte(0x87) end
-    if type == tokens_shru then emitByte(0x88) end
-    if type == tokens_rotl then emitByte(0x89) end
-    if type == tokens_rotr then emitByte(0x8a) end
+    if     type == tokens_not  then emitByte(0x50)
+    elseif type == tokens_eq   then emitByte(0x51)
+    elseif type == tokens_ne   then emitByte(0x52)
+    elseif type == tokens_lt   then emitByte(0x53)
+    elseif type == tokens_ltu  then emitByte(0x54)
+    elseif type == tokens_gt   then emitByte(0x55)
+    elseif type == tokens_gtu  then emitByte(0x56)
+    elseif type == tokens_le   then emitByte(0x57)
+    elseif type == tokens_leu  then emitByte(0x58)
+    elseif type == tokens_ge   then emitByte(0x59)
+    elseif type == tokens_geu  then emitByte(0x5a)
+    elseif type == tokens_clz  then emitByte(0x79)
+    elseif type == tokens_ctz  then emitByte(0x7a)
+    elseif type == tokens_cnt  then emitByte(0x7b)
+    elseif type == tokens_add  then emitByte(0x7c)
+    elseif type == tokens_sub  then emitByte(0x7d)
+    elseif type == tokens_mul  then emitByte(0x7e)
+    elseif type == tokens_div  then emitByte(0x7f)
+    elseif type == tokens_divu then emitByte(0x80)
+    elseif type == tokens_mod  then emitByte(0x81)
+    elseif type == tokens_modu then emitByte(0x82)
+    elseif type == tokens_and  then emitByte(0x83)
+    elseif type == tokens_or   then emitByte(0x84)
+    elseif type == tokens_xor  then emitByte(0x85)
+    elseif type == tokens_shl  then emitByte(0x86)
+    elseif type == tokens_shr  then emitByte(0x87)
+    elseif type == tokens_shru then emitByte(0x88)
+    elseif type == tokens_rotl then emitByte(0x89)
+    elseif type == tokens_rotr then emitByte(0x8a)
+    else
+      listAddName(ErrorList, Node.node_Token, error_invalidOperator)
+    end
   else
-    if type == tokens_not  then emitByte(0x45) end
-    if type == tokens_eq   then emitByte(0x46) end
-    if type == tokens_ne   then emitByte(0x47) end
-    if type == tokens_lt   then emitByte(0x48) end
-    if type == tokens_ltu  then emitByte(0x49) end
-    if type == tokens_gt   then emitByte(0x4a) end
-    if type == tokens_gtu  then emitByte(0x4b) end
-    if type == tokens_le   then emitByte(0x4c) end
-    if type == tokens_leu  then emitByte(0x4d) end
-    if type == tokens_ge   then emitByte(0x4e) end
-    if type == tokens_geu  then emitByte(0x4f) end
-    if type == tokens_clz  then emitByte(0x67) end
-    if type == tokens_ctz  then emitByte(0x68) end
-    if type == tokens_cnt  then emitByte(0x69) end
-    if type == tokens_add  then emitByte(0x6a) end
-    if type == tokens_sub  then emitByte(0x6b) end
-    if type == tokens_mul  then emitByte(0x6c) end
-    if type == tokens_div  then emitByte(0x6d) end
-    if type == tokens_divu then emitByte(0x6e) end
-    if type == tokens_mod  then emitByte(0x6f) end
-    if type == tokens_modu then emitByte(0x70) end
-    if type == tokens_and  then emitByte(0x71) end
-    if type == tokens_or   then emitByte(0x72) end
-    if type == tokens_xor  then emitByte(0x73) end
-    if type == tokens_shl  then emitByte(0x74) end
-    if type == tokens_shr  then emitByte(0x75) end
-    if type == tokens_shru then emitByte(0x76) end
-    if type == tokens_rotl then emitByte(0x77) end
-    if type == tokens_rotr then emitByte(0x78) end
+    if     type == tokens_not  then emitByte(0x45)
+    elseif type == tokens_eq   then emitByte(0x46)
+    elseif type == tokens_ne   then emitByte(0x47)
+    elseif type == tokens_lt   then emitByte(0x48)
+    elseif type == tokens_ltu  then emitByte(0x49)
+    elseif type == tokens_gt   then emitByte(0x4a)
+    elseif type == tokens_gtu  then emitByte(0x4b)
+    elseif type == tokens_le   then emitByte(0x4c)
+    elseif type == tokens_leu  then emitByte(0x4d)
+    elseif type == tokens_ge   then emitByte(0x4e)
+    elseif type == tokens_geu  then emitByte(0x4f)
+    elseif type == tokens_clz  then emitByte(0x67)
+    elseif type == tokens_ctz  then emitByte(0x68)
+    elseif type == tokens_cnt  then emitByte(0x69)
+    elseif type == tokens_add  then emitByte(0x6a)
+    elseif type == tokens_sub  then emitByte(0x6b)
+    elseif type == tokens_mul  then emitByte(0x6c)
+    elseif type == tokens_div  then emitByte(0x6d)
+    elseif type == tokens_divu then emitByte(0x6e)
+    elseif type == tokens_mod  then emitByte(0x6f)
+    elseif type == tokens_modu then emitByte(0x70)
+    elseif type == tokens_and  then emitByte(0x71)
+    elseif type == tokens_or   then emitByte(0x72)
+    elseif type == tokens_xor  then emitByte(0x73)
+    elseif type == tokens_shl  then emitByte(0x74)
+    elseif type == tokens_shr  then emitByte(0x75)
+    elseif type == tokens_shru then emitByte(0x76)
+    elseif type == tokens_rotl then emitByte(0x77)
+    elseif type == tokens_rotr then emitByte(0x78)
+    else
+      listAddName(ErrorList, Node.node_Token, error_invalidOperator)
+    end
   end
 end
 
@@ -1676,7 +1698,7 @@ func emitUnary(ptr Node)
     end
   end
   emitExpression(Node.node_BNode)
-  emitOperator(type, dataType)
+  emitOperator(type, dataType, Node)
 end
 
 func emitIdentifier(ptr Node)
@@ -2158,7 +2180,7 @@ end
 func i32 inferDataType(ptr Node)
   i32 dataType = Node.node_dataType
   i32 kind = Node.node_kind
-  if kind == nodes_binary or kind == nodes_iif then
+  if kind == nodes_binary or kind == nodes_iif or kind == nodes_assign then
     dataType = inferDataType(Node.node_ANode)
     if not dataType then
       dataType = inferDataType(Node.node_BNode)
@@ -2275,6 +2297,7 @@ i32 error_notDeclared     = 8
 i32 error_literalToInt    = 9
 i32 error_blockStatement  = 10
 i32 error_emitNode        = 11
+i32 error_invalidOperator = 12
 
 func parseErrorList()
   ptr ErrorItem = ErrorList.list_First
@@ -2325,6 +2348,9 @@ func parseErrorList()
         appendChar(ErrorString, 'Unexpect')
         appendChar(ErrorString, 'ed node ')
         appendChar(ErrorString, 'type')        
+      elseif errorNo == error_invalidOperator then  
+        appendChar(ErrorString, 'Invalid ')
+        appendChar(ErrorString, 'operator')
       else  
         appendChar(ErrorString, 'Error ')
         appendI32(ErrorString, errorNo)
@@ -2773,7 +2799,7 @@ func bool strEqChar(i32 String, i64 a)
     if a <> load64(String + string_Chars) then return false end
   elseif length > 0 then
     if a <> i32_i64(load32(String + string_Chars)) then return false end
-  elseif length = 0 then
+  elseif length == 0 then
     if a <> 0 then return false end
   end
   return true
@@ -2795,7 +2821,7 @@ func bool strEqChars(i32 String, i64 a, i64 b)
   elseif length > 0 then
     if a <> i32_i64(load32(String + string_Chars)) then return false end
     if b <> 0 then return false end
-  elseif length = 0 then
+  elseif length == 0 then
     if a <> 0 then return false end
     if b <> 0 then return false end
   end
