@@ -1,4 +1,4 @@
-// Compile.dwasm v0.1.20170810
+// Compile.dwasm v0.1.20170813
 // A simple and readable WebAssembly language with self-hosted compiler
 
 // Style conventions:
@@ -153,6 +153,7 @@ func processToken(i32 Val, i32 line, i32 column)
   elseif strEqChar(Val, 'end')      then kind = tokens_end
   elseif strEqChar(Val, 'drop')     then kind = tokens_drop
   elseif strEqChar(Val, 'stop')     then kind = tokens_stop
+  elseif strEqChars(Val, 'unreacha', 'ble') then kind = tokens_stop
   elseif strEqChar(Val, 'nop')      then kind = tokens_nop
   elseif strEqChar(Val, 'memory')   then kind = tokens_mem
   elseif strEqChar(Val, 'data')     then kind = tokens_data
@@ -1437,8 +1438,8 @@ func emitNode(ptr Node)
   i32 kind = Node.node_kind
   if kind == nodes_block then
     emitBlock(Node)
-  elseif kind == nodes_binary then
-    emitBinary(Node, false)
+  elseif kind == nodes_binary and Node.node_type == tokens_assign then
+    emitAssignment(Node, false)
   elseif kind == nodes_unary then
     emitUnary(Node)
   elseif kind == nodes_call then
@@ -1479,7 +1480,7 @@ end
 func emitExpression(ptr Node)
   i32 kind = Node.node_kind
   if kind == nodes_binary then
-    emitBinary(Node, true)
+    emitBinary(Node)
   elseif kind == nodes_unary then
     emitUnary(Node)
   elseif kind == nodes_call then
@@ -1525,6 +1526,29 @@ func emitAssignment(ptr Node, bool isExpression)
     end
   end
   emitUleb(ResolvedNode.node_index)
+end
+
+func emitBinary(ptr Node)
+  i32 type = Node.node_type
+  if type == tokens_assign then
+    emitAssignment(Node, true)
+  else
+    i32 dataType = Node.node_dataType
+    ptr ANode = Node.node_ANode
+    ptr BNode = Node.node_BNode
+    if not dataType then
+      dataType = inferDataType(Node)
+      if not dataType then
+        listAddName(ErrorList, Node.node_Token, error_typeNotInferred)
+      end
+      Node.node_dataType = dataType
+    end
+    ANode.node_dataType = dataType
+    BNode.node_dataType = dataType
+    emitExpression(ANode)
+    emitExpression(BNode)
+    emitOperator(type, dataType)
+  end
 end
 
 func emitOperator(i32 type, i32 dataType)
@@ -2150,29 +2174,6 @@ func i32 inferDataType(ptr Node)
   return dataType
 end
 
-func emitBinary(ptr Node, bool isExpression)
-  i32 type = Node.node_type
-  if type == tokens_assign then
-    emitAssignment(Node, isExpression)
-  else
-    i32 dataType = Node.node_dataType
-    ptr ANode = Node.node_ANode
-    ptr BNode = Node.node_BNode
-    if not dataType then
-      dataType = inferDataType(Node)
-      if not dataType then
-        listAddName(ErrorList, Node.node_Token, error_typeNotInferred)
-      end
-      Node.node_dataType = dataType
-    end
-    ANode.node_dataType = dataType
-    BNode.node_dataType = dataType
-    emitExpression(ANode)
-    emitExpression(BNode)
-    emitOperator(type, dataType)
-  end
-end
-
 func emitIif(ptr Node)
   i32 dataType = Node.node_dataType
   ptr ANode = Node.node_ANode
@@ -2774,6 +2775,29 @@ func bool strEqChar(i32 String, i64 a)
     if a <> i32_i64(load32(String + string_Chars)) then return false end
   elseif length = 0 then
     if a <> 0 then return false end
+  end
+  return true
+end
+
+func bool strEqChars(i32 String, i64 a, i64 b)
+  i32 length = String.string_length
+  if length > 16 then
+    return false
+  elseif length > 12 then
+    if a <> load64(String + string_Chars) then return false end
+    if b <> load64(String + string_Chars + 8) then return false end
+  elseif length > 8 then
+    if a <> load64(String + string_Chars) then return false end
+    if b <> i32_i64(load32(String + string_Chars + 8)) then return false end
+  elseif length > 4 then
+    if a <> load64(String + string_Chars) then return false end
+    if b <> 0 then return false end
+  elseif length > 0 then
+    if a <> i32_i64(load32(String + string_Chars)) then return false end
+    if b <> 0 then return false end
+  elseif length = 0 then
+    if a <> 0 then return false end
+    if b <> 0 then return false end
   end
   return true
 end
