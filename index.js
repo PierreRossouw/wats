@@ -78,8 +78,10 @@ compilerCompile.onclick = (e) => {
     if (0x6d7361 == mem[out + 1] + (mem[out + 2] << 8) + (mem[out + 3] << 16)) {
       compilerWasm = mem.slice(out, out + binLen)
       compilerBinary.value = byteToHexString(compilerWasm);
+      testMemory.value = byteToDumpString(mem.slice(0, 64000));
     } else {
       compilerBinary.value = String.fromCharCode.apply(null, mem.slice(out, out + binLen));
+      testMemory.value = byteToDumpString(mem.slice(0, 64000));
     };
   });
 };
@@ -97,8 +99,10 @@ testCompile.onclick = (e) => {
     if (0x6d7361 == mem[out + 1] + (mem[out + 2] << 8) + (mem[out + 3] << 16)) {
       testWasm = mem.slice(out, out + outLen);
       testBinary.value = byteToHexString(testWasm)
+      testMemory.value = byteToDumpString(mem.slice(0, 64000));
     } else {   // Error message
       testBinary.value = String.fromCharCode.apply(null, mem.slice(out, out + outLen));
+      testMemory.value = byteToDumpString(mem.slice(0, 64000));
     };
   });
 };
