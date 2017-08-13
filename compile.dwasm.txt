@@ -6,7 +6,7 @@
 // Constants are ALL CAPS
 
 // Memory size in 64kB pages
-memory 200 export "mem"
+memory 200 export
 
 data 8 "\00"  // string length
 data 12 ""  // Source code to compile
