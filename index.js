@@ -14,7 +14,7 @@ xmlhttp.send();
 ogWasm = xmlhttp.responseText.trim();
 ogWasm = hexStringToByte(ogWasm.replace(/,/g, ""));
 
-xmlhttp.open('GET', 'decompile.dwasm.txt', false);
+xmlhttp.open('GET', 'playtest.dwasm.txt', false);
 xmlhttp.send();
 testSource.value = xmlhttp.responseText;
 
