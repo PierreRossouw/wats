@@ -21,5 +21,3 @@ func i32 main() export
   end
   return numPrimes
 end
-
-memory 1 export "mem" // not used
