@@ -8,9 +8,6 @@
 // Memory size in 64kB pages
 memory 200 export
 
-data 8 "\00"  // string length
-data 12 ""  // Source code to compile
-
 // Constants
 i32 SIZEINT = 4  // Most browsers currently only support 32bit sized WASM memories
 i32 DEC0DE  = 557785600  // Magic number -0x00dec0de - used for debugging
@@ -433,7 +430,7 @@ end
 
 func scopeRegister(ptr Scope, ptr Name, ptr Node, ptr Token)
   if ListSearch(Scope.scope_Symbols, Name) then
-    listAddName(Errors, Token, error_duplicateName)
+    addError(error_duplicateName, Token)
   end
   i32 nodeKind = Node.node_kind
   listAddName(Scope.scope_Symbols, Node, Name)
@@ -456,7 +453,7 @@ func ptr ScopeResolve(ptr Scope, ptr Name, ptr Token)
     RecurseScope = RecurseScope.scope_Parent
   end
   if not Node then
-    listAddName(Errors, Token, error_notDeclared)
+    addError(error_notDeclared, Token)
   end
   return Node
 end
@@ -574,11 +571,11 @@ func eatToken(i32 kind)
     if CurrentToken.token_kind == kind then
       nextToken()
     else
-      listAddName(Errors, CurrentToken, error_invalidToken)
+      addError(error_invalidToken, CurrentToken)
     end
   else
     i32 LastToken = TokenList.list_Last.item_Object
-    listAddName(Errors, LastToken, error_missingToken)
+    addError(error_missingToken, LastToken)
   end
 end
 
@@ -587,11 +584,11 @@ func eatTokens(i32 kind, i32 kind2)
     if CurrentToken.token_kind == kind or CurrentToken.token_kind == kind2 then
       nextToken()
     else
-      listAddName(Errors, CurrentToken, error_invalidToken)
+      addError(error_invalidToken, CurrentToken)
     end
   else
     i32 LastToken = TokenList.list_Last.item_Object
-    listAddName(Errors, LastToken, error_missingToken)
+    addError(error_missingToken, LastToken)
   end
 end
 
@@ -1074,7 +1071,7 @@ func ptr ParseStatement()
   elseif kind == tokens_identifier and NextToken.token_kind == tokens_assign then
     Node = ParseAssignStatement()
   else
-    listAddName(Errors, CurrentToken, error_blockStatement)  // Error
+    addError(error_blockStatement, CurrentToken)
   end
   return Node
 end
@@ -1093,7 +1090,7 @@ func ptr ParseRootStatement()
   elseif kind == tokens_hexwasm then
     Node = ParseHexwasmStatement()
   else
-    listAddName(Errors, CurrentToken, error_rootStatement)  // Error
+    addError(error_rootStatement, CurrentToken)
   end
   return Node
 end
@@ -1120,10 +1117,10 @@ end
 // Compiler 
 
 // Globals
-ptr CurrentFunNode   = 0
-ptr TypeList         = 0
-ptr FunTypeList      = 0
-i32 emitGlobalCount  = 0
+ptr CurrentFunNode  = 0
+ptr TypeList        = 0
+ptr FunTypeList     = 0
+i32 emitGlobalCount = 0
 
 func emit()
   Wasm = NewEmptyString(Dwasm.string_length + 256)  // Guess
@@ -1371,7 +1368,7 @@ end
 
 func emitCodeSection()
   if FunTypeList.list_count.i32 then
-    appendByte(Wasm, 0x0a)  // Dwasm section
+    appendByte(Wasm, 0x0a)  // Code section
     appendByte(Wasm, 0x00)  // Section size (guess)
     i32 start = Wasm.string_length  
     appendUleb(Wasm, FunTypeList.list_count)
@@ -1471,7 +1468,7 @@ func emitNode(ptr Node)
     appendByte(Wasm, 0x0c)  // br
     appendUleb(Wasm, scopeLevel(Node, nodes_loop) + 1)
   else
-    listAddName(Errors, Node.node_Token, error_emitNode)  // Error
+    addError(error_emitNode, Node.node_Token)
   end
 end
 
@@ -1496,7 +1493,7 @@ func emitExpression(ptr Node)
   elseif kind == nodes_iif then
     emitIif(Node)
   else
-    listAddName(Errors, Node.node_Token, error_expression)
+    addError(error_expression, Node.node_Token)
   end
 end
 
@@ -1506,7 +1503,7 @@ func emitAssignment(ptr Node, bool isExpression)
   ptr BNode = Node.node_BNode
   Node.node_dataType = dataType
   if BNode.node_dataType <> 0 and BNode.node_dataType <> dataType then
-    listAddName(Errors, Node.node_Token, error_typeMismatch)
+    addError(error_typeMismatch, Node.node_Token)
   end
   BNode.node_dataType = dataType
   emitExpression(BNode)
@@ -1537,7 +1534,7 @@ func emitBinary(ptr Node)
     if not dataType then
       dataType = inferDataType(Node)
       if not dataType then
-        listAddName(Errors, Node.node_Token, error_typeNotInferred)
+        addError(error_typeNotInferred, Node.node_Token)
       end
       Node.node_dataType = dataType
     end
@@ -1572,7 +1569,7 @@ func emitOperator(i32 type, i32 dataType, ptr Node)
     elseif type == tokens_max      then appendByte(Wasm, 0xa5)
     elseif type == tokens_copysign then appendByte(Wasm, 0xa6) 
     else
-      listAddName(Errors, Node.node_Token, error_invalidOperator)
+      addError(error_invalidOperator, Node.node_Token)
     end
   elseif dataType == tokens_f32 then
     if     type == tokens_eq       then appendByte(Wasm, 0x5b)
@@ -1596,7 +1593,7 @@ func emitOperator(i32 type, i32 dataType, ptr Node)
     elseif type == tokens_max      then appendByte(Wasm, 0x97)
     elseif type == tokens_copysign then appendByte(Wasm, 0x98)
     else
-      listAddName(Errors, Node.node_Token, error_invalidOperator)
+      addError(error_invalidOperator, Node.node_Token)
     end
   elseif dataType == tokens_i64 then
     if     type == tokens_not  then appendByte(Wasm, 0x50)
@@ -1629,7 +1626,7 @@ func emitOperator(i32 type, i32 dataType, ptr Node)
     elseif type == tokens_rotl then appendByte(Wasm, 0x89)
     elseif type == tokens_rotr then appendByte(Wasm, 0x8a)
     else
-      listAddName(Errors, Node.node_Token, error_invalidOperator)
+      addError(error_invalidOperator, Node.node_Token)
     end
   else
     if     type == tokens_not  then appendByte(Wasm, 0x45)
@@ -1662,7 +1659,7 @@ func emitOperator(i32 type, i32 dataType, ptr Node)
     elseif type == tokens_rotl then appendByte(Wasm, 0x77)
     elseif type == tokens_rotr then appendByte(Wasm, 0x78)
     else
-      listAddName(Errors, Node.node_Token, error_invalidOperator)
+      addError(error_invalidOperator, Node.node_Token)
     end
   end
 end
@@ -1700,7 +1697,7 @@ func emitIdentifier(ptr Node)
     nodeDataType = tokens_i32
   end
   if nodeDataType <> 0 and nodeDataType <> dataType then
-    listAddName(Errors, Node.node_Token, error_typeMismatch)
+    addError(error_typeMismatch, Node.node_Token)
   end
   Node.node_dataType = dataType
   if ResolvedNode.node_Scope == GlobalScope then
@@ -1731,7 +1728,7 @@ func emitDotLoad(ptr Node)
       appendByte(Wasm, 0x28)  // i32.load
     else
       if not dataType then
-        listAddName(Errors, Node.node_Token, error_typeNotInferred)
+        addError(error_typeNotInferred, Node.node_Token)
       end
       if dataType == tokens_f64 then
         appendByte(Wasm, 0x2b)  // f64.load
@@ -2169,8 +2166,7 @@ func i32 inferDataType(ptr Node)
   i32 dataType = Node.node_dataType
   i32 kind = Node.node_kind
   if kind == nodes_binary or kind == nodes_iif or kind == nodes_assign then
-    dataType = inferDataType(Node.node_ANode)
-    if not dataType then
+    if not (dataType := inferDataType(Node.node_ANode)) then
       dataType = inferDataType(Node.node_BNode)
     end
   elseif kind == nodes_identifier then
@@ -2190,9 +2186,8 @@ func emitIif(ptr Node)
   ptr BNode = Node.node_BNode
   ptr CNode = Node.node_CNode
   if not dataType then
-    dataType = inferDataType(Node)
-    if not dataType then
-      listAddName(Errors, Node.node_Token, error_typeNotInferred)
+    if not (dataType := inferDataType(Node)) then
+      addError(error_typeNotInferred, Node.node_Token)
     end
     Node.node_dataType = dataType
   end
@@ -2240,7 +2235,7 @@ end
 func emitDataSection()
   i32 count = DataList.list_count
   if count then
-    appendByte(Wasm, 0x0b)  // Dwasm section
+    appendByte(Wasm, 0x0b)  // Data section
     appendByte(Wasm, 0x00)  // Section size (guess)
     i32 start = Wasm.string_length 
     appendUleb(Wasm, count)
@@ -2254,8 +2249,7 @@ func emitDataSection()
       i32 dataLength = DataString.string_length
       appendUleb(Wasm, dataLength)
       appendString(Wasm, DataString)
-      DataItem = DataItem.item_Next
-      breakif not DataItem
+      breakif not (DataItem := DataItem.item_Next)
     end
     i32 length = Wasm.string_length - start
     i32 offset = uLebLength(length) - 1
@@ -2281,6 +2275,10 @@ i32 error_literalToInt    = 9
 i32 error_blockStatement  = 10
 i32 error_emitNode        = 11
 i32 error_invalidOperator = 12
+
+func addError(i32 errorNo, ptr Token)
+  listAddName(Errors, Token, errorNo)
+end
 
 func parseErrorList()
   ptr ErrorItem = Errors.list_First
@@ -2331,8 +2329,7 @@ func parseErrorList()
         appendChar(ErrorString, 13)
       end
       Wasm = ErrorString
-      ErrorItem = ErrorItem.item_Next
-      breakif not ErrorItem
+      breakif not (ErrorItem := ErrorItem.item_Next)
     end
   end
 end
@@ -2368,7 +2365,7 @@ func i64 strToI64(ptr String, ptr Token)  // Supports ints and 0x-prefixed hex
       elseif chr >= 'A' and chr <= 'F' then
         i = i + i32_i64(chr) - 'A' + 10
       else
-        listAddName(Errors, Token, error_literalToInt)
+        addError(error_literalToInt, Token)
       end
       offset = offset + 1
     end
@@ -2381,7 +2378,7 @@ func i64 strToI64(ptr String, ptr Token)  // Supports ints and 0x-prefixed hex
         i = i + i32_i64(chr) - '0'
       elseif offset == 0 and chr == '-' then
       else
-        listAddName(Errors, Token, error_literalToInt)
+        addError(error_literalToInt, Token)
       end
       offset = offset + 1
     end
@@ -2469,37 +2466,31 @@ func i32 NewEmptyString(i32 maxLength)
 end
 
 func appendString(ptr String, ptr AppendString)
-  i32 stringLength = String.string_length
   i32 appendLength = AppendString.string_length
   i32 maxLength = String.string_max
   i32 offset = 0
-  if appendLength > 0 and stringLength < maxLength then
-    loop
-      setChar(String, stringLength, getChar(AppendString, offset))
-      stringLength = stringLength + 1
-      breakif stringLength >= maxLength
-      offset = offset + 1
-      breakif offset >= appendLength
-    end
-    String.string_length = stringLength
+  loop
+    breakif offset >= appendLength
+    appendByte(String, getChar(AppendString, offset))
+    breakif String.string_length >= maxLength
+    offset = offset + 1
   end
 end
 
 func appendIntToStr(ptr String, i32 i)
-  i32 stringLength = String.string_length
+  i32 length = String.string_length
   i32 appendLength = decimalStringLength(i)
-  i32 maxLength = String.string_max
   i32 offset = appendLength
-  if stringLength + appendLength <= maxLength then
+  if length + appendLength <= String.string_max then
     loop
       i32 chr = '0' + i mod 10
       offset = offset - 1
-      setChar(String, stringLength + offset, chr)
+      setChar(String, length + offset, chr)
       i = i / 10
       breakif not i
       breakif not offset 
     end  
-    String.string_length = stringLength + appendLength
+    String.string_length = length + appendLength
   end
 end
 
@@ -2536,20 +2527,11 @@ func appendByte(ptr String, i32 i)
 end
 
 func appendChar(ptr String, i64 i)
-  i32 stringLength = String.string_length
-  i32 appendLength = charStringLength(i)
-  i32 maxLength = String.string_max
-  i32 offset = 0
-  if stringLength + appendLength <= maxLength then
-    loop
-      i32 chr = i64_i32(i mod 256)
-      setChar(String, stringLength + offset, chr)
-      offset = offset + 1
-      i = i >>+ 8
-      breakif i == 0
-      breakif offset >= appendLength
-    end
-    String.string_length = stringLength + appendLength
+  loop
+    i32 chr = i64_i32(i mod 256)
+    appendByte(String, chr)
+    i = i >>+ 8
+    breakif i == 0
   end
 end
 
@@ -2565,20 +2547,15 @@ func appendChar3(ptr String, i64 i, i64 j, i64 k)
 end
 
 func appendUleb(ptr String, i32 i)
-  i32 stringLength = String.string_length
-  i32 appendLength = uLebLength(i)
-  i32 maxLength = String.string_max
-  i32 offset = 0
-  if stringLength + appendLength <= maxLength then
+  i32 length = String.string_length
+  if length + uLebLength(i) <= String.string_max then
     loop
       breakif i < 128
       i32 chr = 128 + (i mod 128)
-      setChar(String, stringLength + offset, chr)
-      offset = offset + 1
+      appendByte(String, chr)
       i = i >>+ 7
     end
-    setChar(String, stringLength + offset, i)
-    String.string_length = stringLength + appendLength
+    appendByte(String, i)
   end
 end
 
@@ -2616,16 +2593,6 @@ func offsetTail(ptr String, ptr start, i32 offset)
       end
     end
   end
-end
-
-func i32 charStringLength(i64 i)
-  i32 length = 0
-  loop
-    breakif i == 0
-    i = i >>+ 8
-    length = length + 1
-  end
-  return length
 end
 
 func i32 decimalStringLength(i32 i)
