@@ -1134,8 +1134,6 @@ func emit()
   TypeList = NewList()
   FunTypeList = NewList()
   emitTypeSection()
-  store32(4, TypeList.list_count)
-  store32(8, FunTypeList.list_count)
   emitFunctionSection()
   emitMemorySection()
   emitGlobalSection()
@@ -2376,55 +2374,13 @@ func parseErrorList()
 end
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// Emit helper functions
+// Function library
 
-func i32 strToI32(ptr String, ptr Token)  // Supports ints and 0x-prefixed hex
-  bool isHex = false
-  i32 i = 0
-  i32 length = String.string_length
-  i32 offset = 0
-  i32 chr = 0
-  if length >= 3 then
-    if getChar(String, 0) == '0' and getChar(String, 1) == 'x' then
-      isHex = true
-    end
-  end
-  if isHex then
-    offset = 2
-    loop
-      breakif offset >= length
-      i = i * 16
-      chr = getChar(String, offset)
-      if chr >= '0' and chr <= '9' then
-        i = i + chr - '0'
-      elseif chr >= 'a' and chr <= 'f' then
-        i = i + chr - 'a' + 10
-      elseif chr >= 'A' and chr <= 'F' then
-        i = i + chr - 'A' + 10
-      else
-        listAddName(ErrorList, Token, error_literalToInt)
-      end
-      offset = offset + 1
-    end
-  else
-    loop
-      breakif offset >= length
-      i = i * 10
-      chr = getChar(String, offset)
-      if chr >= '0' and chr <= '9' then
-        i = i + chr - '0'
-      elseif offset == 0 and chr == '-' then
-      else
-        listAddName(ErrorList, Token, error_literalToInt)
-      end
-      offset = offset + 1
-    end
-  end
-  if getChar(String, 0) == '-' then i = -i end
-  return i
+func i32 strToI32(ptr String, ptr Token)
+  return i64_i32(strToI64(String, Token))
 end
 
-func i64 strToI64(ptr String, ptr Token)
+func i64 strToI64(ptr String, ptr Token)  // Supports ints and 0x-prefixed hex
   bool isHex = false
   i64 i = 0
   i32 length = String.string_length
@@ -2471,30 +2427,7 @@ func i64 strToI64(ptr String, ptr Token)
 end
 
 func f32 strToF32(ptr String)
-  f32 f = 0
-  i32 length = String.string_length
-  i32 offset = 0
-  f32 d = 1
-  bool isAfterDot = false
-  loop
-    breakif offset >= length
-    i32 chr = getChar(String, offset)
-    if chr == '.' then
-      isAfterDot = true
-    else
-      if isAfterDot then 
-        f = f + i32_f32(chr - '0') / d
-        d = d * 10
-      else
-        if chr >= '0' and chr <= '9' then
-          f = f * 10 + i32_f32(chr - '0')
-        end
-      end
-    end
-    offset = offset + 1
-  end
-  if getChar(String, 0) == '-' then f = -f end
-  return f
+  return f64_f32(strToF64(String))
 end
 
 func f64 strToF64(ptr String)
