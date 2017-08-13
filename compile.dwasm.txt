@@ -9,8 +9,7 @@
 memory 200 export
 
 // Constants
-i32 SIZEINT = 4  // Most browsers currently only support 32bit sized WASM memories
-i32 DEC0DE  = 557785600  // Magic number -0x00dec0de - used for debugging
+i32 DEC0DE = 557785600  // Magic number -0x00dec0de - used for debugging
 
 // Global variables
 ptr Dwasm  = 0  // Input (string)
@@ -55,6 +54,7 @@ i32 tokens_drop        = 0x2e
 i32 tokens_unreachable = 0x2f
 i32 tokens_nop         = 0x30
 i32 tokens_iif         = 0x31
+i32 tokens_elseiif     = 0x32
 i32 tokens_mem         = 0x40
 i32 tokens_export      = 0x41
 i32 tokens_data        = 0x42
@@ -163,6 +163,7 @@ func processToken(i32 Val, i32 line, i32 column)
   elseif strEqChar(Val, 'else')     then kind = tokens_else
   elseif strEqChar(Val, 'elseif')   then kind = tokens_elseif
   elseif strEqChar(Val, 'iif')      then kind = tokens_iif
+  elseif strEqChar(Val, 'elseiif')  then kind = tokens_elseiif
   elseif strEqChar(Val, 'i32')      then kind = tokens_i32
   elseif strEqChar(Val, 'i64')      then kind = tokens_i64
   elseif strEqChar(Val, 'f32')      then kind = tokens_f32
@@ -780,7 +781,7 @@ func ptr ParsePrefix()
   if isLiteral(CurrentToken) then
     Node = ParseLiteral()
   elseif kind == tokens_iif then
-    Node = ParseIifExpression()
+    Node = ParseIifExpression(false)
   elseif kind == tokens_identifier then
     i32 nextKind = 0
     if NextToken then nextKind = NextToken.token_kind end
@@ -914,9 +915,9 @@ func ptr ParseIfBlock()
   return Node
 end
 
-func ptr ParseIfStatement(bool isElseif)
+func ptr ParseIfStatement(bool isElse)
   ptr Node = NewNode(nodes_if)
-  if not isElseif then eatToken(tokens_if) end
+  if not isElse then eatToken(tokens_if) end
   Node.node_CNode = ParseExpression(tokens_minPrec)
   eatToken(tokens_then)
   pushScope(Node)
@@ -934,19 +935,24 @@ func ptr ParseIfStatement(bool isElseif)
     Node.node_BNode = ParseIfBlock()
     popScope()
   end
-  if not isElseif then eatToken(tokens_end) end
+  if not isElse then eatToken(tokens_end) end
   return Node
 end
 
-func ptr ParseIifExpression()
+func ptr ParseIifExpression(bool isElse)
   ptr Node = NewNode(nodes_iif)
-  eatToken(tokens_iif)
+  if not isElse then eatToken(tokens_iif) end
   Node.node_CNode = ParseExpression(tokens_minPrec)
   eatToken(tokens_then)
   Node.node_ANode = ParseExpression(tokens_minPrec)
-  eatToken(tokens_else)
-  Node.node_BNode = ParseExpression(tokens_minPrec)
-  eatToken(tokens_end)
+  if CurrentToken.token_kind == tokens_elseiif then
+    eatToken(tokens_elseiif)
+    Node.node_BNode = ParseIifExpression(true)
+  else
+    eatToken(tokens_else)
+    Node.node_BNode = ParseExpression(tokens_minPrec)
+    eatToken(tokens_end) 
+  end
   return Node
 end
 
@@ -2419,23 +2425,18 @@ func f64 strToF64(ptr String)
 end
 
 func i32 uLebLength(i32 i)
-  return iif i >+ 268435456 then 
-    5
-  else 
-    iif i >+ 2097151 then 
-      4 
-    else
-      iif i >+ 16383 then 
+  return 
+      iif i >+ 268435456 then 
+        5
+      elseiif i >+ 2097151 then 
+        4 
+      elseiif i >+ 16383 then 
         3 
-      else
-        iif i >+ 127 then 
-          2 
-        else 
-          1 
-        end 
+      elseiif i >+ 127 then 
+        2 
+      else 
+        1 
       end
-    end 
-  end
 end
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -2744,6 +2745,7 @@ end
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Lists
 
+// Structs
 i32 list_dec0de = 0  // debugging marker
 i32 list_First  = 4
 i32 list_Last   = 8
@@ -2819,6 +2821,9 @@ end
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Memory management
+
+// Constants
+i32 SIZEINT = 4  // Most browsers currently only support 32bit sized WASM memories
 
 // Globals
 ptr Heap = 0  // Next free memory location
