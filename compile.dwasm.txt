@@ -212,7 +212,7 @@ func processToken(i32 Val, i32 line, i32 column)
   elseif strEqChar(Val, 'ctz')      then kind = tokens_ctz 
   elseif strEqChar(Val, 'cnt')      then kind = tokens_cnt 
   elseif strEqChar(Val, 'copysign') then kind = tokens_copysign
-  elseif strEqChars(Val, 'unreacha', 'ble') then kind = tokens_unreachable
+  elseif strEqChar2(Val, 'unreacha', 'ble') then kind = tokens_unreachable
   end
   addToken(kind, Val, line, column)
 end
@@ -2305,50 +2305,29 @@ func parseErrorList()
       ptr Token = ErrorItem.item_Object
       i32 errorNo = ErrorItem.item_number
       if errorNo == error_duplicateName then
-        appendChar(ErrorString, 'Duplicat')
-        appendChar(ErrorString, 'e identi')
-        appendChar(ErrorString, 'fier nam')
-        appendChar(ErrorString, 'e')
+        appendChar3(ErrorString, 'Duplicat', 'e identi', 'fier')
       elseif errorNo == error_invalidToken then
-        appendChar(ErrorString, 'Invalid ')
-        appendChar(ErrorString, 'token')
+        appendChar2(ErrorString, 'Invalid ', 'token')
       elseif errorNo == error_missingToken then
-        appendChar(ErrorString, 'Missing ')
-        appendChar(ErrorString, 'token')
+        appendChar2(ErrorString, 'Missing ', 'token')
       elseif errorNo == error_rootStatement then
-        appendChar(ErrorString, 'Invalid ')
-        appendChar(ErrorString, 'root sta')
-        appendChar(ErrorString, 'tement')
+        appendChar3(ErrorString, 'Invalid ', 'root sta', 'tement')
       elseif errorNo == error_blockStatement then
-        appendChar(ErrorString, 'Invalid ')
-        appendChar(ErrorString, 'block st')
-        appendChar(ErrorString, 'atement')
+        appendChar3(ErrorString, 'Invalid ', 'block st', 'atement')
       elseif errorNo == error_typeMismatch then
-        appendChar(ErrorString, 'Type mis')
-        appendChar(ErrorString, 'match')
+        appendChar2(ErrorString, 'Type mis', 'match')
       elseif errorNo == error_notDeclared then
-        appendChar(ErrorString, 'Identifi')
-        appendChar(ErrorString, 'er not d')
-        appendChar(ErrorString, 'eclared')
+        appendChar3(ErrorString, 'Identifi', 'er not d', 'eclared')
       elseif errorNo == error_literalToInt then
-        appendChar(ErrorString, 'Could no')
-        appendChar(ErrorString, 't conver')
-        appendChar(ErrorString, 't to int')
+        appendChar3(ErrorString, 'Could no', 't conver', 't to int')
       elseif errorNo == error_expression then
-        appendChar(ErrorString, 'Expressi')
-        appendChar(ErrorString, 'on expec')
-        appendChar(ErrorString, 'ted')
-      elseif errorNo == error_typeNotInferred then  
-        appendChar(ErrorString, 'Could no')
-        appendChar(ErrorString, 't determ')
-        appendChar(ErrorString, 'ine type')        
-      elseif errorNo == error_emitNode then  
-        appendChar(ErrorString, 'Unexpect')
-        appendChar(ErrorString, 'ed node ')
-        appendChar(ErrorString, 'type')        
-      elseif errorNo == error_invalidOperator then  
-        appendChar(ErrorString, 'Invalid ')
-        appendChar(ErrorString, 'operator')
+        appendChar3(ErrorString, 'Expressi', 'on expec', 'ted')
+      elseif errorNo == error_typeNotInferred then
+        appendChar3(ErrorString, 'Could no', 't determ', 'ine type')
+      elseif errorNo == error_emitNode then
+        appendChar3(ErrorString, 'Unexpect', 'ed node ', 'type')
+      elseif errorNo == error_invalidOperator then
+        appendChar2(ErrorString, 'Invalid ', 'operator')
       else  
         appendChar(ErrorString, 'Error ')
         appendI32(ErrorString, errorNo)
@@ -2568,10 +2547,10 @@ end
 
 // Structs
 i32 string_dec0de = 0
-i32 string_max    = 4  // optional
+i32 string_max    = 4
 i32 string_length = 8
 i32 string_Chars  = 12
-i32 string_size   = 16
+i32 string_size   = 12
 
 // Pascal-style strings: We store the length instead of using a null terminator
 func i32 NewString(i32 length)
@@ -2641,6 +2620,17 @@ func appendChar(ptr String, i64 i)
     end
     String.string_length = stringLength + appendLength
   end
+end
+
+func appendChar2(ptr String, i64 i, i64 j)
+  appendChar(String, i)
+  appendChar(String, j)
+end
+
+func appendChar3(ptr String, i64 i, i64 j, i64 k)
+  appendChar(String, i)
+  appendChar(String, j)
+  appendChar(String, k)
 end
 
 func appendUleb(ptr String, i32 i)
@@ -2732,13 +2722,13 @@ func bool strEqChar(i32 String, i64 a)
     if a <> load64(String + string_Chars) then return false end
   elseif length > 0 then
     if a <> i32_i64(load32(String + string_Chars)) then return false end
-  elseif length == 0 then
+  else
     if a <> 0 then return false end
   end
   return true
 end
 
-func bool strEqChars(i32 String, i64 a, i64 b)
+func bool strEqChar2(i32 String, i64 a, i64 b)
   i32 length = String.string_length
   if length > 16 then
     return false
@@ -2754,7 +2744,7 @@ func bool strEqChars(i32 String, i64 a, i64 b)
   elseif length > 0 then
     if a <> i32_i64(load32(String + string_Chars)) then return false end
     if b <> 0 then return false end
-  elseif length == 0 then
+  else
     if a <> 0 then return false end
     if b <> 0 then return false end
   end
@@ -2829,8 +2819,7 @@ i32 list_size   = 16
 i32 item_dec0de = 0  // debugging marker
 i32 item_Next   = 4
 i32 item_Object = 8
-i32 item_Name   = 12
-i32 item_number = 12
+i32 item_Name   = 12   i32 item_number = 12
 i32 item_size   = 16
 
 func ptr NewList()
