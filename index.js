@@ -87,7 +87,7 @@ compilerCompile.onclick = (e) => {
 
 testCompile.onclick = (e) => {
   testBinary.value = "";
-  let compilerWasm = hexStringToByte(compilerBinary.replace(/,/g, ""));
+  let compilerWasm = hexStringToByte(compilerBinary.value.replace(/,/g, ""));
   WebAssembly.instantiate(compilerWasm).then(results => {
     let mem = new Uint8Array(results.instance.exports.memory.buffer);
     let sourcecode = testSource.value;
@@ -109,7 +109,7 @@ testCompile.onclick = (e) => {
 
 execute.onclick = (e) => {
   testMemory.value = "";
-  let testWasm = hexStringToByte(testBinary.replace(/,/g, ""));
+  let testWasm = hexStringToByte(testBinary.value.replace(/,/g, ""));
   WebAssembly.instantiate(testWasm).then(results => {
     if (results.instance.exports.memory) {
       let mem = new Uint8Array(results.instance.exports.memory.buffer);
