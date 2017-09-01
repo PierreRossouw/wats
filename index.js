@@ -1,9 +1,8 @@
-
 if (window.WebAssembly === void 0) {
   alert("Your browser doesn't support WebAssembly!");
 }
 
-var xmlhttp, ogWasm, compilerWasm, testWasm;
+var xmlhttp, ogWasm;
 xmlhttp = new XMLHttpRequest();
 xmlhttp.open('GET', 'compile.dwasm.txt', false);
 xmlhttp.send();
@@ -76,7 +75,7 @@ compilerCompile.onclick = (e) => {
     let binLen = mem[out] + (mem[out + 1] << 8) + (mem[out + 2] << 16) + (mem[out + 3] << 24);
     out = out + 4;
     if (0x6d7361 == mem[out + 1] + (mem[out + 2] << 8) + (mem[out + 3] << 16)) {
-      compilerWasm = mem.slice(out, out + binLen)
+      let compilerWasm = mem.slice(out, out + binLen)
       compilerBinary.value = byteToHexString(compilerWasm);
       testMemory.value = byteToDumpString(mem.slice(0, 64000));
     } else {
@@ -88,6 +87,7 @@ compilerCompile.onclick = (e) => {
 
 testCompile.onclick = (e) => {
   testBinary.value = "";
+  let compilerWasm = hexStringToByte(compilerBinary.replace(/,/g, ""));
   WebAssembly.instantiate(compilerWasm).then(results => {
     let mem = new Uint8Array(results.instance.exports.memory.buffer);
     let sourcecode = testSource.value;
@@ -97,7 +97,7 @@ testCompile.onclick = (e) => {
     let outLen = mem[out] + (mem[out + 1] << 8) + (mem[out + 2] << 16) + (mem[out + 3] << 24);
     out = out + 4;
     if (0x6d7361 == mem[out + 1] + (mem[out + 2] << 8) + (mem[out + 3] << 16)) {
-      testWasm = mem.slice(out, out + outLen);
+      let testWasm = mem.slice(out, out + outLen);
       testBinary.value = byteToHexString(testWasm)
       testMemory.value = byteToDumpString(mem.slice(0, 64000));
     } else {   // Error message
@@ -109,6 +109,7 @@ testCompile.onclick = (e) => {
 
 execute.onclick = (e) => {
   testMemory.value = "";
+  let testWasm = hexStringToByte(testBinary.replace(/,/g, ""));
   WebAssembly.instantiate(testWasm).then(results => {
     if (results.instance.exports.memory) {
       let mem = new Uint8Array(results.instance.exports.memory.buffer);
