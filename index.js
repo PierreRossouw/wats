@@ -4,16 +4,16 @@ if (window.WebAssembly === void 0) {
 
 var xmlhttp, ogWasm;
 xmlhttp = new XMLHttpRequest();
-xmlhttp.open('GET', 'compile.dwasm.txt', false);
+xmlhttp.open('GET', 'compile.rs', false);
 xmlhttp.send();
 compilerSource.value = xmlhttp.responseText;
 
-xmlhttp.open('GET', 'compile.dwasm.bin.txt', false);
+xmlhttp.open('GET', 'compile.wasm.txt', false);
 xmlhttp.send();
 ogWasm = xmlhttp.responseText.trim();
 ogWasm = hexStringToByte(ogWasm.replace(/,/g, ""));
 
-xmlhttp.open('GET', 'playtest.dwasm.txt', false);
+xmlhttp.open('GET', 'example.rs', false);
 xmlhttp.send();
 testSource.value = xmlhttp.responseText;
 
