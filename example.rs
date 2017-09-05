@@ -4,7 +4,7 @@ pub fn main() -> i32 {
   let mut range: i32 = 100000;
   while range > 1 {
     let mut j: i32 = 2;
-    let mut is_prime: bool = true
+    let mut is_prime: bool = true;
     while j < range {
       if range % j == 0 {
         is_prime = false;
@@ -13,7 +13,7 @@ pub fn main() -> i32 {
       j = j + 1;
     }
     if is_prime {
-      numPrimes = numPrimes + 1;
+      primes = primes + 1;
     }
     range = range - 1;
   }
