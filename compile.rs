@@ -57,21 +57,19 @@ const DEC0DE: i32 = 557785600;
 // Output Binary (string)
 static mut WASM: i32 = 0;
 
-// Error messages (list)
-static mut ERRORS: i32 = 0;
-
 pub fn main() -> i32 {
   let dwasm: i32 = 0;  // Input (string)
   let ignore: i32 = new_string(dwasm.string_length);  // Fix the heap pointer to include the source string
-  ERRORS = new_list();
+  ERROR_LIST = new_list();
   lexx(dwasm);
-  if ERRORS.list_count.i32 == 0 { 
-    parse();
+  let mut root_node: i32 = 0;
+  if ERROR_LIST.list_count.i32 == 0 { 
+    root_node = parse();
   }
-  if ERRORS.list_count.i32 == 0 {
-    emit(dwasm);
+  if ERROR_LIST.list_count.i32 == 0 {
+    emit(dwasm, root_node);
   }
-  if ERRORS.list_count.i32 > 0 { 
+  if ERROR_LIST.list_count.i32 > 0 { 
     parse_error_list();
   }
   WASM + string_length  // Return the memory location of the string
@@ -88,10 +86,10 @@ const token_line:   i32 = 12;
 const token_column: i32 = 16;
 const token_size:   i32 = 20;
 
-static mut TokenList: i32 = 0;
-static mut CurrentToken: i32 = 0;
-static mut CurrentTokenItem: i32 = 0;
-static mut NextToken: i32 = 0;
+static mut TOKEN_LIST: i32 = 0;
+static mut CURRENT_TOKEN_ITEM: i32 = 0;
+static mut CURRENT_TOKEN: i32 = 0;
+static mut NEXT_TOKEN: i32 = 0;
 
 fn add_token(kind: i32, text: i32, line: i32, column: i32) {
   let mut token: i32 = allocate(token_size);
@@ -100,7 +98,7 @@ fn add_token(kind: i32, text: i32, line: i32, column: i32) {
   token.token_Value = text;
   token.token_line = line;
   token.token_column = column;
-  list_add(TokenList, token);
+  list_add(TOKEN_LIST, token);
 }
 
 fn process_token(value_str: i32, line: i32, column: i32) {
@@ -176,17 +174,17 @@ fn is_operator_chr(chr: i32) -> i32 {
 }
 
 fn lexx(dwasm: i32) {
-  TokenList = new_list();
-  let mut pos: i32 = -1;
+  TOKEN_LIST = new_list();
+  let mut str_index: i32 = -1;
   let mut line: i32 = 1;
   let mut column: i32 = 0;
   let length: i32 = dwasm.string_length;
   let mut start: i32 = 0;
   let mut value_str: i32 = 0;
-  while pos < length { 
-    pos = pos + 1;
+  while str_index < length { 
+    str_index = str_index + 1;
     column = column + 1;
-    let mut chr: i32 = get_chr(dwasm, pos);
+    let mut chr: i32 = get_chr(dwasm, str_index);
 
     // newline chr
     if chr == 10 {
@@ -195,131 +193,130 @@ fn lexx(dwasm: i32) {
 
     // Identifiers & reserved words
     } else if is_alpha(chr) {
-      start = pos;
-       while pos < length {
+      start = str_index;
+       while str_index < length {
         if (!is_alpha(chr)) & (!is_number(chr, false)) {
-          pos = pos - 1;
+          str_index = str_index - 1;
           column = column - 1;
           break;
         }
-        pos = pos + 1;
+        str_index = str_index + 1;
         column = column + 1;
-        chr = get_chr(dwasm, pos);
+        chr = get_chr(dwasm, str_index);
       }
-      value_str = sub_str(dwasm, start, pos - start + 1);
+      value_str = sub_str(dwasm, start, str_index - start + 1);
       process_token(value_str, line, column);
-      if get_chr(dwasm, pos + 1) == '.' & is_alpha(get_chr(dwasm, pos + 2)) {
-        pos = pos + 1;
+      if get_chr(dwasm, str_index + 1) == '.' & is_alpha(get_chr(dwasm, str_index + 2)) {
+        str_index = str_index + 1;
         column = column + 1;
-        chr = get_chr(dwasm, pos);
+        chr = get_chr(dwasm, str_index);
         add_token(Token::Dot, value_str, line, column);
       }
     
     // Single quoted chars | long chars up to 64 bit
     } else if chr == 39 {
-      pos = pos + 1;
+      str_index = str_index + 1;
       column = column + 1;
-      chr = get_chr(dwasm, pos);
-      start = pos;
-      while pos < length {
+      chr = get_chr(dwasm, str_index);
+      start = str_index;
+      while str_index < length {
         if chr == 39 { break; }
-        pos = pos + 1;
+        str_index = str_index + 1;
         column = column + 1;
-        chr = get_chr(dwasm, pos);
+        chr = get_chr(dwasm, str_index);
       }
-      value_str = sub_str(dwasm, start, pos - start);
+      value_str = sub_str(dwasm, start, str_index - start);
       decode_str(value_str);
       add_token(Token::CharLiteral, value_str, line, column);
 
     // Double quoted strings
     } else if chr == '"' {
-      pos = pos + 1;
+      str_index = str_index + 1;
       column = column + 1;
-      chr = get_chr(dwasm, pos);
-      start = pos;
-      while pos < length {
+      chr = get_chr(dwasm, str_index);
+      start = str_index;
+      while str_index < length {
         if chr == '"' { break; }
-        pos = pos + 1;
+        str_index = str_index + 1;
         column = column + 1;
-        chr = get_chr(dwasm, pos);
+        chr = get_chr(dwasm, str_index);
       }
-      value_str = sub_str(dwasm, start, pos - start);
+      value_str = sub_str(dwasm, start, str_index - start);
       decode_str(value_str);
       add_token(Token::StrLiteral, value_str, line, column);
 
     // Number literals, for example -42, 3.14, 0x8d4f0
-    } else if is_number(chr, false) | ((chr == '-') & is_number(get_chr(dwasm, pos + 1), false)) {
-      start = pos;
+    } else if is_number(chr, false) | ((chr == '-') & is_number(get_chr(dwasm, str_index + 1), false)) {
+      start = str_index;
       let mut is_hex: bool = false;
-      while pos < length {
+      while str_index < length {
         if (!is_number(chr, is_hex)) & (chr != '-') {
-          if start + 1 == pos & chr == 'x' {
+          if start + 1 == str_index & chr == 'x' {
             is_hex = true;
           } else {
-            pos = pos - 1;
+            str_index = str_index - 1;
             column = column - 1;
             break;
           }
         }
-        pos = pos + 1;
+        str_index = str_index + 1;
         column = column + 1;
-        chr = get_chr(dwasm, pos);
+        chr = get_chr(dwasm, str_index);
       }
       if chr == '.' & !is_hex {
-        pos = pos + 2;
+        str_index = str_index + 2;
         column = column + 2;
-        chr = get_chr(dwasm, pos);
-        while pos < length {
+        chr = get_chr(dwasm, str_index);
+        while str_index < length {
           if (!is_number(chr, is_hex)) {
-            pos = pos - 1;
+            str_index = str_index - 1;
             column = column - 1;
             break;
           }
-          pos = pos + 1;
+          str_index = str_index + 1;
           column = column + 1;
-          chr = get_chr(dwasm, pos);
+          chr = get_chr(dwasm, str_index);
         }
       }
-      value_str = sub_str(dwasm, start, pos - start + 1);
+      value_str = sub_str(dwasm, start, str_index - start + 1);
       add_token(Token::NumLiteral, value_str, line, column);
 
     // Comments
-    } else if chr == '/' & get_chr(dwasm, pos + 1) == '/' {
-      while pos < length {
+    } else if chr == '/' & get_chr(dwasm, str_index + 1) == '/' {
+      while str_index < length {
         if chr == 10 | chr == 13 {  // LF | CR
           column = 0;
           line = line + 1;
           break;
         }
-        pos = pos + 1;
+        str_index = str_index + 1;
         column = column + 1;
-        chr = get_chr(dwasm, pos);
+        chr = get_chr(dwasm, str_index);
       }
     
     // Parenthases & commas
     } else if is_single_chr(chr) {
-      value_str = sub_str(dwasm, pos, 1);
+      value_str = sub_str(dwasm, str_index, 1);
       process_token(value_str, line, column);
 
     // Mathematical operators
     } else if is_operator_chr(chr) {
-      if is_operator_chr(get_chr(dwasm, pos + 1)) {
-        if is_operator_chr(get_chr(dwasm, pos + 2)) {
-          value_str = sub_str(dwasm, pos, 3);
-          pos = pos + 2;
+      if is_operator_chr(get_chr(dwasm, str_index + 1)) {
+        if is_operator_chr(get_chr(dwasm, str_index + 2)) {
+          value_str = sub_str(dwasm, str_index, 3);
+          str_index = str_index + 2;
           column = column + 2;
         } else {
-          value_str = sub_str(dwasm, pos, 2);
-          pos = pos + 1;
+          value_str = sub_str(dwasm, str_index, 2);
+          str_index = str_index + 1;
           column = column + 1;
         }
       } else {
-        value_str = sub_str(dwasm, pos, 1);
+        value_str = sub_str(dwasm, str_index, 1);
       }
       process_token(value_str, line, column);
 
     }
-    if pos >= length { break; }
   }
 }
 
@@ -335,24 +332,24 @@ const scope_Symbols:    i32 = 16;
 const scope_localIndex: i32 = 20;
 const scope_size:       i32 = 24;
 
-static mut CurrentScope: i32 = 0;
-static mut GlobalScope: i32 = 0;
+static mut CURRENT_SCOPE: i32 = 0;
+static mut GLOBAL_SCOPE: i32 = 0;
 
 fn push_scope(node: i32) {
   let scope: i32 = allocate(scope_size);
   scope.scope_dec0de = 3 - DEC0DE;
   scope.scope_Symbols = new_list();
   scope.scope_Node = node;
-  if CurrentScope {
-    scope.scope_index.i32 = CurrentScope.scope_index + 1;
-    scope.scope_Parent = CurrentScope;
+  if CURRENT_SCOPE {
+    scope.scope_index.i32 = CURRENT_SCOPE.scope_index + 1;
+    scope.scope_Parent = CURRENT_SCOPE;
   }
   node.node_Scope = scope;
-  CurrentScope = scope;
+  CURRENT_SCOPE = scope;
 }
 
 fn pop_scope() {
-  CurrentScope = CurrentScope.scope_Parent;
+  CURRENT_SCOPE = CURRENT_SCOPE.scope_Parent;
 }
 
 fn get_fn_scope(scope: i32) -> i32 {
@@ -406,40 +403,38 @@ const node_Scope:      i32 = 16;  // scope for Module/Block/loop/fun used for na
 const node_ANode:      i32 = 20;  // Binary left, Call fn, return Expression, Block, Or fun body
 const node_BNode:      i32 = 24;  // Binary/Unary right, else Block, fun return, Variable assignment
 const node_CNode:      i32 = 28;  // If statement condition node
-const node_Nodes:      i32 = 32;  // List of child Node for Module/Block, enums, Or fun locals
-const node_ParamNodes: i32 = 36;  // List of params for Call/fn
+const node_Nodes:      i32 = 32;  // list of child Node for Module/Block, enums, Or fun locals
+const node_ParamNodes: i32 = 36;  // list of params for Call/fn
 const node_type:       i32 = 40;  // From the Token::_ enum
 const node_dataType:   i32 = 44;  // inferred data type
 const node_Token:      i32 = 48;
 const node_assigns:    i32 = 52;
 const node_size:       i32 = 56;
 
-static mut RootNode: i32 = 0;
-static mut ExportList: i32 = 0;
-static mut DataList: i32 = 0;
-static mut funIndex: i32 = 0;  // Next function index number
+static mut EXPORT_LIST: i32 = 0;
+static mut DATA_LIST: i32 = 0;
 
 fn new_node(kind: i32) -> i32 {
   let node: i32 = allocate(node_size);
   node.node_dec0de = 2 - DEC0DE;
-  node.node_Scope = CurrentScope;
-  node.node_Token = CurrentToken;
+  node.node_Scope = CURRENT_SCOPE;
+  node.node_Token = CURRENT_TOKEN;
   node.node_kind = kind;
   node
 }
 
 fn next_token() {
-  CurrentTokenItem = CurrentTokenItem.item_Next;
-  if CurrentTokenItem {
-    CurrentToken = CurrentTokenItem.item_Object;
+  CURRENT_TOKEN_ITEM = CURRENT_TOKEN_ITEM.item_Next;
+  if CURRENT_TOKEN_ITEM {
+    CURRENT_TOKEN = CURRENT_TOKEN_ITEM.item_Object;
   } else {
-    CurrentToken = 0;
+    CURRENT_TOKEN = 0;
   }
-  let next_token_item: i32 = CurrentTokenItem.item_Next;
+  let next_token_item: i32 = CURRENT_TOKEN_ITEM.item_Next;
   if next_token_item {
-    NextToken = next_token_item.item_Object;
+    NEXT_TOKEN = next_token_item.item_Object;
   } else {
-    NextToken = 0;
+    NEXT_TOKEN = 0;
   }
 }
 
@@ -471,21 +466,21 @@ fn is_native_type(token: i32) -> bool {
 }
 
 fn eat_token(kind: i32) {
-  if CurrentToken {
-    if CurrentToken.token_kind == kind {
+  if CURRENT_TOKEN {
+    if CURRENT_TOKEN.token_kind == kind {
       next_token();
     } else {
-      add_error(Error::InvalidToken, CurrentToken);
+      add_error(Error::InvalidToken, CURRENT_TOKEN);
     }
   } else {
-    let LastToken: i32 = TokenList.list_Last.item_Object;
+    let LastToken: i32 = TOKEN_LIST.list_Last.item_Object;
     add_error(Error::MissingToken, LastToken);
   }
 }
 
 fn try_eat_token(kind: i32) -> bool {
-  if CurrentToken {
-    if CurrentToken.token_kind == kind {
+  if CURRENT_TOKEN {
+    if CURRENT_TOKEN.token_kind == kind {
       next_token();
       return true;
     }
@@ -496,12 +491,12 @@ fn try_eat_token(kind: i32) -> bool {
 fn parse_fn_params() -> i32 {
   let params: i32 = new_list();
   eat_token(Token::LParen);
-  while CurrentToken.token_kind.i32 != Token::RParen {
+  while CURRENT_TOKEN.token_kind.i32 != Token::RParen {
     let mutable: i32 = try_eat_token(Token::Mut);
-    let name: i32 = CurrentToken.token_Value;
+    let name: i32 = CURRENT_TOKEN.token_Value;
     next_token();
     eat_token(Token::Colon);
-    let type: i32 = CurrentToken.token_kind;
+    let type: i32 = CURRENT_TOKEN.token_kind;
     next_token();
     let FunParamNode: i32 = new_node(Node::Parameter);
     FunParamNode.node_type = type;
@@ -513,7 +508,7 @@ fn parse_fn_params() -> i32 {
       FunParamNode.node_assigns = 1;
     }
     list_add_name(params, FunParamNode, name);
-    if CurrentToken.token_kind.i32 != Token::Comma { break; }
+    if CURRENT_TOKEN.token_kind.i32 != Token::Comma { break; }
     eat_token(Token::Comma);
   }
   eat_token(Token::RParen);
@@ -524,9 +519,9 @@ fn parse_fn_block() -> i32 {
   let node: i32 = new_node(Node::Block);
   let BodyList: i32 = new_list();
   node.node_Nodes = BodyList;
-  node.node_Scope = CurrentScope;
-  while CurrentToken {
-    if CurrentToken.token_kind.i32 == Token::RBrace { break; }
+  node.node_Scope = CURRENT_SCOPE;
+  while CURRENT_TOKEN {
+    if CURRENT_TOKEN.token_kind.i32 == Token::RBrace { break; }
     let ChildNode: i32 = parse_statement();
     if !ChildNode { break; }
     list_add(BodyList, ChildNode);
@@ -537,19 +532,19 @@ fn parse_fn_block() -> i32 {
 fn parse_enum() -> i32 {
   eat_token(Token::Enum);
   let node: i32 = new_node(Node::Enum);
-  let name: i32 = CurrentToken.token_Value;
+  let name: i32 = CURRENT_TOKEN.token_Value;
   node.node_String = name;
   let Enums: i32 = new_list();
   node.node_Nodes = Enums;
-  scope_register_name(CurrentScope, name, node, CurrentToken);
+  scope_register_name(CURRENT_SCOPE, name, node, CURRENT_TOKEN);
   next_token();
   eat_token(Token::LBrace);
   let mut enum_value: i32 = 1;
-  while CurrentToken {
-    if CurrentToken.token_kind.i32 == Token::RParen { break; }
-    list_add_name(Enums, enum_value, CurrentToken.token_Value);
+  while CURRENT_TOKEN {
+    if CURRENT_TOKEN.token_kind.i32 == Token::RParen { break; }
+    list_add_name(Enums, enum_value, CURRENT_TOKEN.token_Value);
     next_token();
-    if CurrentToken.token_kind.i32 != Token::Comma { break; }
+    if CURRENT_TOKEN.token_kind.i32 != Token::Comma { break; }
     eat_token(Token::Comma);
     enum_value = enum_value + 1;
   }
@@ -557,28 +552,31 @@ fn parse_enum() -> i32 {
   node
 }
 
+// Next function index number
+static mut FN_INDEX: i32 = 0; 
+
 fn parse_fn() -> i32 {
   let mut exported: bool = false;
-  if CurrentToken.token_kind.i32 == Token::Pub {
+  if CURRENT_TOKEN.token_kind.i32 == Token::Pub {
     exported = true;
     eat_token(Token::Pub);
   }
   eat_token(Token::Fun);
   let mut type: i32 = 0;  
-  let name: i32 = CurrentToken.token_Value;
+  let name: i32 = CURRENT_TOKEN.token_Value;
   let node: i32 = new_node(Node::Fun);
-  scope_register_name(CurrentScope, name, node, CurrentToken);
+  scope_register_name(CURRENT_SCOPE, name, node, CURRENT_TOKEN);
   next_token();
   let Locals: i32 = new_list();
-  node.node_index = funIndex;
-  funIndex = funIndex + 1;
+  node.node_index = FN_INDEX;
+  FN_INDEX = FN_INDEX + 1;
   node.node_String = name;
   node.node_Nodes = Locals;
   let ParamList: i32 = parse_fn_params();
   node.node_ParamNodes = ParamList;
-  if CurrentToken.token_kind.i32 == Token::Arrow {
+  if CURRENT_TOKEN.token_kind.i32 == Token::Arrow {
     eat_token(Token::Arrow);
-    type = CurrentToken.token_kind;
+    type = CURRENT_TOKEN.token_kind;
     next_token();
   }
   node.node_type = type;
@@ -588,11 +586,11 @@ fn parse_fn() -> i32 {
   while ParamItem {
     let ParamName: i32 = ParamItem.item_Name;
     let ParamNode: i32 = ParamItem.item_Object;
-    scope_register_name(CurrentScope, ParamName, ParamNode, ParamNode.node_Token);
+    scope_register_name(CURRENT_SCOPE, ParamName, ParamNode, ParamNode.node_Token);
     ParamItem = ParamItem.item_Next;
   }
   if exported {
-    list_add_name(ExportList, node, name);
+    list_add_name(EXPORT_LIST, node, name);
   }
   eat_token(Token::LBrace);
   node.node_ANode = parse_fn_block();
@@ -617,16 +615,16 @@ fn parse_continue() -> i32 {
 
 fn parse_literal() -> i32 {
   let node: i32 = new_node(Node::Literal);
-  node.node_String.i32 = CurrentToken.token_Value;
-  node.node_type.i32 = CurrentToken.token_kind;
+  node.node_String.i32 = CURRENT_TOKEN.token_Value;
+  node.node_type.i32 = CURRENT_TOKEN.token_kind;
   next_token();
   node
 }
 
 fn parse_identifier() -> i32 {
   let node: i32 = new_node(Node::Identifier);
-  node.node_String.i32 = CurrentToken.token_Value;
-  node.node_type.i32 = CurrentToken.token_kind;
+  node.node_String.i32 = CURRENT_TOKEN.token_Value;
+  node.node_type.i32 = CURRENT_TOKEN.token_kind;
   next_token();
   node
 }
@@ -634,10 +632,10 @@ fn parse_identifier() -> i32 {
 fn parse_call_params() -> i32 {
   let ParamList: i32 = new_list();
   eat_token(Token::LParen);
-  while CurrentToken {
-    if CurrentToken.token_kind.i32 == Token::RParen { break; }
+  while CURRENT_TOKEN {
+    if CURRENT_TOKEN.token_kind.i32 == Token::RParen { break; }
     list_add(ParamList, parse_expression(Token::MinPrecedence));
-    if CurrentToken.token_kind.i32 != Token::Comma { break; }
+    if CURRENT_TOKEN.token_kind.i32 != Token::Comma { break; }
     eat_token(Token::Comma);
   }
   eat_token(Token::RParen);
@@ -653,8 +651,8 @@ fn parse_call_expression(Callee: i32) -> i32 {
 
 fn parse_unary_expression() -> i32 {
   let node: i32 = new_node(Node::Unary);
-  node.node_type.i32 = CurrentToken.token_kind;
-  node.node_String.i32 = CurrentToken.token_Value;
+  node.node_type.i32 = CURRENT_TOKEN.token_kind;
+  node.node_String.i32 = CURRENT_TOKEN.token_Value;
   next_token();
   node.node_BNode = parse_expression(Token::Add);
   node
@@ -663,14 +661,14 @@ fn parse_unary_expression() -> i32 {
 fn parse_double_colon() -> i32 {
   let node: i32 = new_node(Node::Literal);
   node.node_type = Token::NumLiteral;
-  let EnumName: i32 = CurrentToken.token_Value;
-  let EnumNode: i32 = scope_resolve(CurrentScope, EnumName, CurrentToken);
+  let EnumName: i32 = CURRENT_TOKEN.token_Value;
+  let EnumNode: i32 = scope_resolve(CURRENT_SCOPE, EnumName, CURRENT_TOKEN);
   next_token();
   eat_token(Token::DoubleColon);
-  let EnumMember: i32 = CurrentToken.token_Value;
+  let EnumMember: i32 = CURRENT_TOKEN.token_Value;
   let enum_value: i32 = list_search(EnumNode.node_Nodes, EnumMember);
   if !enum_value {
-    add_error(Error::InvalidToken, CurrentToken);
+    add_error(Error::InvalidToken, CURRENT_TOKEN);
   }
   node.node_String = i32_to_str(enum_value);
   next_token();
@@ -682,11 +680,11 @@ fn parse_dot_load() -> i32 {
   let BodyList: i32 = new_list();
   node.node_Nodes = BodyList;
   list_add(BodyList, parse_identifier());
-  while CurrentToken {
-    if CurrentToken.token_kind.i32 != Token::Dot { break; }
+  while CURRENT_TOKEN {
+    if CURRENT_TOKEN.token_kind.i32 != Token::Dot { break; }
     eat_token(Token::Dot);
-    if is_native_type(CurrentToken) {
-      node.node_dataType.i32 = CurrentToken.token_kind;
+    if is_native_type(CURRENT_TOKEN) {
+      node.node_dataType.i32 = CURRENT_TOKEN.token_kind;
       next_token();
       break;
     } else {
@@ -700,15 +698,15 @@ fn parse_dot_load() -> i32 {
 fn parse_dot_store() -> i32 {
   let node: i32 = new_node(Node::DotStore);
   let BodyList: i32 = new_list();
-  let mut dataType: i32 = 0;
+  let mut data_type: i32 = 0;
   node.node_Nodes = BodyList;
   list_add(BodyList, parse_identifier());
-  while CurrentToken {
-    if CurrentToken.token_kind.i32 != Token::Dot { break; }
+  while CURRENT_TOKEN {
+    if CURRENT_TOKEN.token_kind.i32 != Token::Dot { break; }
     eat_token(Token::Dot);
-    if is_native_type(CurrentToken) {
-      dataType = CurrentToken.token_kind;
-      node.node_dataType = dataType;
+    if is_native_type(CURRENT_TOKEN) {
+      data_type = CURRENT_TOKEN.token_kind;
+      node.node_dataType = data_type;
       next_token();
       break;
     } else {
@@ -717,20 +715,20 @@ fn parse_dot_store() -> i32 {
   }
   eat_token(Token::Assign);
   node.node_ANode = parse_expression(Token::MinPrecedence);
-  node.node_ANode.node_dataType = dataType;
+  node.node_ANode.node_dataType = data_type;
   eat_token(Token::Semicolon);
   node
 }
 
 fn parse_prefix() -> i32 {
   let mut node: i32 = 0;
-  let kind: i32 = CurrentToken.token_kind;
-  if is_literal(CurrentToken) {
+  let kind: i32 = CURRENT_TOKEN.token_kind;
+  if is_literal(CURRENT_TOKEN) {
     node = parse_literal();
   } else if kind == Token::Identifier {
     let mut nextKind: i32 = 0;
-    if NextToken {
-       nextKind = NextToken.token_kind; 
+    if NEXT_TOKEN {
+       nextKind = NEXT_TOKEN.token_kind; 
     }
     if nextKind == Token::Dot {
       node = parse_dot_load();
@@ -743,7 +741,7 @@ fn parse_prefix() -> i32 {
     next_token();
     node = parse_expression(Token::MinPrecedence);
     eat_token(Token::RParen);
-  } else if is_unary_op(CurrentToken) {
+  } else if is_unary_op(CURRENT_TOKEN) {
     node = parse_unary_expression();
   }
   node
@@ -751,13 +749,13 @@ fn parse_prefix() -> i32 {
 
 fn parse_binary_expression(level: i32, Left: i32) -> i32 {
   let mut node: i32 = 0;
-  let precedence: i32 = CurrentToken.token_kind;  // node_kind doubles as the precedence
+  let precedence: i32 = CURRENT_TOKEN.token_kind;  // node_kind doubles as the precedence
   if level > precedence {
     node = Left;
   } else {
     node = new_node(Node::Binary);
-    node.node_type.i32 = CurrentToken.token_kind;
-    node.node_String.i32 = CurrentToken.token_Value;
+    node.node_type.i32 = CURRENT_TOKEN.token_kind;
+    node.node_String.i32 = CURRENT_TOKEN.token_Value;
     node.node_ANode = Left;
     next_token();
     node.node_BNode = parse_expression(precedence);
@@ -769,7 +767,7 @@ fn parse_assign_statement() -> i32 {
   let node: i32 = new_node(Node::Assign);
   node.node_ANode = parse_identifier();
   node.node_type = Token::Assign;
-  node.node_String.i32 = CurrentToken.token_Value;
+  node.node_String.i32 = CURRENT_TOKEN.token_Value;
   eat_token(Token::Assign);
   node.node_BNode = parse_expression(Token::MinPrecedence);
   eat_token(Token::Semicolon);
@@ -778,9 +776,9 @@ fn parse_assign_statement() -> i32 {
 
 fn parse_infix(level: i32, Left: i32) -> i32 {
   let mut node: i32 = 0;
-  if is_binary_op(CurrentToken) {
+  if is_binary_op(CURRENT_TOKEN) {
     node = parse_binary_expression(level, Left);
-  } else if CurrentToken.token_kind.i32 == Token::LParen {
+  } else if CURRENT_TOKEN.token_kind.i32 == Token::LParen {
     node = parse_call_expression(Left);
     node.node_Token.i32 = Left.node_Token;
   } else {
@@ -814,7 +812,7 @@ fn parse_drop() -> i32 {
 
 fn parse_expression(level: i32) -> i32 {
   let mut node: i32 = parse_prefix();
-  while CurrentToken {
+  while CURRENT_TOKEN {
     let Expr: i32 = parse_infix(level, node);
     if Expr == 0 | Expr == node { break; }
     node = Expr;
@@ -835,7 +833,7 @@ fn parse_return_expression() -> i32 {
   let Expression: i32 = parse_expression(Token::MinPrecedence);
   node.node_ANode = Expression;
   if !Expression {
-    add_error(Error::BlockStatement, CurrentToken);
+    add_error(Error::BlockStatement, CURRENT_TOKEN);
   }
   node
 }
@@ -845,9 +843,9 @@ fn parse_if_block() -> i32 {
   let node: i32 = new_node(Node::Block);
   let BodyList: i32 = new_list();
   node.node_Nodes = BodyList;
-  node.node_Scope = CurrentScope;
-  while CurrentToken {
-    if CurrentToken.token_kind.i32 == Token::RBrace { break; }
+  node.node_Scope = CURRENT_SCOPE;
+  while CURRENT_TOKEN {
+    if CURRENT_TOKEN.token_kind.i32 == Token::RBrace { break; }
     let ChildNode: i32 = parse_statement();
     if !ChildNode { break; }
     list_add(BodyList, ChildNode);
@@ -863,10 +861,10 @@ fn parse_if_statement() -> i32 {
   push_scope(node);
   node.node_ANode = parse_if_block();
   pop_scope();
-  if CurrentToken.token_kind.i32 == Token::Else {
+  if CURRENT_TOKEN.token_kind.i32 == Token::Else {
     eat_token(Token::Else);
     push_scope(node);
-    if CurrentToken.token_kind.i32 == Token::If {
+    if CURRENT_TOKEN.token_kind.i32 == Token::If {
       node.node_BNode = parse_if_statement();
     } else {
       node.node_BNode = parse_if_block();
@@ -880,9 +878,9 @@ fn parse_loop_block() -> i32 {
   let node: i32 = new_node(Node::Block);
   let BodyList: i32 = new_list();
   node.node_Nodes = BodyList;
-  node.node_Scope = CurrentScope;
-  while CurrentToken {
-    if CurrentToken.token_kind.i32 == Token::RBrace { break; }
+  node.node_Scope = CURRENT_SCOPE;
+  while CURRENT_TOKEN {
+    if CURRENT_TOKEN.token_kind.i32 == Token::RBrace { break; }
     let ChildNode: i32 = parse_statement();
     if !ChildNode { break; }
     list_add(BodyList, ChildNode);
@@ -915,21 +913,21 @@ fn parse_while_statement() -> i32 {
 
 fn parse_const() -> i32 {
   eat_token(Token::Const);
-  let name: i32 = CurrentToken.token_Value;
-  let NameToken: i32 = CurrentToken;
+  let name: i32 = CURRENT_TOKEN.token_Value;
+  let NameToken: i32 = CURRENT_TOKEN;
   next_token();
   eat_token(Token::Colon);
-  let type: i32 = CurrentToken.token_kind;
+  let type: i32 = CURRENT_TOKEN.token_kind;
   next_token();
   let node: i32 = new_node(Node::Variable);
   node.node_type = type;
   node.node_dataType = type;
   node.node_String = name;
-  scope_register_name(CurrentScope, name, node, NameToken);
+  scope_register_name(CURRENT_SCOPE, name, node, NameToken);
   eat_token(Token::Assign);
   node.node_BNode = parse_expression(Token::MinPrecedence);
-  if CurrentScope.scope_Parent.i32 {
-    let fn_scope: i32 = get_fn_scope(CurrentScope);
+  if CURRENT_SCOPE.scope_Parent.i32 {
+    let fn_scope: i32 = get_fn_scope(CURRENT_SCOPE);
     let FunNode: i32 = fn_scope.scope_Node;
     let mut FunLocalsList: i32 = FunNode.node_Nodes;
     if !FunLocalsList {
@@ -945,11 +943,11 @@ fn parse_const() -> i32 {
 fn parse_static() -> i32 {
   eat_token(Token::Static);
   let mutable: i32 = try_eat_token(Token::Mut);
-  let name: i32 = CurrentToken.token_Value;
-  let NameToken: i32 = CurrentToken;
+  let name: i32 = CURRENT_TOKEN.token_Value;
+  let NameToken: i32 = CURRENT_TOKEN;
   next_token();
   eat_token(Token::Colon);
-  let type: i32 = CurrentToken.token_kind;
+  let type: i32 = CURRENT_TOKEN.token_kind;
   next_token();
   let node: i32 = new_node(Node::Variable);
   node.node_type = type;
@@ -960,11 +958,11 @@ fn parse_static() -> i32 {
   } else {
     node.node_assigns = 1;
   }
-  scope_register_name(CurrentScope, name, node, NameToken);
+  scope_register_name(CURRENT_SCOPE, name, node, NameToken);
   eat_token(Token::Assign);
   node.node_BNode = parse_expression(Token::MinPrecedence);
-  if CurrentScope.scope_Parent.i32 {
-    let fn_scope: i32 = get_fn_scope(CurrentScope);
+  if CURRENT_SCOPE.scope_Parent.i32 {
+    let fn_scope: i32 = get_fn_scope(CURRENT_SCOPE);
     let FunNode: i32 = fn_scope.scope_Node;
     let mut FunLocalsList: i32 = FunNode.node_Nodes;
     if !FunLocalsList {
@@ -980,11 +978,11 @@ fn parse_static() -> i32 {
 fn parse_declaration() -> i32 {
   eat_token(Token::Let);
   let mutable: i32 = try_eat_token(Token::Mut);
-  let name: i32 = CurrentToken.token_Value;
-  let NameToken: i32 = CurrentToken;
+  let name: i32 = CURRENT_TOKEN.token_Value;
+  let NameToken: i32 = CURRENT_TOKEN;
   next_token();
   eat_token(Token::Colon);
-  let type: i32 = CurrentToken.token_kind;
+  let type: i32 = CURRENT_TOKEN.token_kind;
   next_token();
   let node: i32 = new_node(Node::Variable);
   node.node_type = type;
@@ -995,11 +993,11 @@ fn parse_declaration() -> i32 {
   } else {
     node.node_assigns = 0;  // non-mutables can only be assigned once
   }
-  scope_register_name(CurrentScope, name, node, NameToken);
+  scope_register_name(CURRENT_SCOPE, name, node, NameToken);
   eat_token(Token::Assign);
   node.node_BNode = parse_expression(Token::MinPrecedence);
-  if CurrentScope.scope_Parent.i32 {
-    let fn_scope: i32 = get_fn_scope(CurrentScope);
+  if CURRENT_SCOPE.scope_Parent.i32 {
+    let fn_scope: i32 = get_fn_scope(CURRENT_SCOPE);
     let FunNode: i32 = fn_scope.scope_Node;
     let mut FunLocalsList: i32 = FunNode.node_Nodes;
     if !FunLocalsList {
@@ -1015,13 +1013,13 @@ fn parse_declaration() -> i32 {
 // TODO: delete
 fn parse_data() -> i32 {
   let node: i32 = new_node(Node::Data);
-  if CurrentToken.token_kind.i32 == Token::NumLiteral {
-    let OffsetToken: i32 = CurrentToken;
+  if CURRENT_TOKEN.token_kind.i32 == Token::NumLiteral {
+    let OffsetToken: i32 = CURRENT_TOKEN;
     node.node_ANode = OffsetToken;
     next_token();
-    if CurrentToken.token_kind.i32 == Token::StrLiteral {
-      list_add_name(DataList, OffsetToken, CurrentToken);
-      node.node_BNode = CurrentToken;
+    if CURRENT_TOKEN.token_kind.i32 == Token::StrLiteral {
+      list_add_name(DATA_LIST, OffsetToken, CURRENT_TOKEN);
+      node.node_BNode = CURRENT_TOKEN;
       next_token();
     }
   }
@@ -1030,7 +1028,7 @@ fn parse_data() -> i32 {
 
 fn parse_statement() -> i32 {
   let mut node: i32 = 0;
-  let kind: i32 = CurrentToken.token_kind;
+  let kind: i32 = CURRENT_TOKEN.token_kind;
   if kind == Token::Let {
     node = parse_declaration();
   } else if kind == Token::If {
@@ -1043,11 +1041,11 @@ fn parse_statement() -> i32 {
     node = parse_continue();
   } else if kind == Token::Break {
     node = parse_break();
-  } else if kind == Token::Identifier & NextToken.token_kind == Token::Dot {
+  } else if kind == Token::Identifier & NEXT_TOKEN.token_kind == Token::Dot {
     node = parse_dot_store();
-  } else if kind == Token::Identifier & NextToken.token_kind == Token::LParen {
+  } else if kind == Token::Identifier & NEXT_TOKEN.token_kind == Token::LParen {
     node = parse_call_statement();
-  } else if kind == Token::Identifier & NextToken.token_kind == Token::Assign {
+  } else if kind == Token::Identifier & NEXT_TOKEN.token_kind == Token::Assign {
     node = parse_assign_statement();
   } else if kind == Token::Return {
     node = parse_return_statement();
@@ -1059,7 +1057,7 @@ fn parse_statement() -> i32 {
 
 fn parse_root_statement() -> i32 {
   let mut node: i32 = 0;
-  let kind: i32 = CurrentToken.token_kind;
+  let kind: i32 = CURRENT_TOKEN.token_kind;
   if kind == Token::Fun {
     node = parse_fn();
   } else if kind == Token::Const {
@@ -1071,48 +1069,48 @@ fn parse_root_statement() -> i32 {
   } else if kind == Token::Pub {
     node = parse_fn();
   } else {
-    add_error(Error::RootStatement, CurrentToken);
+    add_error(Error::RootStatement, CURRENT_TOKEN);
   }
   node
 }
 
-fn parse() {
-  RootNode = new_node(Node::Module);
-  ExportList = new_list();
-  DataList = new_list();
-  CurrentTokenItem = TokenList.list_First;
-  CurrentToken = CurrentTokenItem.item_Object;
-  push_scope(RootNode);
-  GlobalScope = CurrentScope;
+fn parse() -> i32 {
+  let root_node: i32 = new_node(Node::Module);
+  EXPORT_LIST = new_list();
+  DATA_LIST = new_list();
+  CURRENT_TOKEN_ITEM = TOKEN_LIST.list_First;
+  CURRENT_TOKEN = CURRENT_TOKEN_ITEM.item_Object;
+  push_scope(root_node);
+  GLOBAL_SCOPE = CURRENT_SCOPE;
   let BodyList: i32 = new_list();
-  RootNode.node_Nodes = BodyList;
-  while CurrentToken {
+  root_node.node_Nodes = BodyList;
+  while CURRENT_TOKEN {
     let Child: i32 = parse_root_statement();
     if !Child { break; }
     list_add(BodyList, Child);
   }
+  root_node
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Compiler 
 
-static mut CurrentFunNode: i32 = 0;
-static mut TypeList: i32 = 0;
-static mut FunTypeList: i32 = 0;
-static mut emitGlobalCount: i32 = 0;
+static mut CURRENT_FN_NODE: i32 = 0;
+static mut TYPE_LIST: i32 = 0;
+static mut FN_TYPE_LIST: i32 = 0;
 
-fn emit(dwasm: i32) {
+fn emit(dwasm: i32, root_node: i32) {
   WASM = new_empty_string(dwasm.string_length + 256);  // Guess
-  CurrentScope = RootNode.node_Scope;
+  CURRENT_SCOPE = root_node.node_Scope;
   emit_header();
-  TypeList = new_list();
-  FunTypeList = new_list();
-  emit_type_section();
+  TYPE_LIST = new_list();
+  FN_TYPE_LIST = new_list();
+  emit_type_section(root_node);
   emit_function_section();
   emit_memory_section();
-  emit_global_section();
-  emit_export_section();
-  emit_code_section();
+  emit_global_section(root_node);
+  emit_export_section(root_node);
+  emit_code_section(root_node);
   emit_data_section();
 }
 
@@ -1121,8 +1119,8 @@ fn emit_header() {
   append_i32(WASM, 1);         // WASM version
 }
 
-fn emit_type_section() {
-  let BodyList: i32 = RootNode.node_Nodes;
+fn emit_type_section(root_node: i32) {
+  let BodyList: i32 = root_node.node_Nodes;
   let skip: i32 = WASM.string_length;
   if BodyList {
     append_byte(WASM, 0x01);  // Type section
@@ -1130,16 +1128,16 @@ fn emit_type_section() {
     let Start: i32 = WASM.string_length;
     append_byte(WASM, 0x00);  // types count (guess)  
     let mut index: i32 = 0;
-    let mut Item: i32 = BodyList.list_First;
-    while Item {
-      let node: i32 = Item.item_Object;
+    let mut item: i32 = BodyList.list_First;
+    while item {
+      let node: i32 = item.item_Object;
       if node.node_kind.i32 == Node::Fun {
         emit_type(node, index);
         index = index + 1;
       }
-      Item = Item.item_Next;
+      item = item.item_Next;
     }
-    let count: i32 = TypeList.list_count;
+    let count: i32 = TYPE_LIST.list_count;
     let length: i32 = WASM.string_length - Start;
     let offset: i32 = uleb_length(count) - 1 + uleb_length(length) - 1;
     offset_tail(WASM, Start, offset);
@@ -1148,20 +1146,20 @@ fn emit_type_section() {
     append_uleb(WASM, count);
     WASM.string_length = WASM.string_length + length - 1;
   }
-  if !FunTypeList.list_count.i32 { 
+  if !FN_TYPE_LIST.list_count.i32 { 
     WASM.string_length = skip;
   }
 }
 
-fn append_data_type(Str: i32, dataType: i32) {
-  if dataType == Token::F64 {
-    append_byte(Str, 0x7c);
-  } else if dataType == Token::F32 {
-    append_byte(Str, 0x7d);
-  } else if dataType == Token::I64 {
-    append_byte(Str, 0x7e);
+fn append_data_type(string: i32, data_type: i32) {
+  if data_type == Token::F64 {
+    append_byte(string, 0x7c);
+  } else if data_type == Token::F32 {
+    append_byte(string, 0x7d);
+  } else if data_type == Token::I64 {
+    append_byte(string, 0x7e);
   } else {
-    append_byte(Str, 0x7f);
+    append_byte(string, 0x7f);
   }
 }
 
@@ -1177,8 +1175,8 @@ fn emit_type(node: i32, funcNo: i32) {
   append_uleb(TypeString, params);
   let mut ParamItem: i32 = ParamList.list_First;
   while ParamItem {
-    let dataType: i32 = ParamItem.item_Object.node_type;
-    append_data_type(TypeString, dataType);
+    let data_type: i32 = ParamItem.item_Object.node_type;
+    append_data_type(TypeString, data_type);
     ParamItem = ParamItem.item_Next;
   }
   let returnType: i32 = node.node_type;
@@ -1188,23 +1186,23 @@ fn emit_type(node: i32, funcNo: i32) {
   } else {
     append_uleb(TypeString, 0x00);  // return count
   }
-  let mut typeIndex: i32 = index_list_search(TypeList, TypeString);
+  let mut typeIndex: i32 = index_list_search(TYPE_LIST, TypeString);
   if typeIndex == -1 {
-    typeIndex = TypeList.list_count;
-    list_add_name(TypeList, 0, TypeString);
+    typeIndex = TYPE_LIST.list_count;
+    list_add_name(TYPE_LIST, 0, TypeString);
     append_str(WASM, TypeString);
   }
-  list_add(FunTypeList, typeIndex);
+  list_add(FN_TYPE_LIST, typeIndex);
 }
 
 fn emit_function_section() {
-  let funCount: i32 = FunTypeList.list_count;
+  let funCount: i32 = FN_TYPE_LIST.list_count;
   if funCount {
     append_byte(WASM, 0x03);  // Function section
     append_byte(WASM, 0x00);  // section size (guess)
     let start: i32 = WASM.string_length;
     append_uleb(WASM, funCount);  // types count
-    let mut FunType: i32 = FunTypeList.list_First;
+    let mut FunType: i32 = FN_TYPE_LIST.list_First;
     while FunType {
       append_uleb(WASM, FunType.item_Object);
       FunType = FunType.item_Next;
@@ -1226,22 +1224,21 @@ fn emit_memory_section() {
   append_uleb(WASM, 1000);  // Pages
 }
 
-fn emit_global_section() {
+fn emit_global_section(root_node: i32) {
   let skip: i32 = WASM.string_length;
-  if RootNode.node_Nodes.i32 {
+  let mut count: i32 = 0; 
+  if root_node.node_Nodes.i32 {
     append_byte(WASM, 0x06);  // Section code
     append_byte(WASM, 0x00);  // Section size (guess)
     let start: i32 = WASM.string_length;
     append_byte(WASM, 0x00);  // Globals count (guess)
-    let mut Item: i32 = RootNode.node_Nodes.list_First;
-    let mut count: i32 = 0;
-    while Item {
-      if Item.item_Object.node_kind.i32 == Node::Variable {
-        emit_native_global(Item.item_Object);
+    let mut item: i32 = root_node.node_Nodes.list_First;
+    while item {
+      if item.item_Object.node_kind.i32 == Node::Variable {
+        emit_native_global(item.item_Object);
         count = count + 1;
-        emitGlobalCount = emitGlobalCount + 1;
       }
-      Item = Item.item_Next;
+      item = item.item_Next;
     }
     let length: i32 = WASM.string_length - start;
     let offset: i32 = uleb_length(count) - 1 + uleb_length(length) - 1;
@@ -1251,22 +1248,22 @@ fn emit_global_section() {
     append_uleb(WASM, count);
     WASM.string_length = WASM.string_length + length - 1;
   }
-  if !emitGlobalCount {
+  if !count {
     WASM.string_length = skip;
   }
 }
 
 fn emit_native_global(node: i32) {
-  let dataType: i32 = node.node_type;  // Native type
-  if dataType == Token::F64 { 
+  let data_type: i32 = node.node_type;  // Native type
+  if data_type == Token::F64 { 
     append_byte(WASM, 0x7c);
     append_byte(WASM, 0x01);  // Mutable
     append_byte(WASM, 0x44);  // f64.const
-  } else if dataType == Token::F32 { 
+  } else if data_type == Token::F32 { 
     append_byte(WASM, 0x7d);
     append_byte(WASM, 0x01);  // Mutable
     append_byte(WASM, 0x43);  // f32.const
-  } else if dataType == Token::I64 {
+  } else if data_type == Token::I64 {
     append_byte(WASM, 0x7e);
     append_byte(WASM, 0x01);  // Mutable
     append_byte(WASM, 0x42);  // i64.const
@@ -1281,11 +1278,11 @@ fn emit_native_global(node: i32) {
     append_byte(WASM, 0x01); 
   } else if nodeType == Token::False { 
     append_byte(WASM, 0x00); 
-  } else if dataType == Token::F64 {
+  } else if data_type == Token::F64 {
     append_f64(WASM, str_to_f64(text));
-  } else if dataType == Token::F32 {
+  } else if data_type == Token::F32 {
     append_f32(WASM, str_to_f32(text));
-  } else if dataType == Token::I64 {
+  } else if data_type == Token::I64 {
     append_sleb64(WASM, str_to_i64(text, node.node_BNode.node_Token));
   } else {
     append_sleb32(WASM, str_to_i32(text, node.node_BNode.node_Token));
@@ -1293,10 +1290,10 @@ fn emit_native_global(node: i32) {
   append_byte(WASM, 0x0b);  // end
 }
 
-fn emit_export_section() {
-  let BodyList: i32 = RootNode.node_Nodes;
+fn emit_export_section(root_node: i32) {
+  let BodyList: i32 = root_node.node_Nodes;
   if BodyList {
-    let mut count: i32 = ExportList.list_count;
+    let mut count: i32 = EXPORT_LIST.list_count;
     count = count + 1;  // +1 because we are also exporting the Memory
     if count {
       append_byte(WASM, 0x07);  // Export section
@@ -1316,14 +1313,14 @@ fn emit_export_section() {
 }
 
 fn emit_export_fns() {
-  let mut Item: i32 = ExportList.list_First;
-  while Item {
-    let name: i32 = Item.item_Name;
+  let mut item: i32 = EXPORT_LIST.list_First;
+  while item {
+    let name: i32 = item.item_Name;
     append_uleb(WASM, name.string_length);
     append_str(WASM, name);
     append_byte(WASM, 0x00);  // Type: function
-    append_uleb(WASM, Item.item_Object.node_index);
-    Item = Item.item_Next;
+    append_uleb(WASM, item.item_Object.node_index);
+    item = item.item_Next;
   }
 }
 
@@ -1334,13 +1331,13 @@ fn emit_export_mem() {
   append_byte(WASM, 0x00);  // Memory number 0 
 }
 
-fn emit_code_section() {
-  if FunTypeList.list_count.i32 {
+fn emit_code_section(root_node: i32) {
+  if FN_TYPE_LIST.list_count.i32 {
     append_byte(WASM, 0x0a);  // Code section
     append_byte(WASM, 0x00);  // Section size (guess)
     let start: i32 = WASM.string_length;
-    append_uleb(WASM, FunTypeList.list_count);
-    let mut FunItem: i32 = RootNode.node_Nodes.list_First;
+    append_uleb(WASM, FN_TYPE_LIST.list_count);
+    let mut FunItem: i32 = root_node.node_Nodes.list_First;
     while FunItem {
       let FunNode: i32 = FunItem.item_Object;
       if FunNode.node_kind.i32 == Node::Fun {
@@ -1358,7 +1355,7 @@ fn emit_code_section() {
 }
 
 fn emit_fn_node(node: i32) {
-  CurrentFunNode = node;
+  CURRENT_FN_NODE = node;
   append_byte(WASM, 0x00);  // Function size (guess)
   let start: i32 = WASM.string_length;
   append_byte(WASM, 0x00);  // Local declaration count (guess)
@@ -1366,17 +1363,17 @@ fn emit_fn_node(node: i32) {
   let mut LocalItem: i32 = LocalList.list_First;
   let mut declCount: i32 = 0;
   while LocalItem {
-    let dataType: i32 = LocalItem.item_Object.node_type;
+    let data_type: i32 = LocalItem.item_Object.node_type;
     let mut count: i32 = 1;
     loop {
       let NextItem: i32 = LocalItem.item_Next;
       if !NextItem { break; }
-      if dataType != NextItem.item_Object.node_type { break; }
+      if data_type != NextItem.item_Object.node_type { break; }
       LocalItem = NextItem;
       count = count + 1;
     }
     append_uleb(WASM, count);  // count
-    append_data_type(WASM, dataType);
+    append_data_type(WASM, data_type);
     LocalItem = LocalItem.item_Next;
     declCount = declCount + 1;
   }
@@ -1454,8 +1451,8 @@ fn emit_expression(node: i32) {
 }
 
 fn emit_assign(node: i32, isExpression: bool) {
-  let resolved_node: i32 = scope_resolve(CurrentScope, node.node_ANode.node_String, node.node_Token);
-  let dataType: i32 = resolved_node.node_type;
+  let resolved_node: i32 = scope_resolve(CURRENT_SCOPE, node.node_ANode.node_String, node.node_Token);
+  let data_type: i32 = resolved_node.node_type;
   let BNode: i32 = node.node_BNode;
   let assigns: i32 = resolved_node.node_assigns;
   if assigns == 0 { 
@@ -1464,13 +1461,13 @@ fn emit_assign(node: i32, isExpression: bool) {
   if assigns > 0 {
     resolved_node.node_assigns = assigns - 1;
   }
-  node.node_dataType = dataType;
-  if BNode.node_dataType != 0 & BNode.node_dataType != dataType {
+  node.node_dataType = data_type;
+  if BNode.node_dataType != 0 & BNode.node_dataType != data_type {
     add_error(Error::TypeMismatch, node.node_Token);
   }
-  BNode.node_dataType = dataType;
+  BNode.node_dataType = data_type;
   emit_expression(BNode);
-  if resolved_node.node_Scope == GlobalScope {
+  if resolved_node.node_Scope == GLOBAL_SCOPE {
     append_byte(WASM, 0x24);  // set_global
     if isExpression {
       append_uleb(WASM, resolved_node.node_index);
@@ -1488,25 +1485,25 @@ fn emit_assign(node: i32, isExpression: bool) {
 
 fn emit_binary(node: i32) {
   let type: i32 = node.node_type;
-  let mut dataType: i32 = node.node_dataType;
+  let mut data_type: i32 = node.node_dataType;
   let ANode: i32 = node.node_ANode;
   let BNode: i32 = node.node_BNode;
-  if !dataType {
-    dataType = infer_data_type(node);
-    if !dataType {
+  if !data_type {
+    data_type = infer_data_type(node);
+    if !data_type {
       add_error(Error::TypeNotInferred, node.node_Token);
     }
-    node.node_dataType = dataType;
+    node.node_dataType = data_type;
   }
-  ANode.node_dataType = dataType;
-  BNode.node_dataType = dataType;
+  ANode.node_dataType = data_type;
+  BNode.node_dataType = data_type;
   emit_expression(ANode);
   emit_expression(BNode);
-  emit_operatorS(type, dataType, node);
+  emit_operatorS(type, data_type, node);
 }
 
-fn emit_operatorS(type: i32, dataType: i32, node: i32) {
-  if dataType == Token::F64 {
+fn emit_operatorS(type: i32, data_type: i32, node: i32) {
+  if data_type == Token::F64 {
     if type == Token::Eql { append_byte(WASM, 0x61); 
     } else if type == Token::Ne { append_byte(WASM, 0x62); 
     } else if type == Token::Lt { append_byte(WASM, 0x63); 
@@ -1530,7 +1527,7 @@ fn emit_operatorS(type: i32, dataType: i32, node: i32) {
     } else { 
       add_error(Error::InvalidOperator, node.node_Token); 
     }
-  } else if dataType == Token::F32 {
+  } else if data_type == Token::F32 {
     if type == Token::Eql { append_byte(WASM, 0x5b); 
     } else if type == Token::Ne { append_byte(WASM, 0x5c);
     } else if type == Token::Lt { append_byte(WASM, 0x5d);
@@ -1554,7 +1551,7 @@ fn emit_operatorS(type: i32, dataType: i32, node: i32) {
     } else {
       add_error(Error::InvalidOperator, node.node_Token); 
     }
-  } else if dataType == Token::I64 {
+  } else if data_type == Token::I64 {
     if type == Token::Not { append_byte(WASM, 0x50); 
     } else if type == Token::Eql { append_byte(WASM, 0x51); 
     } else if type == Token::Ne { append_byte(WASM, 0x52); 
@@ -1625,15 +1622,15 @@ fn emit_operatorS(type: i32, dataType: i32, node: i32) {
 
 fn emit_unary(node: i32) {
   let type: i32 = node.node_type;
-  let dataType: i32 = node.node_dataType;
+  let data_type: i32 = node.node_dataType;
   if type == Token::Sub {
-    if dataType == Token::F64 {
+    if data_type == Token::F64 {
       append_byte(WASM, 0x44);  // f64.const
       append_f64(WASM, 0); 
-    } else if dataType == Token::F32 {
+    } else if data_type == Token::F32 {
       append_byte(WASM, 0x43);  // f32.const
       append_f32(WASM, 0);
-    } else if dataType == Token::I64 {
+    } else if data_type == Token::I64 {
       append_byte(WASM, 0x42);  // i64.const 
       append_byte(WASM, 0x00);  // 0
     } else {
@@ -1642,24 +1639,24 @@ fn emit_unary(node: i32) {
     }
   }
   emit_expression(node.node_BNode);
-  emit_operatorS(type, dataType, node);
+  emit_operatorS(type, data_type, node);
 }
 
 fn emit_identifier(node: i32) {
-  let resolved_node: i32 = scope_resolve(CurrentScope, node.node_String, node.node_Token);
-  let mut dataType: i32 = resolved_node.node_dataType;
+  let resolved_node: i32 = scope_resolve(CURRENT_SCOPE, node.node_String, node.node_Token);
+  let mut data_type: i32 = resolved_node.node_dataType;
   let mut nodeDataType: i32 = node.node_dataType;
-  if dataType == Token::Bool {
-    dataType = Token::I32;
+  if data_type == Token::Bool {
+    data_type = Token::I32;
   }
   if nodeDataType == Token::Bool {
     nodeDataType = Token::I32;
   }
-  if nodeDataType != 0 & nodeDataType != dataType {
+  if nodeDataType != 0 & nodeDataType != data_type {
     add_error(Error::TypeMismatch, node.node_Token);
   }
-  node.node_dataType = dataType;
-  if resolved_node.node_Scope == GlobalScope {
+  node.node_dataType = data_type;
+  if resolved_node.node_Scope == GLOBAL_SCOPE {
     append_byte(WASM, 0x23);  // get_global
   } else {
     append_byte(WASM, 0x20);  // get_local
@@ -1671,28 +1668,28 @@ fn emit_identifier(node: i32) {
 // loadX(load(load(A + B) + C) + D)
 // A B + load() C + load() D + loadX()
 fn emit_dot_load(node: i32) {
-  let dataType: i32 = node.node_dataType;
+  let data_type: i32 = node.node_dataType;
   let IdentList: i32 = node.node_Nodes;
-  let mut Item: i32 = IdentList.list_First;
+  let mut item: i32 = IdentList.list_First;
   let itemCount: i32 = IdentList.list_count;
   let mut itemNo: i32 = 1;
-  emit_identifier(Item.item_Object);
-  Item = Item.item_Next;
-  while Item {
+  emit_identifier(item.item_Object);
+  item = item.item_Next;
+  while item {
     itemNo = itemNo + 1;
-    emit_identifier(Item.item_Object);
+    emit_identifier(item.item_Object);
     append_byte(WASM, 0x6a);  // i32.Add
     if itemNo < itemCount {
       append_byte(WASM, 0x28);  // i32.load
     } else {
-      if !dataType {
+      if !data_type {
         add_error(Error::TypeNotInferred, node.node_Token);
       }
-      if dataType == Token::F64 {
+      if data_type == Token::F64 {
         append_byte(WASM, 0x2b);  // f64.load
-      } else if dataType == Token::F32 {
+      } else if data_type == Token::F32 {
         append_byte(WASM, 0x2a);  // f32.load
-      } else if dataType == Token::I64 {
+      } else if data_type == Token::I64 {
         append_byte(WASM, 0x29);  // i64.load
       } else {
         append_byte(WASM, 0x28);  // i32.load
@@ -1700,7 +1697,7 @@ fn emit_dot_load(node: i32) {
     }
     append_byte(WASM, 0x00);  // alignment
     append_byte(WASM, 0x00);  // offset
-    Item = Item.item_Next;
+    item = item.item_Next;
   }
 }
 
@@ -1708,31 +1705,31 @@ fn emit_dot_load(node: i32) {
 // storeX(load(load(A + B) + C) + D, x)
 // A B + load() C + load() D + x storeX()
 fn emit_dot_store(node: i32) {
-  let mut dataType: i32 = node.node_dataType;
-  if !dataType {
-    dataType = infer_data_type(node.node_ANode);
-    node.node_dataType = dataType;
+  let mut data_type: i32 = node.node_dataType;
+  if !data_type {
+    data_type = infer_data_type(node.node_ANode);
+    node.node_dataType = data_type;
   }
   let IdentList: i32 = node.node_Nodes;
   if IdentList {
-    let mut Item: i32 = IdentList.list_First;
+    let mut item: i32 = IdentList.list_First;
     let itemCount: i32 = IdentList.list_count;
     let mut itemNo: i32 = 1;
-    emit_identifier(Item.item_Object);
-    Item = Item.item_Next;
-    while Item {
+    emit_identifier(item.item_Object);
+    item = item.item_Next;
+    while item {
       itemNo = itemNo + 1;
-      emit_identifier(Item.item_Object);
+      emit_identifier(item.item_Object);
       append_byte(WASM, 0x6a);  // i32.Add
       if itemNo < itemCount {
         append_byte(WASM, 0x28);  // i32.load
       } else {
         emit_expression(node.node_ANode);
-        if dataType == Token::F64 {
+        if data_type == Token::F64 {
           append_byte(WASM, 0x39);  // f64.store
-        } else if dataType == Token::F32 {
+        } else if data_type == Token::F32 {
           append_byte(WASM, 0x38);  // f32.store
-        } else if dataType == Token::I64 {
+        } else if data_type == Token::I64 {
           append_byte(WASM, 0x37);  // i64.store
         } else {
           append_byte(WASM, 0x36);  // i32.store
@@ -1740,21 +1737,21 @@ fn emit_dot_store(node: i32) {
       }
       append_byte(WASM, 0x00);  // alignment
       append_byte(WASM, 0x00);  // offset
-      Item = Item.item_Next;
+      item = item.item_Next;
     }
   } else {
   add_error(Error::NoIdentifiers, node.node_Token);
   }
 }
 
-fn emit_num_literal(node: i32, dataType: i32) {
-  if dataType == Token::F64 {
+fn emit_num_literal(node: i32, data_type: i32) {
+  if data_type == Token::F64 {
     append_byte(WASM, 0x44);  // f64.const
     append_f64(WASM, str_to_f64(node.node_String));
-  } else if dataType == Token::F32 {
+  } else if data_type == Token::F32 {
     append_byte(WASM, 0x43);  // f32.const
     append_f32(WASM, str_to_f32(node.node_String));
-  } else if dataType == Token::I64 {
+  } else if data_type == Token::I64 {
     append_byte(WASM, 0x42);  // i64.const
     append_sleb64(WASM, str_to_i64(node.node_String, node.node_Token));
   } else {
@@ -1763,9 +1760,9 @@ fn emit_num_literal(node: i32, dataType: i32) {
   }
 }
 
-fn emit_chr_literal(node: i32, dataType: i32) {
+fn emit_chr_literal(node: i32, data_type: i32) {
   let name: i32 = node.node_String;
-  if dataType == Token::I64 {
+  if data_type == Token::I64 {
     append_byte(WASM, 0x42);  // i64.const
     if name.string_length.i32 > 4 {
       append_sleb64(WASM, load64(name + string_Chars));
@@ -1780,11 +1777,11 @@ fn emit_chr_literal(node: i32, dataType: i32) {
 
 fn emit_literal(node: i32) {
   let type: i32 = node.node_type;
-  let dataType: i32 = node.node_dataType;
+  let data_type: i32 = node.node_dataType;
   if type == Token::NumLiteral {
-    emit_num_literal(node, dataType);
+    emit_num_literal(node, data_type);
   } else if type == Token::CharLiteral {
-    emit_chr_literal(node, dataType);
+    emit_chr_literal(node, data_type);
   } else if type == Token::True {
     append_byte(WASM, 0x41);  // i32.const
     append_byte(WASM, 0x01);  // 1
@@ -2031,7 +2028,7 @@ fn emit_call(node: i32) {
     append_byte(WASM, 0x40);  // grow_memory
     append_byte(WASM, 0x00);  // memory number
   } else {
-    let resolved_node: i32 = scope_resolve(CurrentScope, name, node.node_Token);
+    let resolved_node: i32 = scope_resolve(CURRENT_SCOPE, name, node.node_Token);
     if resolved_node {
       emit_fn_call_args(node, resolved_node);
       append_byte(WASM, 0x10);  // Call
@@ -2042,14 +2039,14 @@ fn emit_call(node: i32) {
 
 fn emit_block(node: i32) {
   let scope: i32 = node.node_Scope;
-  CurrentScope = scope;
+  CURRENT_SCOPE = scope;
   let BlockList: i32 = node.node_Nodes;
-  let mut Item: i32 = BlockList.list_First;
-  while Item {
-    emit_node(Item.item_Object);
-    Item = Item.item_Next;
+  let mut item: i32 = BlockList.list_First;
+  while item {
+    emit_node(item.item_Object);
+    item = item.item_Next;
   }
-  CurrentScope = scope.scope_Parent;
+  CURRENT_SCOPE = scope.scope_Parent;
 }
 
 fn emit_if(node: i32) {
@@ -2084,15 +2081,15 @@ fn emit_loop(node: i32) {
   let WhileNode: i32 = node.node_CNode;
   if WhileNode {
     emit_expression(WhileNode);
-    let mut dataType: i32 = WhileNode.node_dataType;
-    if !dataType {
-      dataType = infer_data_type(WhileNode);
-      if !dataType {
+    let mut data_type: i32 = WhileNode.node_dataType;
+    if !data_type {
+      data_type = infer_data_type(WhileNode);
+      if !data_type {
         add_error(Error::TypeNotInferred, WhileNode.node_Token);
       }
-      WhileNode.node_dataType = dataType;
+      WhileNode.node_dataType = data_type;
     }
-    emit_operatorS(Token::Not, dataType, WhileNode);
+    emit_operatorS(Token::Not, data_type, WhileNode);
     append_byte(WASM, 0x0d);  // br_if
     append_uleb(WASM, scope_level(node, Node::Loop) + 1);
   }
@@ -2133,45 +2130,45 @@ fn infer_call_data_type(node: i32) -> i32 {
   } else if str_eq_char(name, 'i64_f64u') { return Token::F64;
   } else if str_eq_char(name, 'f32_f64')  { return Token::F64;
   } else {
-    let resolved_node: i32 = scope_resolve(CurrentScope, name, node.node_Token);
+    let resolved_node: i32 = scope_resolve(CURRENT_SCOPE, name, node.node_Token);
     return resolved_node.node_dataType;
   }
   0
 }
 
 fn infer_data_type(node: i32) -> i32 {
-  let mut dataType: i32 = node.node_dataType;
+  let mut data_type: i32 = node.node_dataType;
   let kind: i32 = node.node_kind;
   if kind == Node::Binary | kind == Node::Iif | kind == Node::Assign {
-    dataType = infer_data_type(node.node_ANode);
-    if !dataType {
-      dataType = infer_data_type(node.node_BNode);
+    data_type = infer_data_type(node.node_ANode);
+    if !data_type {
+      data_type = infer_data_type(node.node_BNode);
     }
   } else if kind == Node::Identifier {
-    let resolved_node: i32 = scope_resolve(CurrentScope, node.node_String, node.node_Token);
-    dataType = resolved_node.node_dataType;
+    let resolved_node: i32 = scope_resolve(CURRENT_SCOPE, node.node_String, node.node_Token);
+    data_type = resolved_node.node_dataType;
   } else if kind == Node::Unary {
-    dataType = infer_data_type(node.node_BNode);
+    data_type = infer_data_type(node.node_BNode);
   } else if kind == Node::Call {
-    dataType = infer_call_data_type(node.node_ANode);
+    data_type = infer_call_data_type(node.node_ANode);
   }
-  dataType
+  data_type
 }
 
 fn emit_iif(node: i32) {
-  let mut dataType: i32  = node.node_dataType;
+  let mut data_type: i32  = node.node_dataType;
   let ANode: i32  = node.node_ANode;
   let BNode: i32  = node.node_BNode;
   let CNode: i32  = node.node_CNode;
-  if !dataType {
-    dataType = infer_data_type(node);
-    if !dataType {
+  if !data_type {
+    data_type = infer_data_type(node);
+    if !data_type {
       add_error(Error::TypeNotInferred, node.node_Token);
     }
-    node.node_dataType = dataType;
+    node.node_dataType = data_type;
   }
-  ANode.node_dataType = dataType;
-  BNode.node_dataType = dataType;
+  ANode.node_dataType = data_type;
+  BNode.node_dataType = data_type;
   emit_expression(ANode);
   emit_expression(BNode);
   emit_expression(CNode);
@@ -2189,10 +2186,10 @@ fn emit_variable(node: i32) {
 
 fn emit_return(node: i32) {
   let ANode: i32  = node.node_ANode;
-  let dataType: i32  = CurrentFunNode.node_dataType;
-  if dataType {
-    node.node_dataType = dataType;
-    ANode.node_dataType = dataType;
+  let data_type: i32  = CURRENT_FN_NODE.node_dataType;
+  if data_type {
+    node.node_dataType = data_type;
+    ANode.node_dataType = data_type;
     emit_expression(ANode);
   }
   if scope_level(node, Node::Fun) > 0 {
@@ -2212,13 +2209,13 @@ fn emit_drop(node: i32) {
 }
 
 fn emit_data_section() {
-  let count: i32 = DataList.list_count;
+  let count: i32 = DATA_LIST.list_count;
   if count {
     append_byte(WASM, 0x0b);  // Data section
     append_byte(WASM, 0x00);  // Section size (guess)
     let start: i32 = WASM.string_length;
     append_uleb(WASM, count);
-    let mut DataItem: i32 = DataList.list_First;
+    let mut DataItem: i32 = DATA_LIST.list_First;
     while DataItem {
       append_byte(WASM, 0x00);  // memory index 
       append_byte(WASM, 0x41);  // i32.const
@@ -2242,12 +2239,14 @@ fn emit_data_section() {
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // ERRORS
 
+static mut ERROR_LIST: i32 = 0;
+
 fn add_error(errorNo: i32, token: i32) {
-  list_add_name(ERRORS, token, errorNo);
+  list_add_name(ERROR_LIST, token, errorNo);
 }
 
 fn parse_error_list() {
-  let mut ErrorItem: i32 = ERRORS.list_First;
+  let mut ErrorItem: i32 = ERROR_LIST.list_First;
   if ErrorItem {
     let ErrorString: i32 = new_empty_string(1000);
     while ErrorItem {
@@ -2307,18 +2306,18 @@ fn parse_error_list() {
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Function library
 
-fn str_to_i32(Str: i32, token: i32) -> i32 {
-  return i64_i32(str_to_i64(Str, token));
+fn str_to_i32(string: i32, token: i32) -> i32 {
+  return i64_i32(str_to_i64(string, token));
 }
 
-fn str_to_i64(Str: i32, token: i32) -> i64 {  // Supports ints & 0x-prefixed hex
+fn str_to_i64(string: i32, token: i32) -> i64 {  // Supports ints & 0x-prefixed hex
   let mut is_hex: bool = false;
   let mut i: i64 = 0;
-  let length: i32 = Str.string_length;
+  let length: i32 = string.string_length;
   let mut offset: i32 = 0;
   let mut chr: i32 = 0;
   if length >= 3 {
-    if get_chr(Str, 0) == '0' & get_chr(Str, 1) == 'x' {
+    if get_chr(string, 0) == '0' & get_chr(string, 1) == 'x' {
       is_hex = true;
     }
   }
@@ -2326,7 +2325,7 @@ fn str_to_i64(Str: i32, token: i32) -> i64 {  // Supports ints & 0x-prefixed hex
     offset = 2;
     while offset < length {
       i = i * 16;
-      chr = get_chr(Str, offset);
+      chr = get_chr(string, offset);
       if chr >= '0' & chr <= '9' {
         i = i + i32_i64(chr) - '0';
       } else if chr >= 'a' & chr <= 'f' {
@@ -2341,7 +2340,7 @@ fn str_to_i64(Str: i32, token: i32) -> i64 {  // Supports ints & 0x-prefixed hex
   } else {
     while offset < length {
       i = i * 10;
-      chr = get_chr(Str, offset);
+      chr = get_chr(string, offset);
       if chr >= '0' & chr <= '9' {
         i = i + i32_i64(chr) - '0';
       } else if offset == 0 & chr == '-' {
@@ -2351,24 +2350,24 @@ fn str_to_i64(Str: i32, token: i32) -> i64 {  // Supports ints & 0x-prefixed hex
       offset = offset + 1;
     }
   }
-  if get_chr(Str, 0) == '-' { 
+  if get_chr(string, 0) == '-' { 
     i = -i;
   }
   i
 }
 
-fn str_to_f32(Str: i32) -> f32 {
-  return f64_f32(str_to_f64(Str));
+fn str_to_f32(string: i32) -> f32 {
+  return f64_f32(str_to_f64(string));
 }
 
-fn str_to_f64(Str: i32) -> f64 {
+fn str_to_f64(string: i32) -> f64 {
   let mut f: f64 = f;
-  let length: i32 = Str.string_length;
+  let length: i32 = string.string_length;
   let mut offset: i32 = 0;
   let mut d: f64 = 1;
   let mut isAfterDot: bool = false;
   while offset < length {
-    let chr: i32 = get_chr(Str, offset);
+    let chr: i32 = get_chr(string, offset);
     if chr == '.' {
       isAfterDot = true;
     } else {
@@ -2383,7 +2382,7 @@ fn str_to_f64(Str: i32) -> f64 {
     }
     offset = offset + 1;
   }
-  if get_chr(Str, 0) == '-' { 
+  if get_chr(string, 0) == '-' { 
     f = -f; 
   }
   f
@@ -2414,45 +2413,45 @@ const string_size:   i32 = 12;
 
 // Pascal-style strings: We store the length instead of using a null terminator
 fn new_string(length: i32) -> i32 {
-  let Str: i32 = allocate(string_size + length);
-  Str.string_dec0de = 7 - DEC0DE;
-  Str.string_max = length;
-  Str.string_length = length;
-  Str
+  let string: i32 = allocate(string_size + length);
+  string.string_dec0de = 7 - DEC0DE;
+  string.string_max = length;
+  string.string_length = length;
+  string
 }
 
 fn new_empty_string(maxLength: i32) -> i32 {
-  let Str: i32 = allocate(string_size + maxLength);
-  Str.string_dec0de = 7 - DEC0DE;
-  Str.string_max = maxLength;
-  Str.string_length = 0;
-  Str
+  let string: i32 = allocate(string_size + maxLength);
+  string.string_dec0de = 7 - DEC0DE;
+  string.string_max = maxLength;
+  string.string_length = 0;
+  string
 }
 
-fn append_str(Str: i32, AppendString: i32) {
+fn append_str(string: i32, AppendString: i32) {
   let appendLength: i32 = AppendString.string_length;
-  let maxLength: i32 = Str.string_max;
+  let maxLength: i32 = string.string_max;
   let mut offset: i32 = 0;
   while offset < appendLength {
-    append_byte(Str, get_chr(AppendString, offset));
-    if Str.string_length >= maxLength { break; }
+    append_byte(string, get_chr(AppendString, offset));
+    if string.string_length >= maxLength { break; }
     offset = offset + 1;
   }
 }
 
-fn append_i32_to_str(Str: i32, i: i32) {
-  let length: i32 = Str.string_length;
+fn append_i32_to_str(string: i32, i: i32) {
+  let length: i32 = string.string_length;
   let appendLength: i32 = decimal_str_length(i);
   let mut offset: i32 = appendLength;
-  if length + appendLength <= Str.string_max {
+  if length + appendLength <= string.string_max {
     while offset {
       let chr: i32 = '0' + i % 10;
       offset = offset - 1;
-      set_chr(Str, length + offset, chr);
+      set_chr(string, length + offset, chr);
       i = i / 10;
       if !i { break; }
     }  
-    Str.string_length = length + appendLength;
+    string.string_length = length + appendLength;
   }
 }
 
@@ -2462,99 +2461,99 @@ fn i32_to_str(i: i32) -> i32 {
   S
 }
 
-fn append_i32(Str: i32, i: i32) {
-  let length: i32 = Str.string_length;
-  if length + 4 <= Str.string_max {
-    store32(Str + string_Chars + length, i);
-    Str.string_length = length + 4;
+fn append_i32(string: i32, i: i32) {
+  let length: i32 = string.string_length;
+  if length + 4 <= string.string_max {
+    store32(string + string_Chars + length, i);
+    string.string_length = length + 4;
   }
 }
 
-fn append_f32(Str: i32, f: f32) {
-  let length: i32 = Str.string_length;
-  if length + 4 <= Str.string_max {
-    storeF32(Str + string_Chars + Str.string_length, f);
-    Str.string_length = length + 4;
+fn append_f32(string: i32, f: f32) {
+  let length: i32 = string.string_length;
+  if length + 4 <= string.string_max {
+    storeF32(string + string_Chars + string.string_length, f);
+    string.string_length = length + 4;
   }
 }
 
-fn append_f64(Str: i32, f: f64) {
-  let length: i32 = Str.string_length;
-  if length + 8 <= Str.string_max {
-    storeF64(Str + string_Chars + length, f);
-    Str.string_length = length + 8;
+fn append_f64(string: i32, f: f64) {
+  let length: i32 = string.string_length;
+  if length + 8 <= string.string_max {
+    storeF64(string + string_Chars + length, f);
+    string.string_length = length + 8;
   }
 }
 
-fn append_byte(Str: i32, i: i32) {
-  let length: i32 = Str.string_length;
-  if length + 1 <= Str.string_max {
-    store8(Str + string_Chars + length, i);
-    Str.string_length = length + 1;
+fn append_byte(string: i32, i: i32) {
+  let length: i32 = string.string_length;
+  if length + 1 <= string.string_max {
+    store8(string + string_Chars + length, i);
+    string.string_length = length + 1;
   }
 }
 
-fn append_chr(Str: i32, i: i64) {
+fn append_chr(string: i32, i: i64) {
   loop {
     let chr: i32 = i64_i32(i % 256);
-    append_byte(Str, chr);
+    append_byte(string, chr);
     i = i >>+ 8;
     if i == 0 { break; }
   }
 }
 
-fn append_chr2(Str: i32, i: i64, j: i64) {
-  append_chr(Str, i);
-  append_chr(Str, j);
+fn append_chr2(string: i32, i: i64, j: i64) {
+  append_chr(string, i);
+  append_chr(string, j);
 }
 
-fn append_chr3(Str: i32, i: i64, j: i64, k: i64) {
-  append_chr(Str, i);
-  append_chr(Str, j);
-  append_chr(Str, k);
+fn append_chr3(string: i32, i: i64, j: i64, k: i64) {
+  append_chr(string, i);
+  append_chr(string, j);
+  append_chr(string, k);
 }
 
-fn append_uleb(Str: i32, i: i32) {
-  let length: i32 = Str.string_length;
-  if length + uleb_length(i) <= Str.string_max {
+fn append_uleb(string: i32, i: i32) {
+  let length: i32 = string.string_length;
+  if length + uleb_length(i) <= string.string_max {
     while i >=+ 128 {
       let chr: i32 = 128 + (i % 128);
-      append_byte(Str, chr);
+      append_byte(string, chr);
       i = i >>+ 7;
     }
-    append_byte(Str, i);
+    append_byte(string, i);
   }
 }
 
-fn append_sleb32(Str: i32, i: i32) {
-  append_sleb64(Str, i32_i64(i));
+fn append_sleb32(string: i32, i: i32) {
+  append_sleb64(string, i32_i64(i));
 }
 
-fn append_sleb64(Str: i32, mut i: i64) {
+fn append_sleb64(string: i32, mut i: i64) {
   if i >= 0 { 
     loop {
       if i < 64 { break; }
-      append_byte(Str, i64_i32(128 + (i % 128)));
+      append_byte(string, i64_i32(128 + (i % 128)));
       i = i >> 7;
     }
-    append_byte(Str, i64_i32(i));
+    append_byte(string, i64_i32(i));
   } else {
     loop {
       if i >= -64 { break; }
-      append_byte(Str, i64_i32((i %+ 128) - 128));
+      append_byte(string, i64_i32((i %+ 128) - 128));
       i = i >> 7;
     }
-    append_byte(Str, i64_i32(i - 128));
+    append_byte(string, i64_i32(i - 128));
   }
 }
 
-fn offset_tail(Str: i32, start: i32, offset: i32) {
+fn offset_tail(string: i32, start: i32, offset: i32) {
   if offset > 0 {
-    if Str.string_length + offset <= Str.string_max {
-      Str.string_length = Str.string_length + offset;
-      let mut copy: i32 = Str.string_length;
+    if string.string_length + offset <= string.string_max {
+      string.string_length = string.string_length + offset;
+      let mut copy: i32 = string.string_length;
       while copy >= start {
-        set_chr(Str, copy + offset, get_chr(Str, copy));
+        set_chr(string, copy + offset, get_chr(string, copy));
         copy = copy - 1;
       }
     }
@@ -2571,29 +2570,29 @@ fn decimal_str_length(i: i32) -> i32 {
   length
 }
 
-fn get_chr(Str: i32, offset: i32) -> i32 {
-  return load8u(Str + string_Chars + offset);
+fn get_chr(string: i32, offset: i32) -> i32 {
+  return load8u(string + string_Chars + offset);
 }
 
-fn set_chr(Str: i32, offset: i32, chr: i32) {
-  store8(Str + string_Chars + offset, chr);
+fn set_chr(string: i32, offset: i32, chr: i32) {
+  store8(string + string_Chars + offset, chr);
 }
 
-fn sub_str(Str: i32, offset: i32, mut length: i32) -> i32 {
-  if offset >= Str.string_length {
+fn sub_str(string: i32, offset: i32, mut length: i32) -> i32 {
+  if offset >= string.string_length {
     length = 0;
   }
-  if offset + length >= Str.string_length {
-    length = Str.string_length - offset;
+  if offset + length >= string.string_length {
+    length = string.string_length - offset;
   }
-  let R: i32 = new_string(length);
+  let result: i32 = new_string(length);
   while length > 0 {
     length = length - 1;
     if offset + length >= 0 {
-      set_chr(R, length, get_chr(Str, offset + length));
+      set_chr(result, length, get_chr(string, offset + length));
     }
   }
-  R
+  result
 }
 
 fn str_eq(A: i32, B: i32) -> bool {
@@ -2613,14 +2612,14 @@ fn str_eq(A: i32, B: i32) -> bool {
   true
 }
 
-fn str_eq_char(Str: i32, a: i64) -> bool {
-  let length: i32 = Str.string_length;
+fn str_eq_char(string: i32, a: i64) -> bool {
+  let length: i32 = string.string_length;
   if length > 8 {
     return false;
   } else if length > 4 {
-    if a != load64(Str + string_Chars) { return false; }
+    if a != load64(string + string_Chars) { return false; }
   } else if length > 0 {
-    if a != i32_i64(load32(Str + string_Chars)) { return false; }
+    if a != i32_i64(load32(string + string_Chars)) { return false; }
   } else {
     if a != 0 { return false; }
   }
@@ -2644,7 +2643,7 @@ fn decode_str(S: i32) {
   let mut i: i32 = 0;
   let mut o: i32 = 0;
   while i < length {
-    if get_chr(S, i) == 92 { // backslash
+    if get_chr(S, i) == 92 {  // \
       i = i + 1;
       if is_number(get_chr(S, i), true) & is_number(get_chr(S, i + 1), true) {
         let mut chr: i32 = hex_chr_to_i32(get_chr(S, i));
@@ -2698,59 +2697,59 @@ const item_Name:   i32 = 12;   const item_number: i32 = 12;
 const item_size:   i32 = 16;
 
 fn new_list() -> i32 {
-  let List: i32 = allocate(list_size);
-  List.list_dec0de = 4 - DEC0DE;
-  List
+  let list: i32 = allocate(list_size);
+  list.list_dec0de = 4 - DEC0DE;
+  list
 }
 
-fn list_add(List: i32, Object: i32) {
-  let Item: i32 = allocate(item_size);
-  Item.item_dec0de = 5 - DEC0DE;
-  Item.item_Object = Object;
-  if !List.list_First.i32 {
-    List.list_First = Item;
+fn list_add(list: i32, Object: i32) {
+  let item: i32 = allocate(item_size);
+  item.item_dec0de = 5 - DEC0DE;
+  item.item_Object = Object;
+  if !list.list_First.i32 {
+    list.list_First = item;
   } else {
-    List.list_Last.item_Next = Item;
+    list.list_Last.item_Next = item;
   }
-  List.list_Last = Item;
-  List.list_count.i32 = List.list_count + 1;
+  list.list_Last = item;
+  list.list_count.i32 = list.list_count + 1;
 }
 
-fn list_add_name(List: i32, Object: i32, name: i32) {
-  let Item: i32 = allocate(item_size);
-  Item.item_dec0de = 5 - DEC0DE;
-  Item.item_Object = Object;
-  Item.item_Name = name;
-  if !List.list_First.i32 {
-    List.list_First = Item;
+fn list_add_name(list: i32, Object: i32, name: i32) {
+  let item: i32 = allocate(item_size);
+  item.item_dec0de = 5 - DEC0DE;
+  item.item_Object = Object;
+  item.item_Name = name;
+  if !list.list_First.i32 {
+    list.list_First = item;
   } else {
-    List.list_Last.item_Next = Item;
+    list.list_Last.item_Next = item;
   }
-  List.list_Last = Item;
-  List.list_count.i32 = List.list_count + 1;
+  list.list_Last = item;
+  list.list_count.i32 = list.list_count + 1;
 }
 
 // Find a string in a list & return the object
-fn list_search(List: i32, FindName: i32) -> i32 {
-  let mut Item: i32 = List.list_First;
-  while Item {
-    if str_eq(Item.item_Name, FindName) {
-      return Item.item_Object;
+fn list_search(list: i32, FindName: i32) -> i32 {
+  let mut item: i32 = list.list_First;
+  while item {
+    if str_eq(item.item_Name, FindName) {
+      return item.item_Object;
     }
-    Item = Item.item_Next;
+    item = item.item_Next;
   }
   0
 }
 
 // Find a string in a list & return the index
-fn index_list_search(List: i32, FindName: i32) -> i32 {
-  let mut Item: i32 = List.list_First;
+fn index_list_search(list: i32, FindName: i32) -> i32 {
+  let mut item: i32 = list.list_First;
   let mut index: i32 = 0;
-  while Item {
-    if str_eq(Item.item_Name, FindName) {
+  while item {
+    if str_eq(item.item_Name, FindName) {
       return index;
     }
-    Item = Item.item_Next;
+    item = item.item_Next;
     index = index + 1;
   }
   -1
@@ -2763,13 +2762,13 @@ fn index_list_search(List: i32, FindName: i32) -> i32 {
 const SIZEINT: i32 = 4;
 
 // Next free memory location
-static mut Heap: i32 = 0;
+static mut HEAP: i32 = 0;
 
 fn allocate(length: i32) -> i32 {
-  let R: i32 = Heap;
-  Heap = Heap + length;
-  if Heap % SIZEINT {
-    Heap = Heap + SIZEINT - Heap % SIZEINT;  // Fix the alignment
+  let R: i32 = HEAP;
+  HEAP = HEAP + length;
+  if HEAP % SIZEINT {
+    HEAP = HEAP + SIZEINT - HEAP % SIZEINT;  // Fix the alignment
   }
   R
 }
