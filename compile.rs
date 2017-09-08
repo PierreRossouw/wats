@@ -1,4 +1,4 @@
-// Compile.rs v0.1.20170905
+// Compile.rs v0.1.20170908
 // A Rust-like WebAssembly language with self-hosted compiler
 
 enum Token {
@@ -16,9 +16,10 @@ enum Token {
 
   // Operators
   MinPrecedence,
-  Assign,
-  Or, BoolOr, Xor,
-  And, BoolAnd,
+  Assign, AddAssign, BitAndAssign, BitOrAssign, BitXorAssign, DivAssign, MulAssign, 
+  RemAssign, ShlAssign, ShrAssign, SubAssign,
+  BitOr, BoolOr, BitXor,
+  BitAnd, BoolAnd,
   Eql, Ne, Lt, Ltu, Le, Leu, Gt, Gtu, Ge, Geu,
   Shl, Shr, Shru,
   Add, Sub,
@@ -37,7 +38,7 @@ enum Node {
   Data, Enum, 
   Fun, Parameter, Return, Call, 
   Block,  
-  Variable, Identifier, Literal, 
+  Variable, Identifier, Literal,  // 9, a, b
   Assign, Binary, Unary, 
   DotLoad, DotStore,  
   Iif, If, 
@@ -46,9 +47,9 @@ enum Node {
 }
 
 enum Error {
-  DuplicateName, InvalidToken, MissingToken, Expression, TypeMismatch, 
+  DuplicateName, InvalidToken, MissingToken, Expression, TypeMismatchA, TypeMismatchB, 
   RootStatement, TypeNotInferred, NotDeclared, LiteralToInt, BlockStatement, 
-  EmitNode, InvalidOperator, NotMutable, NoIdentifiers, NoParamList
+  EmitNode, InvalidOperator, NotMutable, NoIdentifiers, NoParamList, ParseAssignOp
 }
 
 // Magic number -0x00dec0de - used for debugging
@@ -119,9 +120,19 @@ fn process_token(value_str: i32, line: i32, column: i32) {
   } else if str_eq_char(value_str, '/') { kind = Token::Div; 
   } else if str_eq_char(value_str, '!') { kind = Token::Not;
   } else if str_eq_char(value_str, '%') { kind = Token::Rem;
-  } else if str_eq_char(value_str, '^') { kind = Token::Xor;
-  } else if str_eq_char(value_str, '&') { kind = Token::And; 
-  } else if str_eq_char(value_str, '|') { kind = Token::Or; 
+  } else if str_eq_char(value_str, '^') { kind = Token::BitXor;
+  } else if str_eq_char(value_str, '&') { kind = Token::BitAnd; 
+  } else if str_eq_char(value_str, '|') { kind = Token::BitOr; 
+  } else if str_eq_char(value_str, '+=') { kind = Token::AddAssign;
+  } else if str_eq_char(value_str, '-=') { kind = Token::SubAssign;
+  } else if str_eq_char(value_str, '&=') { kind = Token::BitAndAssign;
+  } else if str_eq_char(value_str, '|=') { kind = Token::BitOrAssign;
+  } else if str_eq_char(value_str, '^=') { kind = Token::BitXorAssign;
+  } else if str_eq_char(value_str, '/=') { kind = Token::DivAssign;
+  } else if str_eq_char(value_str, '*=') { kind = Token::MulAssign;
+  } else if str_eq_char(value_str, '%=') { kind = Token::RemAssign;
+  } else if str_eq_char(value_str, '<<=') { kind = Token::ShlAssign;
+  } else if str_eq_char(value_str, '>>=') { kind = Token::ShrAssign;
   } else if str_eq_char(value_str, '<<') { kind = Token::Shl; 
   } else if str_eq_char(value_str, '>>') { kind = Token::Shr;
   } else if str_eq_char(value_str, '::') { kind = Token::DoubleColon; 
@@ -398,12 +409,12 @@ fn scope_resolve(scope: i32, name: i32, token: i32) -> i32 {
 const node_dec0de:     i32 = 0;   // debugging marker
 const node_kind:       i32 = 4;   // From the Node enum
 const node_index:      i32 = 8;   // Zero based index number for funs, variables, parameters
-const node_String:     i32 = 12;  // Literal value, Or fn/var/Parameter name
+const node_String:     i32 = 12;  // Literal value, or fn/var/Parameter name
 const node_Scope:      i32 = 16;  // scope for Module/Block/loop/fun used for name resolution
-const node_ANode:      i32 = 20;  // Binary left, Call fn, return Expression, Block, Or fun body
+const node_ANode:      i32 = 20;  // Binary left, Call fn, return Expression, Block, or fun body
 const node_BNode:      i32 = 24;  // Binary/Unary right, else Block, fun return, Variable assignment
 const node_CNode:      i32 = 28;  // If statement condition node
-const node_Nodes:      i32 = 32;  // list of child Node for Module/Block, enums, Or fun locals
+const node_Nodes:      i32 = 32;  // list of child Node for Module/Block, enums, or fun locals
 const node_ParamNodes: i32 = 36;  // list of params for Call/fn
 const node_type:       i32 = 40;  // From the Token::_ enum
 const node_dataType:   i32 = 44;  // inferred data type
@@ -441,11 +452,18 @@ fn next_token() {
 fn is_binary_op(token: i32) -> bool {
   let kind: i32 = token.token_kind;
   kind == Token::Add | kind == Token::Sub | kind == Token::Mul | kind == Token::Div | kind == Token::Rem
-    | kind == Token::Remu | kind == Token::Or | kind == Token::And | kind == Token::Lt | kind == Token::Eql 
+    | kind == Token::Remu | kind == Token::BitOr | kind == Token::BitAnd | kind == Token::Lt | kind == Token::Eql 
     | kind == Token::Ne | kind == Token::Lt | kind == Token::Le | kind == Token::Gt | kind == Token::Ge 
-    | kind == Token::Shl | kind == Token::Shr | kind == Token::Xor | kind == Token::Ltu | kind == Token::Leu 
+    | kind == Token::Shl | kind == Token::Shr | kind == Token::BitXor | kind == Token::Ltu | kind == Token::Leu 
     | kind == Token::Gtu | kind == Token::Geu | kind == Token::Shru | kind == Token::Rotl 
     | kind == Token::Rotr
+}
+
+fn is_assign_op(token: i32) -> bool {
+  let kind: i32 = token.token_kind;
+  kind == Token::AddAssign | kind == Token::BitAndAssign | kind == Token::BitOrAssign | kind == Token::BitXorAssign
+    | kind == Token::DivAssign | kind == Token::MulAssign | kind == Token::RemAssign | kind == Token::ShlAssign
+    | kind == Token::ShrAssign | kind == Token::SubAssign
 }
 
 fn is_unary_op(token: i32) -> bool {
@@ -467,11 +485,10 @@ fn is_native_type(token: i32) -> bool {
 
 fn eat_token(kind: i32) {
   if CURRENT_TOKEN {
-    if CURRENT_TOKEN.token_kind == kind {
-      next_token();
-    } else {
+    if CURRENT_TOKEN.token_kind != kind {
       add_error(Error::InvalidToken, CURRENT_TOKEN);
     }
+    next_token();
   } else {
     let LastToken: i32 = TOKEN_LIST.list_Last.item_Object;
     add_error(Error::MissingToken, LastToken);
@@ -629,6 +646,19 @@ fn parse_identifier() -> i32 {
   node
 }
 
+fn copy_node(node: i32) -> i32 {
+  let copy: i32 = new_node(node.node_kind);
+  copy.node_String.i32 = node.node_String;
+  copy.node_ANode.i32 = node.node_ANode;
+  copy.node_BNode.i32 = node.node_BNode;
+  copy.node_CNode.i32 = node.node_CNode;
+  copy.node_Nodes.i32 = node.node_Nodes;
+  copy.node_ParamNodes.i32 = node.node_ParamNodes;
+  copy.node_type.i32 = node.node_type;
+  copy.node_Token.i32 = node.node_Token;
+  copy
+}
+
 fn parse_call_params() -> i32 {
   let ParamList: i32 = new_list();
   eat_token(Token::LParen);
@@ -774,6 +804,37 @@ fn parse_assign_statement() -> i32 {
   node
 }
 
+fn parse_assign_op_statement() -> i32 {
+  let node: i32 = new_node(Node::Assign);
+  node.node_ANode = parse_identifier();
+  node.node_type = Token::Assign;
+  node.node_String.i32 = CURRENT_TOKEN.token_Value;
+  let copy: i32 = copy_node(node.node_ANode);
+  let b_node: i32 = new_node(Node::Binary);
+  b_node.node_String.i32 = CURRENT_TOKEN.token_Value;
+  b_node.node_ANode = copy;
+  let mut b_type: i32 = 0;
+  if try_eat_token(Token::AddAssign) { b_type = Token::Add;
+  } else if try_eat_token(Token::BitAndAssign) { b_type = Token::BitAnd;
+  } else if try_eat_token(Token::BitOrAssign) { b_type = Token::BitOr;
+  } else if try_eat_token(Token::BitXorAssign) { b_type = Token::BitXor;
+  } else if try_eat_token(Token::DivAssign) { b_type = Token::Div;
+  } else if try_eat_token(Token::MulAssign) { b_type = Token::Mul;
+  } else if try_eat_token(Token::RemAssign) { b_type = Token::Rem;
+  } else if try_eat_token(Token::ShlAssign) { b_type = Token::Shl;
+  } else if try_eat_token(Token::ShrAssign) { b_type = Token::Shr;
+  } else if try_eat_token(Token::SubAssign) { b_type = Token::Sub; 
+  } else {
+    add_error(Error::ParseAssignOp, CURRENT_TOKEN);
+    next_token();
+  }
+  b_node.node_type.i32 = b_type;
+  b_node.node_BNode = parse_expression(Token::MinPrecedence);
+  node.node_BNode = b_node;
+  eat_token(Token::Semicolon);
+  node
+}
+
 fn parse_infix(level: i32, Left: i32) -> i32 {
   let mut node: i32 = 0;
   if is_binary_op(CURRENT_TOKEN) {
@@ -834,6 +895,7 @@ fn parse_return_expression() -> i32 {
   node.node_ANode = Expression;
   if !Expression {
     add_error(Error::BlockStatement, CURRENT_TOKEN);
+    next_token();
   }
   node
 }
@@ -1041,14 +1103,23 @@ fn parse_statement() -> i32 {
     node = parse_continue();
   } else if kind == Token::Break {
     node = parse_break();
-  } else if kind == Token::Identifier & NEXT_TOKEN.token_kind == Token::Dot {
-    node = parse_dot_store();
-  } else if kind == Token::Identifier & NEXT_TOKEN.token_kind == Token::LParen {
-    node = parse_call_statement();
-  } else if kind == Token::Identifier & NEXT_TOKEN.token_kind == Token::Assign {
-    node = parse_assign_statement();
   } else if kind == Token::Return {
     node = parse_return_statement();
+  } else if kind == Token::Identifier {
+
+    let next_kind: i32 = NEXT_TOKEN.token_kind;
+    if next_kind == Token::Dot {
+      node = parse_dot_store();
+    } else if next_kind == Token::LParen {
+      node = parse_call_statement();
+    } else if next_kind == Token::Assign {
+      node = parse_assign_statement();
+    } else if is_assign_op(NEXT_TOKEN) {
+      node = parse_assign_op_statement();
+    } else {
+      node = parse_return_expression();
+    }
+
   } else {
     node = parse_return_expression();
   }
@@ -1430,23 +1501,27 @@ fn emit_node(node: i32) {
 }
 
 fn emit_expression(node: i32) {
-  let kind: i32 = node.node_kind;
-  if kind == Node::Binary {
-    emit_binary(node);
-  } else if kind == Node::Unary {
-    emit_unary(node);
-  } else if kind == Node::Call {
-    emit_call(node);
-  } else if kind == Node::Literal {
-    emit_literal(node);
-  } else if kind == Node::Identifier {
-    emit_identifier(node);
-  } else if kind == Node::DotLoad {
-    emit_dot_load(node);
-  } else if kind == Node::Variable {
-    emit_variable(node);
+  if node {
+    let kind: i32 = node.node_kind;
+    if kind == Node::Binary {
+      emit_binary(node);
+    } else if kind == Node::Unary {
+      emit_unary(node);
+    } else if kind == Node::Call {
+      emit_call(node);
+    } else if kind == Node::Literal {
+      emit_literal(node);
+    } else if kind == Node::Identifier {
+      emit_identifier(node);
+    } else if kind == Node::DotLoad {
+      emit_dot_load(node);
+    } else if kind == Node::Variable {
+      emit_variable(node);
+    } else {
+      add_error(Error::Expression, node.node_Token);
+    }
   } else {
-    add_error(Error::Expression, node.node_Token);
+    add_error(Error::Expression, 0);
   }
 }
 
@@ -1463,7 +1538,7 @@ fn emit_assign(node: i32, isExpression: bool) {
   }
   node.node_dataType = data_type;
   if BNode.node_dataType != 0 & BNode.node_dataType != data_type {
-    add_error(Error::TypeMismatch, node.node_Token);
+    add_error(Error::TypeMismatchA, node.node_Token);
   }
   BNode.node_dataType = data_type;
   emit_expression(BNode);
@@ -1573,9 +1648,9 @@ fn emit_operatorS(type: i32, data_type: i32, node: i32) {
     } else if type == Token::Divu { append_byte(WASM, 0x80);
     } else if type == Token::Rem { append_byte(WASM, 0x81);
     } else if type == Token::Remu { append_byte(WASM, 0x82);
-    } else if type == Token::And { append_byte(WASM, 0x83);
-    } else if type == Token::Or { append_byte(WASM, 0x84);
-    } else if type == Token::Xor { append_byte(WASM, 0x85);
+    } else if type == Token::BitAnd { append_byte(WASM, 0x83);
+    } else if type == Token::BitOr { append_byte(WASM, 0x84);
+    } else if type == Token::BitXor { append_byte(WASM, 0x85);
     } else if type == Token::Shl { append_byte(WASM, 0x86);
     } else if type == Token::Shr { append_byte(WASM, 0x87);
     } else if type == Token::Shru { append_byte(WASM, 0x88);
@@ -1606,9 +1681,9 @@ fn emit_operatorS(type: i32, data_type: i32, node: i32) {
     } else if type == Token::Divu { append_byte(WASM, 0x6e); 
     } else if type == Token::Rem { append_byte(WASM, 0x6f); 
     } else if type == Token::Remu { append_byte(WASM, 0x70); 
-    } else if type == Token::And { append_byte(WASM, 0x71); 
-    } else if type == Token::Or { append_byte(WASM, 0x72); 
-    } else if type == Token::Xor { append_byte(WASM, 0x73); 
+    } else if type == Token::BitAnd { append_byte(WASM, 0x71); 
+    } else if type == Token::BitOr { append_byte(WASM, 0x72); 
+    } else if type == Token::BitXor { append_byte(WASM, 0x73); 
     } else if type == Token::Shl { append_byte(WASM, 0x74); 
     } else if type == Token::Shr { append_byte(WASM, 0x75); 
     } else if type == Token::Shru { append_byte(WASM, 0x76); 
@@ -1653,7 +1728,7 @@ fn emit_identifier(node: i32) {
     nodeDataType = Token::I32;
   }
   if nodeDataType != 0 & nodeDataType != data_type {
-    add_error(Error::TypeMismatch, node.node_Token);
+    add_error(Error::TypeMismatchB, node.node_Token);
   }
   node.node_dataType = data_type;
   if resolved_node.node_Scope == GLOBAL_SCOPE {
@@ -2262,8 +2337,10 @@ fn parse_error_list() {
         append_chr3(ErrorString, 'Invalid ', 'root sta', 'tement');
       } else if errorNo == Error::BlockStatement {
         append_chr3(ErrorString, 'Invalid ', 'Block st', 'atement');
-      } else if errorNo == Error::TypeMismatch {
-        append_chr2(ErrorString, 'Type mis', 'match');
+      } else if errorNo == Error::TypeMismatchA {
+        append_chr2(ErrorString, 'Type mis', 'match A');
+      } else if errorNo == Error::TypeMismatchB {
+        append_chr2(ErrorString, 'Type mis', 'match B');
       } else if errorNo == Error::NotDeclared {
         append_chr3(ErrorString, 'Identifi', 'er Not d', 'eclared');
       } else if errorNo == Error::LiteralToInt {
@@ -2275,7 +2352,9 @@ fn parse_error_list() {
       } else if errorNo == Error::NotMutable {
         append_chr2(ErrorString, 'Not ', 'mutable');
       } else if errorNo == Error::NoParamList {
-        append_chr3(ErrorString, 'No ', 'param ', 'list');
+        append_chr3(ErrorString, 'No ', 'param ', 'list');  
+      } else if errorNo == Error::ParseAssignOp {
+        append_chr3(ErrorString, 'Parsing ', 'failed ', 'assignop');  
       } else if errorNo == Error::EmitNode {
         append_chr3(ErrorString, 'Unexpect', 'ed node ', 'type');
       } else if errorNo == Error::InvalidOperator {
