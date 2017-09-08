@@ -193,13 +193,13 @@ fn lexx(dwasm: i32) {
   let mut start: i32 = 0;
   let mut value_str: i32 = 0;
   while str_index < length { 
-    str_index = str_index + 1;
-    column = column + 1;
+    str_index += 1;
+    column += 1;
     let mut chr: i32 = get_chr(dwasm, str_index);
 
     // newline chr
     if chr == 10 {
-      line = line + 1;
+      line += 1;
       column = 0;
 
     // Identifiers & reserved words
@@ -211,29 +211,29 @@ fn lexx(dwasm: i32) {
           column = column - 1;
           break;
         }
-        str_index = str_index + 1;
-        column = column + 1;
+        str_index += 1;
+        column += 1;
         chr = get_chr(dwasm, str_index);
       }
       value_str = sub_str(dwasm, start, str_index - start + 1);
       process_token(value_str, line, column);
       if get_chr(dwasm, str_index + 1) == '.' & is_alpha(get_chr(dwasm, str_index + 2)) {
-        str_index = str_index + 1;
-        column = column + 1;
+        str_index += 1;
+        column += 1;
         chr = get_chr(dwasm, str_index);
         add_token(Token::Dot, value_str, line, column);
       }
     
     // Single quoted chars | long chars up to 64 bit
     } else if chr == 39 {
-      str_index = str_index + 1;
-      column = column + 1;
+      str_index += 1;
+      column += 1;
       chr = get_chr(dwasm, str_index);
       start = str_index;
       while str_index < length {
         if chr == 39 { break; }
-        str_index = str_index + 1;
-        column = column + 1;
+        str_index += 1;
+        column += 1;
         chr = get_chr(dwasm, str_index);
       }
       value_str = sub_str(dwasm, start, str_index - start);
@@ -242,14 +242,14 @@ fn lexx(dwasm: i32) {
 
     // Double quoted strings
     } else if chr == '"' {
-      str_index = str_index + 1;
-      column = column + 1;
+      str_index += 1;
+      column += 1;
       chr = get_chr(dwasm, str_index);
       start = str_index;
       while str_index < length {
         if chr == '"' { break; }
-        str_index = str_index + 1;
-        column = column + 1;
+        str_index += 1;
+        column += 1;
         chr = get_chr(dwasm, str_index);
       }
       value_str = sub_str(dwasm, start, str_index - start);
@@ -270,13 +270,13 @@ fn lexx(dwasm: i32) {
             break;
           }
         }
-        str_index = str_index + 1;
-        column = column + 1;
+        str_index += 1;
+        column += 1;
         chr = get_chr(dwasm, str_index);
       }
       if chr == '.' & !is_hex {
-        str_index = str_index + 2;
-        column = column + 2;
+        str_index += 2;
+        column += 2;
         chr = get_chr(dwasm, str_index);
         while str_index < length {
           if (!is_number(chr, is_hex)) {
@@ -284,8 +284,8 @@ fn lexx(dwasm: i32) {
             column = column - 1;
             break;
           }
-          str_index = str_index + 1;
-          column = column + 1;
+          str_index += 1;
+          column += 1;
           chr = get_chr(dwasm, str_index);
         }
       }
@@ -297,11 +297,11 @@ fn lexx(dwasm: i32) {
       while str_index < length {
         if chr == 10 | chr == 13 {  // LF | CR
           column = 0;
-          line = line + 1;
+          line += 1;
           break;
         }
-        str_index = str_index + 1;
-        column = column + 1;
+        str_index += 1;
+        column += 1;
         chr = get_chr(dwasm, str_index);
       }
     
@@ -315,12 +315,12 @@ fn lexx(dwasm: i32) {
       if is_operator_chr(get_chr(dwasm, str_index + 1)) {
         if is_operator_chr(get_chr(dwasm, str_index + 2)) {
           value_str = sub_str(dwasm, str_index, 3);
-          str_index = str_index + 2;
-          column = column + 2;
+          str_index += 2;
+          column += 2;
         } else {
           value_str = sub_str(dwasm, str_index, 2);
-          str_index = str_index + 1;
-          column = column + 1;
+          str_index += 1;
+          column += 1;
         }
       } else {
         value_str = sub_str(dwasm, str_index, 1);
@@ -563,7 +563,7 @@ fn parse_enum() -> i32 {
     next_token();
     if CURRENT_TOKEN.token_kind.i32 != Token::Comma { break; }
     eat_token(Token::Comma);
-    enum_value = enum_value + 1;
+    enum_value += 1;
   }
   eat_token(Token::RBrace);
   node
@@ -586,7 +586,7 @@ fn parse_fn() -> i32 {
   next_token();
   let Locals: i32 = new_list();
   node.node_index = FN_INDEX;
-  FN_INDEX = FN_INDEX + 1;
+  FN_INDEX += 1;
   node.node_String = name;
   node.node_Nodes = Locals;
   let ParamList: i32 = parse_fn_params();
@@ -1204,7 +1204,7 @@ fn emit_type_section(root_node: i32) {
       let node: i32 = item.item_Object;
       if node.node_kind.i32 == Node::Fun {
         emit_type(node, index);
-        index = index + 1;
+        index += 1;
       }
       item = item.item_Next;
     }
@@ -1307,7 +1307,7 @@ fn emit_global_section(root_node: i32) {
     while item {
       if item.item_Object.node_kind.i32 == Node::Variable {
         emit_native_global(item.item_Object);
-        count = count + 1;
+        count += 1;
       }
       item = item.item_Next;
     }
@@ -1365,7 +1365,7 @@ fn emit_export_section(root_node: i32) {
   let BodyList: i32 = root_node.node_Nodes;
   if BodyList {
     let mut count: i32 = EXPORT_LIST.list_count;
-    count = count + 1;  // +1 because we are also exporting the Memory
+    count += 1;  // +1 because we are also exporting the Memory
     if count {
       append_byte(WASM, 0x07);  // Export section
       append_byte(WASM, 0x00);  // Section size (guess)
@@ -1441,12 +1441,12 @@ fn emit_fn_node(node: i32) {
       if !NextItem { break; }
       if data_type != NextItem.item_Object.node_type { break; }
       LocalItem = NextItem;
-      count = count + 1;
+      count += 1;
     }
     append_uleb(WASM, count);  // count
     append_data_type(WASM, data_type);
     LocalItem = LocalItem.item_Next;
-    declCount = declCount + 1;
+    declCount += 1;
   }
   emit_node(node.node_ANode);  // Body Block node
   append_byte(WASM, 0x0b);  // end
@@ -1751,7 +1751,7 @@ fn emit_dot_load(node: i32) {
   emit_identifier(item.item_Object);
   item = item.item_Next;
   while item {
-    itemNo = itemNo + 1;
+    itemNo += 1;
     emit_identifier(item.item_Object);
     append_byte(WASM, 0x6a);  // i32.Add
     if itemNo < itemCount {
@@ -1793,7 +1793,7 @@ fn emit_dot_store(node: i32) {
     emit_identifier(item.item_Object);
     item = item.item_Next;
     while item {
-      itemNo = itemNo + 1;
+      itemNo += 1;
       emit_identifier(item.item_Object);
       append_byte(WASM, 0x6a);  // i32.Add
       if itemNo < itemCount {
@@ -2142,7 +2142,7 @@ fn scope_level(node: i32, kind: i32) -> i32 {
   let mut level: i32 = 0;
   while scope {
     if scope.scope_Node.node_kind == kind { break; }
-    level = level + 1;
+    level += 1;
     scope = scope.scope_Parent;
   }
   level
@@ -2406,27 +2406,27 @@ fn str_to_i64(string: i32, token: i32) -> i64 {  // Supports ints & 0x-prefixed 
       i = i * 16;
       chr = get_chr(string, offset);
       if chr >= '0' & chr <= '9' {
-        i = i + i32_i64(chr) - '0';
+        i += i32_i64(chr) - '0';
       } else if chr >= 'a' & chr <= 'f' {
-        i = i + i32_i64(chr) - 'a' + 10;
+        i += i32_i64(chr) - 'a' + 10;
       } else if chr >= 'A' & chr <= 'F' {
-        i = i + i32_i64(chr) - 'A' + 10;
+        i += i32_i64(chr) - 'A' + 10;
       } else {
         add_error(Error::LiteralToInt, token);
       }
-      offset = offset + 1;
+      offset += 1;
     }
   } else {
     while offset < length {
       i = i * 10;
       chr = get_chr(string, offset);
       if chr >= '0' & chr <= '9' {
-        i = i + i32_i64(chr) - '0';
+        i += i32_i64(chr) - '0';
       } else if offset == 0 & chr == '-' {
       } else {
         add_error(Error::LiteralToInt, token);
       }
-      offset = offset + 1;
+      offset += 1;
     }
   }
   if get_chr(string, 0) == '-' { 
@@ -2451,7 +2451,7 @@ fn str_to_f64(string: i32) -> f64 {
       isAfterDot = true;
     } else {
       if isAfterDot { 
-        f = f + i32_f64(chr - '0') / d;
+        f += i32_f64(chr - '0') / d;
         d = d * 10;
       } else {
         if chr >= '0' & chr <= '9' {
@@ -2459,7 +2459,7 @@ fn str_to_f64(string: i32) -> f64 {
         }
       }
     }
-    offset = offset + 1;
+    offset += 1;
   }
   if get_chr(string, 0) == '-' { 
     f = -f; 
@@ -2514,7 +2514,7 @@ fn append_str(string: i32, AppendString: i32) {
   while offset < appendLength {
     append_byte(string, get_chr(AppendString, offset));
     if string.string_length >= maxLength { break; }
-    offset = offset + 1;
+    offset += 1;
   }
 }
 
@@ -2644,7 +2644,7 @@ fn decimal_str_length(i: i32) -> i32 {
   loop {
     i = i / 10;
     if !i { break; }
-    length = length + 1;
+    length += 1;
   }
   length
 }
@@ -2683,7 +2683,7 @@ fn str_eq(A: i32, B: i32) -> bool {
         return false;
       }
       if offset >= length { break; }
-      offset = offset + 1;
+      offset += 1;
     }
   } else {
     return false;
@@ -2723,24 +2723,24 @@ fn decode_str(S: i32) {
   let mut o: i32 = 0;
   while i < length {
     if get_chr(S, i) == 92 {  // \
-      i = i + 1;
+      i += 1;
       if is_number(get_chr(S, i), true) & is_number(get_chr(S, i + 1), true) {
         let mut chr: i32 = hex_chr_to_i32(get_chr(S, i));
-        chr = chr * 16;
-        chr = chr + hex_chr_to_i32(get_chr(S, i + 1));
+        chr *= 16;
+        chr += hex_chr_to_i32(get_chr(S, i + 1));
         set_chr(S, o, chr);
-        i = i + 1;
+        i += 1;
       }
     } else if i > o {
       set_chr(S, o, get_chr(S, i));
     }
-    i = i + 1;
-    o = o + 1;
+    i += 1;
+    o += 1;
   }
   S.string_length = o;
   while o < length {
     set_chr(S, o, 0);
-    o = o + 1;
+    o += 1;
   }
 }
 
@@ -2829,7 +2829,7 @@ fn index_list_search(list: i32, FindName: i32) -> i32 {
       return index;
     }
     item = item.item_Next;
-    index = index + 1;
+    index += 1;
   }
   -1
 }
@@ -2845,9 +2845,9 @@ static mut HEAP: i32 = 0;
 
 fn allocate(length: i32) -> i32 {
   let R: i32 = HEAP;
-  HEAP = HEAP + length;
+  HEAP += length;
   if HEAP % SIZEINT {
-    HEAP = HEAP + SIZEINT - HEAP % SIZEINT;  // Fix the alignment
+    HEAP += SIZEINT - HEAP % SIZEINT;  // Fix the alignment
   }
   R
 }
