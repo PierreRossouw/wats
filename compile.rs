@@ -172,12 +172,13 @@ fn process_token(s: i32, line: i32, column: i32) {
 }
 
 fn is_single_chr(chr: i32) -> i32 {
-  chr == '(' | chr == ')' | chr == ',' | chr == '{' | chr == '}' | chr == ';'
+  (chr == '(') | (chr == ')') | (chr == ',') | (chr == '{') | (chr == '}') | (chr == ';')
 }
 
 fn is_operator_chr(chr: i32) -> i32 {
-  chr == '=' | chr == '+' | chr == '-' | chr == '/' | chr == '*' | chr == '<' | chr == '>' | chr == '^' 
-    | chr == '!' | chr == '%' | chr == ':' | chr == '&' | chr == '|'
+  (chr == '=') | (chr == '+') | (chr == '-') | (chr == '/') | (chr == '*') | (chr == '<') 
+    | (chr == '>') | (chr == '^') | (chr == '!') | (chr == '%') | (chr == ':') 
+    | (chr == '&') | (chr == '|')
 }
 
 fn lexx(dwasm: i32) {
@@ -220,7 +221,7 @@ fn lexx(dwasm: i32) {
         add_token(Token::Dot, value_str, line, column);
       }
     
-    // Single quoted chars | long chars up to 64 bit
+    // Single quoted chars (byte)
     } else if chr == 39 {
       str_index += 1;
       column += 1;
@@ -253,12 +254,13 @@ fn lexx(dwasm: i32) {
       add_token(Token::StrLiteral, value_str, line, column);
 
     // Number literals, for example -42, 3.14, 0x8d4f0
+    // May contain underscores e.g. 1_234 is the same as 1234
     } else if is_number(chr, false) | ((chr == '-') & is_number(get_chr(dwasm, str_index + 1), false)) {
       start = str_index;
       let mut is_hex: bool = false;
       while str_index < length {
-        if (!is_number(chr, is_hex)) & (chr != '-') {
-          if start + 1 == str_index & chr == 'x' {
+        if (!is_number(chr, is_hex)) & (chr != '-') & (chr != '_') {
+          if (start + 1 == str_index) & (chr == 'x') {
             is_hex = true;
           } else {
             str_index = str_index - 1;
@@ -275,7 +277,7 @@ fn lexx(dwasm: i32) {
         column += 2;
         chr = get_chr(dwasm, str_index);
         while str_index < length {
-          if (!is_number(chr, is_hex)) {
+          if (!is_number(chr, is_hex) & (chr != '_')) {
             str_index = str_index - 1;
             column = column - 1;
             break;
@@ -289,9 +291,9 @@ fn lexx(dwasm: i32) {
       add_token(Token::NumLiteral, value_str, line, column);
 
     // Comments
-    } else if chr == '/' & get_chr(dwasm, str_index + 1) == '/' {
+    } else if (chr == '/') & (get_chr(dwasm, str_index + 1) == '/') {
       while str_index < length {
-        if chr == 10 | chr == 13 {  // LF | CR
+        if (chr == 10) | (chr == 13) {  // LF | CR
           column = 0;
           line += 1;
           break;
@@ -375,7 +377,7 @@ fn scope_register_name(scope: i32, name: i32, node: i32, token: i32) {
   }
   let kind: i32 = node.node_kind;
   list_add_name(scope.scope_Symbols, node, name);
-  if kind == Node::Variable | kind == Node::Parameter {
+  if (kind == Node::Variable) | (kind == Node::Parameter) {
     let fn_scope: i32 = get_fn_scope(scope);
     let index: i32 = fn_scope.scope_localIndex;
     node.node_Scope = fn_scope;
@@ -413,7 +415,7 @@ const node_CNode:      i32 = 28;  // If statement condition node
 const node_Nodes:      i32 = 32;  // list of child Node for Module/Block, enums, or fun locals
 const node_ParamNodes: i32 = 36;  // list of params for Call/fn
 const node_type:       i32 = 40;  // From the Token::_ enum
-const node_dataType:   i32 = 44;  // inferred data type
+const node_dataType:   i32 = 44;  // inferred data token_type
 const node_Token:      i32 = 48;
 const node_assigns:    i32 = 52;
 const node_size:       i32 = 56;
@@ -468,7 +470,7 @@ fn parse_fn() -> i32 {
     eat_token(Token::Pub);
   }
   eat_token(Token::Fun);
-  let mut type: i32 = 0;  
+  let mut token_type: i32 = 0;  
   let name: i32 = CURRENT_TOKEN.token_Value;
   let node: i32 = new_node(Node::Fun);
   scope_register_name(CURRENT_SCOPE, name, node, CURRENT_TOKEN);
@@ -482,11 +484,11 @@ fn parse_fn() -> i32 {
   node.node_ParamNodes = param_list;
   if CURRENT_TOKEN.token_kind.i32 == Token::Arrow {
     eat_token(Token::Arrow);
-    type = CURRENT_TOKEN.token_kind;
+    token_type = CURRENT_TOKEN.token_kind;
     next_token();
   }
-  node.node_type = type;
-  node.node_dataType = type;
+  node.node_type = token_type;
+  node.node_dataType = token_type;
   push_scope(node);
   let mut param_item: i32 = param_list.list_First;
   while param_item {
@@ -689,11 +691,11 @@ fn parse_fn_params() -> i32 {
     let name: i32 = CURRENT_TOKEN.token_Value;
     next_token();
     eat_token(Token::Colon);
-    let type: i32 = CURRENT_TOKEN.token_kind;
+    let token_type: i32 = CURRENT_TOKEN.token_kind;
     next_token();
     let FunParamNode: i32 = new_node(Node::Parameter);
-    FunParamNode.node_type = type;
-    FunParamNode.node_dataType = type;
+    FunParamNode.node_type = token_type;
+    FunParamNode.node_dataType = token_type;
     FunParamNode.node_String = name;
     if mutable {
       FunParamNode.node_assigns = -1;
@@ -1049,11 +1051,11 @@ fn parse_const() -> i32 {
   let NameToken: i32 = CURRENT_TOKEN;
   next_token();
   eat_token(Token::Colon);
-  let type: i32 = CURRENT_TOKEN.token_kind;
+  let token_type: i32 = CURRENT_TOKEN.token_kind;
   next_token();
   let node: i32 = new_node(Node::Variable);
-  node.node_type = type;
-  node.node_dataType = type;
+  node.node_type = token_type;
+  node.node_dataType = token_type;
   node.node_String = name;
   scope_register_name(CURRENT_SCOPE, name, node, NameToken);
   eat_token(Token::Assign);
@@ -1079,11 +1081,11 @@ fn parse_static() -> i32 {
   let NameToken: i32 = CURRENT_TOKEN;
   next_token();
   eat_token(Token::Colon);
-  let type: i32 = CURRENT_TOKEN.token_kind;
+  let token_type: i32 = CURRENT_TOKEN.token_kind;
   next_token();
   let node: i32 = new_node(Node::Variable);
-  node.node_type = type;
-  node.node_dataType = type;
+  node.node_type = token_type;
+  node.node_dataType = token_type;
   node.node_String = name;
   if mutable {
     node.node_assigns = -1;
@@ -1114,11 +1116,11 @@ fn parse_declaration() -> i32 {
   let NameToken: i32 = CURRENT_TOKEN;
   next_token();
   eat_token(Token::Colon);
-  let type: i32 = CURRENT_TOKEN.token_kind;
+  let token_type: i32 = CURRENT_TOKEN.token_kind;
   next_token();
   let node: i32 = new_node(Node::Variable);
-  node.node_type = type;
-  node.node_dataType = type;
+  node.node_type = token_type;
+  node.node_dataType = token_type;
   node.node_String = name;
   if mutable {
     node.node_assigns = -1;  // mutables have infinite assigns
@@ -1165,7 +1167,7 @@ fn emit(dwasm: i32, root_node: i32) {
 }
 
 fn emit_header() {
-  append_i32(WASM, '\00asm');  // WASM magic: 00 61 73 6d
+  append_str(WASM, "\00asm");  // WASM magic: 00 61 73 6d
   append_i32(WASM, 1);         // WASM version
 }
 
@@ -1221,7 +1223,7 @@ fn emit_type(node: i32, funcNo: i32) {
     returns = 1;
   }
   let TypeString: i32 = new_empty_string(1 + uleb_length(params) + params + uleb_length(returns) + returns);
-  append_byte(TypeString, 0x60);  // fn type
+  append_byte(TypeString, 0x60);  // fn token_type
   append_uleb(TypeString, params);
   let mut param_item: i32 = param_list.list_First;
   while param_item {
@@ -1268,10 +1270,10 @@ fn emit_function_section() {
 
 fn emit_memory_section() {
   append_byte(WASM, 0x05);  // Memory section
-  append_uleb(WASM, 2 + uleb_length(1000));  // Size in bytes
+  append_uleb(WASM, 2 + uleb_length(1_000));  // Size in bytes
   append_byte(WASM, 0x01);    // Count
   append_byte(WASM, 0x00);    // Resizable
-  append_uleb(WASM, 1000);  // Pages
+  append_uleb(WASM, 1_000);  // Pages
 }
 
 fn emit_global_section(root_node: i32) {
@@ -1304,7 +1306,7 @@ fn emit_global_section(root_node: i32) {
 }
 
 fn emit_native_global(node: i32) {
-  let data_type: i32 = node.node_type;  // Native type
+  let data_type: i32 = node.node_type;  // Native token_type
   if data_type == Token::F64 { 
     append_byte(WASM, 0x7c);
     append_byte(WASM, 0x01);  // Mutable
@@ -1573,7 +1575,7 @@ fn emit_assign(node: i32, isExpression: bool) {
 }
 
 fn emit_binary(node: i32) {
-  let type: i32 = node.node_type;
+  let token_type: i32 = node.node_type;
   let mut data_type: i32 = node.node_dataType;
   let ANode: i32 = node.node_ANode;
   let BNode: i32 = node.node_BNode;
@@ -1588,121 +1590,121 @@ fn emit_binary(node: i32) {
   BNode.node_dataType = data_type;
   emit_expression(ANode);
   emit_expression(BNode);
-  emit_operator(type, data_type, node);
+  emit_operator(token_type, data_type, node);
 }
 
-fn emit_operator(type: i32, data_type: i32, node: i32) {
+fn emit_operator(token_type: i32, data_type: i32, node: i32) {
   if data_type == Token::F64 {
-    if type == Token::Eql { append_byte(WASM, 0x61); 
-    } else if type == Token::Ne { append_byte(WASM, 0x62); 
-    } else if type == Token::Lt { append_byte(WASM, 0x63); 
-    } else if type == Token::Gt { append_byte(WASM, 0x64); 
-    } else if type == Token::Le { append_byte(WASM, 0x65); 
-    } else if type == Token::Ge { append_byte(WASM, 0x66); 
-    } else if type == Token::Add { append_byte(WASM, 0xa0); 
-    } else if type == Token::Sub { append_byte(WASM, 0xa1); 
-    } else if type == Token::Mul { append_byte(WASM, 0xa2); 
-    } else if type == Token::Div { append_byte(WASM, 0xa3); 
-    } else if type == Token::Min { append_byte(WASM, 0xa4); 
-    } else if type == Token::Max { append_byte(WASM, 0xa5); 
-    } else if type == Token::Abs { append_byte(WASM, 0x99); 
-    } else if type == Token::Neg { append_byte(WASM, 0x9a); 
-    } else if type == Token::Sqrt { append_byte(WASM, 0x9f); 
-    } else if type == Token::Ceil { append_byte(WASM, 0x9b); 
-    } else if type == Token::Floor { append_byte(WASM, 0x9c); 
-    } else if type == Token::Trunc { append_byte(WASM, 0x9d); 
-    } else if type == Token::Round { append_byte(WASM, 0x9e); 
-    } else if type == Token::CopySign { append_byte(WASM, 0xa6); 
+    if token_type == Token::Eql { append_byte(WASM, 0x61); 
+    } else if token_type == Token::Ne { append_byte(WASM, 0x62); 
+    } else if token_type == Token::Lt { append_byte(WASM, 0x63); 
+    } else if token_type == Token::Gt { append_byte(WASM, 0x64); 
+    } else if token_type == Token::Le { append_byte(WASM, 0x65); 
+    } else if token_type == Token::Ge { append_byte(WASM, 0x66); 
+    } else if token_type == Token::Add { append_byte(WASM, 0xa0); 
+    } else if token_type == Token::Sub { append_byte(WASM, 0xa1); 
+    } else if token_type == Token::Mul { append_byte(WASM, 0xa2); 
+    } else if token_type == Token::Div { append_byte(WASM, 0xa3); 
+    } else if token_type == Token::Min { append_byte(WASM, 0xa4); 
+    } else if token_type == Token::Max { append_byte(WASM, 0xa5); 
+    } else if token_type == Token::Abs { append_byte(WASM, 0x99); 
+    } else if token_type == Token::Neg { append_byte(WASM, 0x9a); 
+    } else if token_type == Token::Sqrt { append_byte(WASM, 0x9f); 
+    } else if token_type == Token::Ceil { append_byte(WASM, 0x9b); 
+    } else if token_type == Token::Floor { append_byte(WASM, 0x9c); 
+    } else if token_type == Token::Trunc { append_byte(WASM, 0x9d); 
+    } else if token_type == Token::Round { append_byte(WASM, 0x9e); 
+    } else if token_type == Token::CopySign { append_byte(WASM, 0xa6); 
     } else { 
       add_error(Error::InvalidOperator, node.node_Token); 
     }
   } else if data_type == Token::F32 {
-    if type == Token::Eql { append_byte(WASM, 0x5b); 
-    } else if type == Token::Ne { append_byte(WASM, 0x5c);
-    } else if type == Token::Lt { append_byte(WASM, 0x5d);
-    } else if type == Token::Gt { append_byte(WASM, 0x5e);
-    } else if type == Token::Le { append_byte(WASM, 0x5f);
-    } else if type == Token::Ge { append_byte(WASM, 0x60); 
-    } else if type == Token::Abs { append_byte(WASM, 0x8b); 
-    } else if type == Token::Neg { append_byte(WASM, 0x8c); 
-    } else if type == Token::Ceil { append_byte(WASM, 0x8d);
-    } else if type == Token::Floor { append_byte(WASM, 0x8e);
-    } else if type == Token::Trunc { append_byte(WASM, 0x8f);
-    } else if type == Token::Round { append_byte(WASM, 0x90);
-    } else if type == Token::Sqrt { append_byte(WASM, 0x91);
-    } else if type == Token::Add { append_byte(WASM, 0x92);
-    } else if type == Token::Sub { append_byte(WASM, 0x93);
-    } else if type == Token::Mul { append_byte(WASM, 0x94);
-    } else if type == Token::Div { append_byte(WASM, 0x95);
-    } else if type == Token::Min { append_byte(WASM, 0x96);
-    } else if type == Token::Max { append_byte(WASM, 0x97);
-    } else if type == Token::CopySign { append_byte(WASM, 0x98);
+    if token_type == Token::Eql { append_byte(WASM, 0x5b); 
+    } else if token_type == Token::Ne { append_byte(WASM, 0x5c);
+    } else if token_type == Token::Lt { append_byte(WASM, 0x5d);
+    } else if token_type == Token::Gt { append_byte(WASM, 0x5e);
+    } else if token_type == Token::Le { append_byte(WASM, 0x5f);
+    } else if token_type == Token::Ge { append_byte(WASM, 0x60); 
+    } else if token_type == Token::Abs { append_byte(WASM, 0x8b); 
+    } else if token_type == Token::Neg { append_byte(WASM, 0x8c); 
+    } else if token_type == Token::Ceil { append_byte(WASM, 0x8d);
+    } else if token_type == Token::Floor { append_byte(WASM, 0x8e);
+    } else if token_type == Token::Trunc { append_byte(WASM, 0x8f);
+    } else if token_type == Token::Round { append_byte(WASM, 0x90);
+    } else if token_type == Token::Sqrt { append_byte(WASM, 0x91);
+    } else if token_type == Token::Add { append_byte(WASM, 0x92);
+    } else if token_type == Token::Sub { append_byte(WASM, 0x93);
+    } else if token_type == Token::Mul { append_byte(WASM, 0x94);
+    } else if token_type == Token::Div { append_byte(WASM, 0x95);
+    } else if token_type == Token::Min { append_byte(WASM, 0x96);
+    } else if token_type == Token::Max { append_byte(WASM, 0x97);
+    } else if token_type == Token::CopySign { append_byte(WASM, 0x98);
     } else {
       add_error(Error::InvalidOperator, node.node_Token); 
     }
   } else if data_type == Token::I64 {
-    if type == Token::Not { append_byte(WASM, 0x50); 
-    } else if type == Token::Eql { append_byte(WASM, 0x51); 
-    } else if type == Token::Ne { append_byte(WASM, 0x52); 
-    } else if type == Token::Lt { append_byte(WASM, 0x53); 
-    } else if type == Token::Ltu { append_byte(WASM, 0x54); 
-    } else if type == Token::Gt { append_byte(WASM, 0x55); 
-    } else if type == Token::Gtu { append_byte(WASM, 0x56); 
-    } else if type == Token::Le { append_byte(WASM, 0x57);
-    } else if type == Token::Leu { append_byte(WASM, 0x58);
-    } else if type == Token::Ge { append_byte(WASM, 0x59); 
-    } else if type == Token::Geu { append_byte(WASM, 0x5a);
-    } else if type == Token::Clz { append_byte(WASM, 0x79);
-    } else if type == Token::Ctz { append_byte(WASM, 0x7a); 
-    } else if type == Token::Cnt { append_byte(WASM, 0x7b);
-    } else if type == Token::Add { append_byte(WASM, 0x7c);
-    } else if type == Token::Sub { append_byte(WASM, 0x7d);
-    } else if type == Token::Mul { append_byte(WASM, 0x7e);
-    } else if type == Token::Div { append_byte(WASM, 0x7f);
-    } else if type == Token::Divu { append_byte(WASM, 0x80);
-    } else if type == Token::Rem { append_byte(WASM, 0x81);
-    } else if type == Token::Remu { append_byte(WASM, 0x82);
-    } else if type == Token::BitAnd { append_byte(WASM, 0x83);
-    } else if type == Token::BitOr { append_byte(WASM, 0x84);
-    } else if type == Token::BitXor { append_byte(WASM, 0x85);
-    } else if type == Token::Shl { append_byte(WASM, 0x86);
-    } else if type == Token::Shr { append_byte(WASM, 0x87);
-    } else if type == Token::Shru { append_byte(WASM, 0x88);
-    } else if type == Token::Rotl { append_byte(WASM, 0x89);
-    } else if type == Token::Rotr { append_byte(WASM, 0x8a); 
+    if token_type == Token::Not { append_byte(WASM, 0x50); 
+    } else if token_type == Token::Eql { append_byte(WASM, 0x51); 
+    } else if token_type == Token::Ne { append_byte(WASM, 0x52); 
+    } else if token_type == Token::Lt { append_byte(WASM, 0x53); 
+    } else if token_type == Token::Ltu { append_byte(WASM, 0x54); 
+    } else if token_type == Token::Gt { append_byte(WASM, 0x55); 
+    } else if token_type == Token::Gtu { append_byte(WASM, 0x56); 
+    } else if token_type == Token::Le { append_byte(WASM, 0x57);
+    } else if token_type == Token::Leu { append_byte(WASM, 0x58);
+    } else if token_type == Token::Ge { append_byte(WASM, 0x59); 
+    } else if token_type == Token::Geu { append_byte(WASM, 0x5a);
+    } else if token_type == Token::Clz { append_byte(WASM, 0x79);
+    } else if token_type == Token::Ctz { append_byte(WASM, 0x7a); 
+    } else if token_type == Token::Cnt { append_byte(WASM, 0x7b);
+    } else if token_type == Token::Add { append_byte(WASM, 0x7c);
+    } else if token_type == Token::Sub { append_byte(WASM, 0x7d);
+    } else if token_type == Token::Mul { append_byte(WASM, 0x7e);
+    } else if token_type == Token::Div { append_byte(WASM, 0x7f);
+    } else if token_type == Token::Divu { append_byte(WASM, 0x80);
+    } else if token_type == Token::Rem { append_byte(WASM, 0x81);
+    } else if token_type == Token::Remu { append_byte(WASM, 0x82);
+    } else if token_type == Token::BitAnd { append_byte(WASM, 0x83);
+    } else if token_type == Token::BitOr { append_byte(WASM, 0x84);
+    } else if token_type == Token::BitXor { append_byte(WASM, 0x85);
+    } else if token_type == Token::Shl { append_byte(WASM, 0x86);
+    } else if token_type == Token::Shr { append_byte(WASM, 0x87);
+    } else if token_type == Token::Shru { append_byte(WASM, 0x88);
+    } else if token_type == Token::Rotl { append_byte(WASM, 0x89);
+    } else if token_type == Token::Rotr { append_byte(WASM, 0x8a); 
     } else {
       add_error(Error::InvalidOperator, node.node_Token); 
     }
   } else {
-    if type == Token::Not { append_byte(WASM, 0x45); 
-    } else if type == Token::Eql { append_byte(WASM, 0x46); 
-    } else if type == Token::Ne { append_byte(WASM, 0x47); 
-    } else if type == Token::Lt { append_byte(WASM, 0x48); 
-    } else if type == Token::Ltu { append_byte(WASM, 0x49); 
-    } else if type == Token::Gt { append_byte(WASM, 0x4a); 
-    } else if type == Token::Gtu { append_byte(WASM, 0x4b); 
-    } else if type == Token::Le { append_byte(WASM, 0x4c); 
-    } else if type == Token::Leu { append_byte(WASM, 0x4d); 
-    } else if type == Token::Ge { append_byte(WASM, 0x4e); 
-    } else if type == Token::Geu { append_byte(WASM, 0x4f); 
-    } else if type == Token::Clz { append_byte(WASM, 0x67); 
-    } else if type == Token::Ctz { append_byte(WASM, 0x68); 
-    } else if type == Token::Cnt { append_byte(WASM, 0x69); 
-    } else if type == Token::Add { append_byte(WASM, 0x6a); 
-    } else if type == Token::Sub { append_byte(WASM, 0x6b); 
-    } else if type == Token::Mul { append_byte(WASM, 0x6c); 
-    } else if type == Token::Div { append_byte(WASM, 0x6d); 
-    } else if type == Token::Divu { append_byte(WASM, 0x6e); 
-    } else if type == Token::Rem { append_byte(WASM, 0x6f); 
-    } else if type == Token::Remu { append_byte(WASM, 0x70); 
-    } else if type == Token::BitAnd { append_byte(WASM, 0x71); 
-    } else if type == Token::BitOr { append_byte(WASM, 0x72); 
-    } else if type == Token::BitXor { append_byte(WASM, 0x73); 
-    } else if type == Token::Shl { append_byte(WASM, 0x74); 
-    } else if type == Token::Shr { append_byte(WASM, 0x75); 
-    } else if type == Token::Shru { append_byte(WASM, 0x76); 
-    } else if type == Token::Rotl { append_byte(WASM, 0x77); 
-    } else if type == Token::Rotr { append_byte(WASM, 0x78); 
+    if token_type == Token::Not { append_byte(WASM, 0x45); 
+    } else if token_type == Token::Eql { append_byte(WASM, 0x46); 
+    } else if token_type == Token::Ne { append_byte(WASM, 0x47); 
+    } else if token_type == Token::Lt { append_byte(WASM, 0x48); 
+    } else if token_type == Token::Ltu { append_byte(WASM, 0x49); 
+    } else if token_type == Token::Gt { append_byte(WASM, 0x4a); 
+    } else if token_type == Token::Gtu { append_byte(WASM, 0x4b); 
+    } else if token_type == Token::Le { append_byte(WASM, 0x4c); 
+    } else if token_type == Token::Leu { append_byte(WASM, 0x4d); 
+    } else if token_type == Token::Ge { append_byte(WASM, 0x4e); 
+    } else if token_type == Token::Geu { append_byte(WASM, 0x4f); 
+    } else if token_type == Token::Clz { append_byte(WASM, 0x67); 
+    } else if token_type == Token::Ctz { append_byte(WASM, 0x68); 
+    } else if token_type == Token::Cnt { append_byte(WASM, 0x69); 
+    } else if token_type == Token::Add { append_byte(WASM, 0x6a); 
+    } else if token_type == Token::Sub { append_byte(WASM, 0x6b); 
+    } else if token_type == Token::Mul { append_byte(WASM, 0x6c); 
+    } else if token_type == Token::Div { append_byte(WASM, 0x6d); 
+    } else if token_type == Token::Divu { append_byte(WASM, 0x6e); 
+    } else if token_type == Token::Rem { append_byte(WASM, 0x6f); 
+    } else if token_type == Token::Remu { append_byte(WASM, 0x70); 
+    } else if token_type == Token::BitAnd { append_byte(WASM, 0x71); 
+    } else if token_type == Token::BitOr { append_byte(WASM, 0x72); 
+    } else if token_type == Token::BitXor { append_byte(WASM, 0x73); 
+    } else if token_type == Token::Shl { append_byte(WASM, 0x74); 
+    } else if token_type == Token::Shr { append_byte(WASM, 0x75); 
+    } else if token_type == Token::Shru { append_byte(WASM, 0x76); 
+    } else if token_type == Token::Rotl { append_byte(WASM, 0x77); 
+    } else if token_type == Token::Rotr { append_byte(WASM, 0x78); 
     } else { 
       add_error(Error::InvalidOperator, node.node_Token); 
     }
@@ -1710,9 +1712,9 @@ fn emit_operator(type: i32, data_type: i32, node: i32) {
 }
 
 fn emit_unary(node: i32) {
-  let type: i32 = node.node_type;
+  let token_type: i32 = node.node_type;
   let data_type: i32 = node.node_dataType;
-  if type == Token::Sub {
+  if token_type == Token::Sub {
     if data_type == Token::F64 {
       append_byte(WASM, 0x44);  // f64.const
       append_f64(WASM, 0); 
@@ -1728,7 +1730,7 @@ fn emit_unary(node: i32) {
     }
   }
   emit_expression(node.node_BNode);
-  emit_operator(type, data_type, node);
+  emit_operator(token_type, data_type, node);
 }
 
 fn emit_identifier(node: i32) {
@@ -1865,32 +1867,32 @@ fn emit_chr_literal(node: i32, data_type: i32) {
 }
 
 fn emit_literal(node: i32) {
-  let type: i32 = node.node_type;
+  let token_type: i32 = node.node_type;
   let data_type: i32 = node.node_dataType;
-  if type == Token::NumLiteral {
+  if token_type == Token::NumLiteral {
     emit_num_literal(node, data_type);
-  } else if type == Token::CharLiteral {
+  } else if token_type == Token::CharLiteral {
     emit_chr_literal(node, data_type);
-  } else if type == Token::StrLiteral {    
+  } else if token_type == Token::StrLiteral {    
     append_byte(WASM, 0x41);  // i32.const
     append_sleb32(WASM, add_static_str(node.node_Token));
-  } else if type == Token::True {
+  } else if token_type == Token::True {
     append_byte(WASM, 0x41);  // i32.const
     append_byte(WASM, 0x01);  // 1
-  } else if type == Token::False {
+  } else if token_type == Token::False {
     append_byte(WASM, 0x41);  // i32.const
     append_byte(WASM, 0x00);  // 0
   }
 }
 
-static mut OFFSET: i32 = 65536000;
+static mut OFFSET: i32 = 65_536_000;
 
 // Static strings are compiled to a pointer (i32.const) 
 // and a string is added to Data section list
 fn add_static_str(token: i32) -> i32 {
   OFFSET -= string_size + token.token_Value.string_length;
-  if OFFSET % SIZEINT {
-    OFFSET -= SIZEINT + OFFSET % SIZEINT;  // Fix the alignment
+  if OFFSET % ALIGNMENT {
+    OFFSET -= ALIGNMENT + OFFSET % ALIGNMENT;
   }
   list_add_name(DATA_LIST, OFFSET, token.token_Value);
   OFFSET
@@ -2281,9 +2283,9 @@ fn emit_iif(node: i32) {
 }
 
 fn emit_variable(node: i32) {
-  let type: i32  = node.node_type;
+  let token_type: i32  = node.node_type;
   let BNode: i32  = node.node_BNode;
-  BNode.node_dataType = type;
+  BNode.node_dataType = token_type;
   emit_expression(BNode);
   append_byte(WASM, 0x21);  // set_local
   append_uleb(WASM, node.node_index);
@@ -2326,7 +2328,7 @@ fn add_error(errorNo: i32, token: i32) {
 fn parse_error_list() {
   let mut ErrorItem: i32 = ERROR_LIST.list_First;
   if ErrorItem {
-    let error_message: i32 = new_empty_string(1000);
+    let error_message: i32 = new_empty_string(1_000);
     while ErrorItem {
       let token: i32 = ErrorItem.item_Object;
       let errorNo: i32 = ErrorItem.item_number;
@@ -2351,7 +2353,7 @@ fn parse_error_list() {
       } else if errorNo == Error::Expression {
         append_str(error_message, "Expression expected");
       } else if errorNo == Error::TypeNotInferred {
-        append_str(error_message, "Could not determine type");
+        append_str(error_message, "Could not determine token_type");
       } else if errorNo == Error::NotMutable {
         append_str(error_message, "Not mutable");
       } else if errorNo == Error::NoParamList {
@@ -2359,7 +2361,7 @@ fn parse_error_list() {
       } else if errorNo == Error::ParseAssignOp {
         append_str(error_message, "Parsing failed assignop");  
       } else if errorNo == Error::EmitNode {
-        append_str(error_message, "Unexpected node type");
+        append_str(error_message, "Unexpected node token_type");
       } else if errorNo == Error::InvalidOperator {
         append_str(error_message, "Invalid operator");
       } else {  
@@ -2406,28 +2408,32 @@ fn str_to_i64(string: i32, token: i32) -> i64 {  // Supports ints & 0x-prefixed 
   if is_hex {
     offset = 2;
     while offset < length {
-      i = i * 16;
       chr = get_chr(string, offset);
-      if chr >= '0' & chr <= '9' {
-        i += i32_i64(chr) - '0';
-      } else if chr >= 'a' & chr <= 'f' {
-        i += i32_i64(chr) - 'a' + 10;
-      } else if chr >= 'A' & chr <= 'F' {
-        i += i32_i64(chr) - 'A' + 10;
-      } else {
-        add_error(Error::LiteralToInt, token);
+      if chr != '_' {
+        i = i * 16;
+        if chr >= '0' & chr <= '9' {
+          i += i32_i64(chr) - '0';
+        } else if chr >= 'a' & chr <= 'f' {
+          i += i32_i64(chr) - 'a' + 10;
+        } else if chr >= 'A' & chr <= 'F' {
+          i += i32_i64(chr) - 'A' + 10;
+        } else {
+          add_error(Error::LiteralToInt, token);
+        }
       }
       offset += 1;
     }
   } else {
     while offset < length {
-      i = i * 10;
       chr = get_chr(string, offset);
-      if chr >= '0' & chr <= '9' {
-        i += i32_i64(chr) - '0';
-      } else if offset == 0 & chr == '-' {
-      } else {
-        add_error(Error::LiteralToInt, token);
+      if chr != '_' {
+        i = i * 10;
+        if chr >= '0' & chr <= '9' {
+          i += i32_i64(chr) - '0';
+        } else if offset == 0 & chr == '-' {
+        } else {
+          add_error(Error::LiteralToInt, token);
+        }
       }
       offset += 1;
     }
@@ -2471,11 +2477,11 @@ fn str_to_f64(string: i32) -> f64 {
 }
 
 fn uleb_length(i: i32) -> i32 {
-  if i >+ 268435456 {
+  if i >+ 268_435_456 {
     return 5;
-  } else if i >+ 2097151 { 
+  } else if i >+ 2_097_151 { 
     return 4; 
-  } else if i >+ 16383 {
+  } else if i >+ 16_383 {
     return 3;
   } else if i >+ 127 {
     return 2;
@@ -2810,8 +2816,7 @@ fn index_list_search(list: i32, FindName: i32) -> i32 {
 // Magic number -0x00dec0de - used for debugging
 const DEC0DE: i32 = 557785600;
 
-// Most browsers currently only support 32bit sized WASM memories
-const SIZEINT: i32 = 4;
+const ALIGNMENT: i32 = 4;
 
 // Next free memory location
 static mut HEAP: i32 = 0;
@@ -2819,8 +2824,8 @@ static mut HEAP: i32 = 0;
 fn allocate(length: i32) -> i32 {
   let R: i32 = HEAP;
   HEAP += length;
-  if HEAP % SIZEINT {
-    HEAP += SIZEINT - HEAP % SIZEINT;  // Fix the alignment
+  if HEAP % ALIGNMENT {
+    HEAP += ALIGNMENT - HEAP % ALIGNMENT;
   }
   R
 }
