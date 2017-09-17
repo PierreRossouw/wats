@@ -51,57 +51,6 @@ enum Error {
   EmitNode, InvalidOperator, NotMutable, NoIdentifiers, NoParamList, ParseAssignOp
 }
 
-////////////////////////////////////////////////////////////////////////////////////////////////////
-// NEW: string literals 
-
-fn emit_data_section() {
-  let count: i32 = DATA_LIST.list_count;
-  if count {
-    append_byte(WASM, 0x0b);  // Data section
-    append_byte(WASM, 0x00);  // Section size (guess)
-    let start: i32 = WASM.string_length;
-    append_uleb(WASM, count);
-    let mut DataItem: i32 = DATA_LIST.list_First;
-    while DataItem {
-      append_byte(WASM, 0x00);  // memory index 
-      append_byte(WASM, 0x41);  // i32.const
-      append_uleb(WASM, DataItem.item_Object);  // offset
-      append_byte(WASM, 0x0b);  // end
-      let DataString: i32 = DataItem.item_Name;
-      let dataLength: i32 = DataString.string_length + string_size;
-      append_uleb(WASM, dataLength);
-      let s: i32 = new_empty_string(string_size);
-      append_i32(s, 7 - DEC0DE);
-      append_i32(s, DataString.string_length);  // const string_max: i32 = 4;
-      append_i32(s, DataItem.item_Object + string_size);  // const string_Chars: i32 = 8;
-      append_i32(s, DataString.string_length);  // const string_length: i32 = 12;
-      s.string_length = string_size;  // pretty meta
-      append_str(WASM, s);
-      append_str(WASM, DataString);
-      DataItem = DataItem.item_Next;
-    }
-    let length: i32 = WASM.string_length - start;
-    let offset: i32 = uleb_length(length) - 1;
-    offset_tail(WASM, start, offset);
-    WASM.string_length = start - 1;
-    append_uleb(WASM, length);
-    WASM.string_length = WASM.string_length + length;
-  }
-}
-
-static mut OFFSET: i32 = 65536000;
-
-// Static strings are compiled to a pointer (i32.const) 
-// and a string is added to Data section list
-fn add_static_str(token: i32) -> i32 {
-  OFFSET -= string_size + token.token_Value.string_length;
-  if OFFSET % SIZEINT {
-    OFFSET -= SIZEINT + OFFSET % SIZEINT;  // Fix the alignment
-  }
-  list_add_name(DATA_LIST, OFFSET, token.token_Value);
-  OFFSET
-}
-
 // Output Binary (string)
 static mut WASM: i32 = 0;
 
@@ -149,77 +98,77 @@ fn add_token(kind: i32, text: i32, line: i32, column: i32) {
   list_add(TOKEN_LIST, token);
 }
 
-fn process_token(value_str: i32, line: i32, column: i32) {
+fn process_token(s: i32, line: i32, column: i32) {
   let mut kind: i32 = Token::Identifier;
-  if str_eq_char(value_str, '(') { kind = Token::LParen;  
-  } else if str_eq_char(value_str, ',') { kind = Token::Comma; 
-  } else if str_eq_char(value_str, ')') { kind = Token::RParen; 
-  } else if str_eq_char(value_str, '{') { kind = Token::LBrace; 
-  } else if str_eq_char(value_str, '}') { kind = Token::RBrace; 
-  } else if str_eq_char(value_str, ':') { kind = Token::Colon; 
-  } else if str_eq_char(value_str, ';') { kind = Token::Semicolon; 
-  } else if str_eq_char(value_str, '=') { kind = Token::Assign; 
-  } else if str_eq_char(value_str, '<') { kind = Token::Lt;
-  } else if str_eq_char(value_str, '>') { kind = Token::Gt;
-  } else if str_eq_char(value_str, '+') { kind = Token::Add;
-  } else if str_eq_char(value_str, '-') { kind = Token::Sub;
-  } else if str_eq_char(value_str, '*') { kind = Token::Mul; 
-  } else if str_eq_char(value_str, '/') { kind = Token::Div; 
-  } else if str_eq_char(value_str, '!') { kind = Token::Not;
-  } else if str_eq_char(value_str, '%') { kind = Token::Rem;
-  } else if str_eq_char(value_str, '^') { kind = Token::BitXor;
-  } else if str_eq_char(value_str, '&') { kind = Token::BitAnd; 
-  } else if str_eq_char(value_str, '|') { kind = Token::BitOr; 
-  } else if str_eq_char(value_str, '+=') { kind = Token::AddAssign;
-  } else if str_eq_char(value_str, '-=') { kind = Token::SubAssign;
-  } else if str_eq_char(value_str, '&=') { kind = Token::BitAndAssign;
-  } else if str_eq_char(value_str, '|=') { kind = Token::BitOrAssign;
-  } else if str_eq_char(value_str, '^=') { kind = Token::BitXorAssign;
-  } else if str_eq_char(value_str, '/=') { kind = Token::DivAssign;
-  } else if str_eq_char(value_str, '*=') { kind = Token::MulAssign;
-  } else if str_eq_char(value_str, '%=') { kind = Token::RemAssign;
-  } else if str_eq_char(value_str, '<<=') { kind = Token::ShlAssign;
-  } else if str_eq_char(value_str, '>>=') { kind = Token::ShrAssign;
-  } else if str_eq_char(value_str, '<<') { kind = Token::Shl; 
-  } else if str_eq_char(value_str, '>>') { kind = Token::Shr;
-  } else if str_eq_char(value_str, '::') { kind = Token::DoubleColon; 
-  } else if str_eq_char(value_str, '&&') { kind = Token::BoolAnd; 
-  } else if str_eq_char(value_str, '||') { kind = Token::BoolOr; 
-  } else if str_eq_char(value_str, '->') { kind = Token::Arrow; 
-  } else if str_eq_char(value_str, '==') { kind = Token::Eql; 
-  } else if str_eq_char(value_str, '!=') { kind = Token::Ne;
-  } else if str_eq_char(value_str, '<=') { kind = Token::Le;
-  } else if str_eq_char(value_str, '>=') { kind = Token::Ge; 
-  } else if str_eq_char(value_str, '%+') { kind = Token::Remu;
-  } else if str_eq_char(value_str, '/+') { kind = Token::Divu; 
-  } else if str_eq_char(value_str, '>+') { kind = Token::Gtu;
-  } else if str_eq_char(value_str, '<+') { kind = Token::Ltu;
-  } else if str_eq_char(value_str, '<=+') { kind = Token::Leu; 
-  } else if str_eq_char(value_str, '>=+') { kind = Token::Geu;
-  } else if str_eq_char(value_str, '>>+') { kind = Token::Shru;
-  } else if str_eq_char(value_str, 'fn') { kind = Token::Fun;
-  } else if str_eq_char(value_str, 'if') { kind = Token::If; 
-  } else if str_eq_char(value_str, 'pub') { kind = Token::Pub;
-  } else if str_eq_char(value_str, 'let') { kind = Token::Let;
-  } else if str_eq_char(value_str, 'mut') { kind = Token::Mut;
-  } else if str_eq_char(value_str, 'mod') { kind = Token::Mod;
-  } else if str_eq_char(value_str, 'loop') { kind = Token::Loop;
-  } else if str_eq_char(value_str, 'enum') { kind = Token::Enum;
-  } else if str_eq_char(value_str, 'else') { kind = Token::Else;
-  } else if str_eq_char(value_str, 'true') { kind = Token::True; 
-  } else if str_eq_char(value_str, 'false') { kind = Token::False;
-  } else if str_eq_char(value_str, 'break') { kind = Token::Break;
-  } else if str_eq_char(value_str, 'const') { kind = Token::Const;
-  } else if str_eq_char(value_str, 'while') { kind = Token::While;
-  } else if str_eq_char(value_str, 'static') { kind = Token::Static;
-  } else if str_eq_char(value_str, 'return') { kind = Token::Return;
-  } else if str_eq_char(value_str, 'continue') { kind = Token::Continue;
-  } else if str_eq_char(value_str, 'i32') { kind = Token::I32;
-  } else if str_eq_char(value_str, 'i64') { kind = Token::I64;
-  } else if str_eq_char(value_str, 'f32') { kind = Token::F32;
-  } else if str_eq_char(value_str, 'f64') { kind = Token::F64;
-  } else if str_eq_char(value_str, 'bool') { kind = Token::Bool; }
-  add_token(kind, value_str, line, column);
+  if str_eq(s, "(") { kind = Token::LParen;  
+  } else if str_eq(s, ",") { kind = Token::Comma; 
+  } else if str_eq(s, ")") { kind = Token::RParen; 
+  } else if str_eq(s, "{") { kind = Token::LBrace; 
+  } else if str_eq(s, "}") { kind = Token::RBrace; 
+  } else if str_eq(s, ":") { kind = Token::Colon; 
+  } else if str_eq(s, ";") { kind = Token::Semicolon; 
+  } else if str_eq(s, "=") { kind = Token::Assign; 
+  } else if str_eq(s, "<") { kind = Token::Lt;
+  } else if str_eq(s, ">") { kind = Token::Gt;
+  } else if str_eq(s, "+") { kind = Token::Add;
+  } else if str_eq(s, "-") { kind = Token::Sub;
+  } else if str_eq(s, "*") { kind = Token::Mul; 
+  } else if str_eq(s, "/") { kind = Token::Div; 
+  } else if str_eq(s, "!") { kind = Token::Not;
+  } else if str_eq(s, "%") { kind = Token::Rem;
+  } else if str_eq(s, "^") { kind = Token::BitXor;
+  } else if str_eq(s, "&") { kind = Token::BitAnd; 
+  } else if str_eq(s, "|") { kind = Token::BitOr; 
+  } else if str_eq(s, "+=") { kind = Token::AddAssign;
+  } else if str_eq(s, "-=") { kind = Token::SubAssign;
+  } else if str_eq(s, "&=") { kind = Token::BitAndAssign;
+  } else if str_eq(s, "|=") { kind = Token::BitOrAssign;
+  } else if str_eq(s, "^=") { kind = Token::BitXorAssign;
+  } else if str_eq(s, "/=") { kind = Token::DivAssign;
+  } else if str_eq(s, "*=") { kind = Token::MulAssign;
+  } else if str_eq(s, "%=") { kind = Token::RemAssign;
+  } else if str_eq(s, "<<=") { kind = Token::ShlAssign;
+  } else if str_eq(s, ">>=") { kind = Token::ShrAssign;
+  } else if str_eq(s, "<<") { kind = Token::Shl; 
+  } else if str_eq(s, ">>") { kind = Token::Shr;
+  } else if str_eq(s, "::") { kind = Token::DoubleColon; 
+  } else if str_eq(s, "&&") { kind = Token::BoolAnd; 
+  } else if str_eq(s, "||") { kind = Token::BoolOr; 
+  } else if str_eq(s, "->") { kind = Token::Arrow; 
+  } else if str_eq(s, "==") { kind = Token::Eql; 
+  } else if str_eq(s, "!=") { kind = Token::Ne;
+  } else if str_eq(s, "<=") { kind = Token::Le;
+  } else if str_eq(s, ">=") { kind = Token::Ge; 
+  } else if str_eq(s, "%+") { kind = Token::Remu;
+  } else if str_eq(s, "/+") { kind = Token::Divu; 
+  } else if str_eq(s, ">+") { kind = Token::Gtu;
+  } else if str_eq(s, "<+") { kind = Token::Ltu;
+  } else if str_eq(s, "<=+") { kind = Token::Leu; 
+  } else if str_eq(s, ">=+") { kind = Token::Geu;
+  } else if str_eq(s, ">>+") { kind = Token::Shru;
+  } else if str_eq(s, "fn") { kind = Token::Fun;
+  } else if str_eq(s, "if") { kind = Token::If; 
+  } else if str_eq(s, "pub") { kind = Token::Pub;
+  } else if str_eq(s, "let") { kind = Token::Let;
+  } else if str_eq(s, "mut") { kind = Token::Mut;
+  } else if str_eq(s, "mod") { kind = Token::Mod;
+  } else if str_eq(s, "loop") { kind = Token::Loop;
+  } else if str_eq(s, "enum") { kind = Token::Enum;
+  } else if str_eq(s, "else") { kind = Token::Else;
+  } else if str_eq(s, "true") { kind = Token::True; 
+  } else if str_eq(s, "false") { kind = Token::False;
+  } else if str_eq(s, "break") { kind = Token::Break;
+  } else if str_eq(s, "const") { kind = Token::Const;
+  } else if str_eq(s, "while") { kind = Token::While;
+  } else if str_eq(s, "static") { kind = Token::Static;
+  } else if str_eq(s, "return") { kind = Token::Return;
+  } else if str_eq(s, "continue") { kind = Token::Continue;
+  } else if str_eq(s, "i32") { kind = Token::I32;
+  } else if str_eq(s, "i64") { kind = Token::I64;
+  } else if str_eq(s, "f32") { kind = Token::F32;
+  } else if str_eq(s, "f64") { kind = Token::F64;
+  } else if str_eq(s, "bool") { kind = Token::Bool; }
+  add_token(kind, s, line, column);
 }
 
 fn is_single_chr(chr: i32) -> i32 {
@@ -490,7 +439,6 @@ fn parse() -> i32 {
   root_node
 }
 
-
 fn parse_root_statement() -> i32 {
   let mut node: i32 = 0;
   let kind: i32 = CURRENT_TOKEN.token_kind;
@@ -530,8 +478,8 @@ fn parse_fn() -> i32 {
   FN_INDEX += 1;
   node.node_String = name;
   node.node_Nodes = Locals;
-  let ParamList: i32 = parse_fn_params();
-  node.node_ParamNodes = ParamList;
+  let param_list: i32 = parse_fn_params();
+  node.node_ParamNodes = param_list;
   if CURRENT_TOKEN.token_kind.i32 == Token::Arrow {
     eat_token(Token::Arrow);
     type = CURRENT_TOKEN.token_kind;
@@ -540,12 +488,12 @@ fn parse_fn() -> i32 {
   node.node_type = type;
   node.node_dataType = type;
   push_scope(node);
-  let mut ParamItem: i32 = ParamList.list_First;
-  while ParamItem {
-    let ParamName: i32 = ParamItem.item_Name;
-    let ParamNode: i32 = ParamItem.item_Object;
-    scope_register_name(CURRENT_SCOPE, ParamName, ParamNode, ParamNode.node_Token);
-    ParamItem = ParamItem.item_Next;
+  let mut param_item: i32 = param_list.list_First;
+  while param_item {
+    let param_name: i32 = param_item.item_Name;
+    let param_node: i32 = param_item.item_Object;
+    scope_register_name(CURRENT_SCOPE, param_name, param_node, param_node.node_Token);
+    param_item = param_item.item_Next;
   }
   if exported {
     list_add_name(EXPORT_LIST, node, name);
@@ -819,16 +767,16 @@ fn copy_node(node: i32) -> i32 {
 }
 
 fn parse_call_params() -> i32 {
-  let ParamList: i32 = new_list();
+  let param_list: i32 = new_list();
   eat_token(Token::LParen);
   while CURRENT_TOKEN {
     if CURRENT_TOKEN.token_kind.i32 == Token::RParen { break; }
-    list_add(ParamList, parse_expression(Token::MinPrecedence));
+    list_add(param_list, parse_expression(Token::MinPrecedence));
     if CURRENT_TOKEN.token_kind.i32 != Token::Comma { break; }
     eat_token(Token::Comma);
   }
   eat_token(Token::RParen);
-  ParamList
+  param_list
 }
 
 fn parse_call_expression(Callee: i32) -> i32 {
@@ -1266,20 +1214,20 @@ fn append_data_type(string: i32, data_type: i32) {
 }
 
 fn emit_type(node: i32, funcNo: i32) {
-  let ParamList: i32 = node.node_ParamNodes;
-  let params: i32 = ParamList.list_count;
+  let param_list: i32 = node.node_ParamNodes;
+  let params: i32 = param_list.list_count;
   let mut returns: i32 = 0;
   if node.node_type.bool { 
     returns = 1;
   }
   let TypeString: i32 = new_empty_string(1 + uleb_length(params) + params + uleb_length(returns) + returns);
-  append_chr(TypeString, 0x60);  // fn type
+  append_byte(TypeString, 0x60);  // fn type
   append_uleb(TypeString, params);
-  let mut ParamItem: i32 = ParamList.list_First;
-  while ParamItem {
-    let data_type: i32 = ParamItem.item_Object.node_type;
+  let mut param_item: i32 = param_list.list_First;
+  while param_item {
+    let data_type: i32 = param_item.item_Object.node_type;
     append_data_type(TypeString, data_type);
-    ParamItem = ParamItem.item_Next;
+    param_item = param_item.item_Next;
   }
   let returnType: i32 = node.node_type;
   if returnType {
@@ -1428,9 +1376,44 @@ fn emit_export_fns() {
 
 fn emit_export_mem() {
   append_uleb(WASM, 6);
-  append_chr(WASM, 'memory');
+  append_str(WASM, "memory");
   append_byte(WASM, 0x02);  // Type: memory
   append_byte(WASM, 0x00);  // Memory number 0 
+}
+
+fn emit_data_section() {
+  let count: i32 = DATA_LIST.list_count;
+  if count {
+    append_byte(WASM, 0x0b);  // Data section
+    append_byte(WASM, 0x00);  // Section size (guess)
+    let start: i32 = WASM.string_length;
+    append_uleb(WASM, count);
+    let mut DataItem: i32 = DATA_LIST.list_First;
+    while DataItem {
+      append_byte(WASM, 0x00);  // memory index 
+      append_byte(WASM, 0x41);  // i32.const
+      append_uleb(WASM, DataItem.item_Object);  // offset
+      append_byte(WASM, 0x0b);  // end
+      let DataString: i32 = DataItem.item_Name;
+      let dataLength: i32 = DataString.string_length + string_size;
+      append_uleb(WASM, dataLength);
+      let s: i32 = new_empty_string(string_size);
+      append_i32(s, 7 - DEC0DE);  // magic
+      append_i32(s, DataString.string_length);  // const string_max: i32 = 4;
+      append_i32(s, DataItem.item_Object + string_size);  // const string_Chars: i32 = 8;
+      append_i32(s, DataString.string_length);  // const string_length: i32 = 12;
+      s.string_length = string_size;
+      append_str(WASM, s);
+      append_str(WASM, DataString);
+      DataItem = DataItem.item_Next;
+    }
+    let length: i32 = WASM.string_length - start;
+    let offset: i32 = uleb_length(length) - 1;
+    offset_tail(WASM, start, offset);
+    WASM.string_length = start - 1;
+    append_uleb(WASM, length);
+    WASM.string_length = WASM.string_length + length;
+  }
 }
 
 fn emit_code_section(root_node: i32) {
@@ -1605,10 +1588,10 @@ fn emit_binary(node: i32) {
   BNode.node_dataType = data_type;
   emit_expression(ANode);
   emit_expression(BNode);
-  emit_operatorS(type, data_type, node);
+  emit_operator(type, data_type, node);
 }
 
-fn emit_operatorS(type: i32, data_type: i32, node: i32) {
+fn emit_operator(type: i32, data_type: i32, node: i32) {
   if data_type == Token::F64 {
     if type == Token::Eql { append_byte(WASM, 0x61); 
     } else if type == Token::Ne { append_byte(WASM, 0x62); 
@@ -1745,20 +1728,20 @@ fn emit_unary(node: i32) {
     }
   }
   emit_expression(node.node_BNode);
-  emit_operatorS(type, data_type, node);
+  emit_operator(type, data_type, node);
 }
 
 fn emit_identifier(node: i32) {
   let resolved_node: i32 = scope_resolve(CURRENT_SCOPE, node.node_String, node.node_Token);
   let mut data_type: i32 = resolved_node.node_dataType;
-  let mut nodeDataType: i32 = node.node_dataType;
+  let mut node_data_type: i32 = node.node_dataType;
   if data_type == Token::Bool {
     data_type = Token::I32;
   }
-  if nodeDataType == Token::Bool {
-    nodeDataType = Token::I32;
+  if node_data_type == Token::Bool {
+    node_data_type = Token::I32;
   }
-  if nodeDataType != 0 & nodeDataType != data_type {
+  if node_data_type != 0 & node_data_type != data_type {
     add_error(Error::TypeMismatchB, node.node_Token);
   }
   node.node_dataType = data_type;
@@ -1775,17 +1758,17 @@ fn emit_identifier(node: i32) {
 // A B + load() C + load() D + loadX()
 fn emit_dot_load(node: i32) {
   let data_type: i32 = node.node_dataType;
-  let IdentList: i32 = node.node_Nodes;
-  let mut item: i32 = IdentList.list_First;
-  let itemCount: i32 = IdentList.list_count;
-  let mut itemNo: i32 = 1;
+  let ident_list: i32 = node.node_Nodes;
+  let mut item: i32 = ident_list.list_First;
+  let item_count: i32 = ident_list.list_count;
+  let mut item_no: i32 = 1;
   emit_identifier(item.item_Object);
   item = item.item_Next;
   while item {
-    itemNo += 1;
+    item_no += 1;
     emit_identifier(item.item_Object);
     append_byte(WASM, 0x6a);  // i32.Add
-    if itemNo < itemCount {
+    if item_no < item_count {
       append_byte(WASM, 0x28);  // i32.load
     } else {
       if !data_type {
@@ -1816,18 +1799,18 @@ fn emit_dot_store(node: i32) {
     data_type = infer_data_type(node.node_ANode);
     node.node_dataType = data_type;
   }
-  let IdentList: i32 = node.node_Nodes;
-  if IdentList {
-    let mut item: i32 = IdentList.list_First;
-    let itemCount: i32 = IdentList.list_count;
-    let mut itemNo: i32 = 1;
+  let ident_list: i32 = node.node_Nodes;
+  if ident_list {
+    let mut item: i32 = ident_list.list_First;
+    let item_count: i32 = ident_list.list_count;
+    let mut item_no: i32 = 1;
     emit_identifier(item.item_Object);
     item = item.item_Next;
     while item {
-      itemNo += 1;
+      item_no += 1;
       emit_identifier(item.item_Object);
       append_byte(WASM, 0x6a);  // i32.Add
-      if itemNo < itemCount {
+      if item_no < item_count {
         append_byte(WASM, 0x28);  // i32.load
       } else {
         emit_expression(node.node_ANode);
@@ -1889,10 +1872,8 @@ fn emit_literal(node: i32) {
   } else if type == Token::CharLiteral {
     emit_chr_literal(node, data_type);
   } else if type == Token::StrLiteral {    
-
     append_byte(WASM, 0x41);  // i32.const
     append_sleb32(WASM, add_static_str(node.node_Token));
-
   } else if type == Token::True {
     append_byte(WASM, 0x41);  // i32.const
     append_byte(WASM, 0x01);  // 1
@@ -1902,20 +1883,33 @@ fn emit_literal(node: i32) {
   }
 }
 
+static mut OFFSET: i32 = 65536000;
+
+// Static strings are compiled to a pointer (i32.const) 
+// and a string is added to Data section list
+fn add_static_str(token: i32) -> i32 {
+  OFFSET -= string_size + token.token_Value.string_length;
+  if OFFSET % SIZEINT {
+    OFFSET -= SIZEINT + OFFSET % SIZEINT;  // Fix the alignment
+  }
+  list_add_name(DATA_LIST, OFFSET, token.token_Value);
+  OFFSET
+}
+
 fn emit_fn_call_args(CallNode: i32, FunNode: i32) {
-  let ArgumentList: i32 = CallNode.node_ParamNodes;
-  if ArgumentList {
-    let mut ArgumentItem: i32 = ArgumentList.list_First;
-    let ParamList: i32 = FunNode.node_ParamNodes;
-    if ParamList {
-      let mut ParamItem: i32 = ParamList.list_First;
-      while ArgumentItem {
-        let ArgumentNode: i32 = ArgumentItem.item_Object;
-        let ParamNode: i32 = ParamItem.item_Object;
-        ArgumentNode.node_dataType.i32 = ParamNode.node_dataType;
-        emit_expression(ArgumentNode);
-        ArgumentItem = ArgumentItem.item_Next;
-        ParamItem = ParamItem.item_Next;
+  let argument_list: i32 = CallNode.node_ParamNodes;
+  if argument_list {
+    let mut argument_item: i32 = argument_list.list_First;
+    let param_list: i32 = FunNode.node_ParamNodes;
+    if param_list {
+      let mut param_item: i32 = param_list.list_First;
+      while argument_item {
+        let argument_node: i32 = argument_item.item_Object;
+        let param_node: i32 = param_item.item_Object;
+        argument_node.node_dataType.i32 = param_node.node_dataType;
+        emit_expression(argument_node);
+        argument_item = argument_item.item_Next;
+        param_item = param_item.item_Next;
       }
     } else {
       add_error(Error::NoParamList, CallNode.node_Token);
@@ -1924,217 +1918,217 @@ fn emit_fn_call_args(CallNode: i32, FunNode: i32) {
 }
 
 fn emit_call_args(CallNode: i32, data_Type: i32) {
-  let ArgumentList: i32 = CallNode.node_ParamNodes;
-  let mut ArgumentItem: i32 = ArgumentList.list_First;
-  while ArgumentItem {
-    let ArgumentNode: i32 = ArgumentItem.item_Object;
-    ArgumentNode.node_dataType = data_Type;
-    emit_expression(ArgumentNode);
-    ArgumentItem = ArgumentItem.item_Next;
+  let argument_list: i32 = CallNode.node_ParamNodes;
+  let mut argument_item: i32 = argument_list.list_First;
+  while argument_item {
+    let argument_node: i32 = argument_item.item_Object;
+    argument_node.node_dataType = data_Type;
+    emit_expression(argument_node);
+    argument_item = argument_item.item_Next;
   }
 }
 
 fn emit_call_args2(CallNode: i32, data_TypeA: i32, data_TypeB: i32) {
-  let ArgumentList: i32 = CallNode.node_ParamNodes;
-  let mut ArgumentItem: i32 = ArgumentList.list_First;
+  let argument_list: i32 = CallNode.node_ParamNodes;
+  let mut argument_item: i32 = argument_list.list_First;
   let mut isFirst: bool = true;
-  while ArgumentItem {
-    let ArgumentNode: i32 = ArgumentItem.item_Object;
+  while argument_item {
+    let argument_node: i32 = argument_item.item_Object;
     if isFirst {
-      ArgumentNode.node_dataType = data_TypeA;
+      argument_node.node_dataType = data_TypeA;
     } else {    
-      ArgumentNode.node_dataType = data_TypeB;
+      argument_node.node_dataType = data_TypeB;
     }
-    emit_expression(ArgumentNode);
-    ArgumentItem = ArgumentItem.item_Next;
+    emit_expression(argument_node);
+    argument_item = argument_item.item_Next;
     isFirst = false;
   }
 }
 
 fn emit_call(node: i32) {
   let name: i32 = node.node_ANode.node_String;
-  if str_eq_char(name, 'i64_i32') {
+  if str_eq(name, "i64_i32") {
     emit_call_args(node, Token::I64);
     append_byte(WASM, 0xa7);  // i32.wrap/i64
-  } else if str_eq_char(name, 'f32_i32') {
+  } else if str_eq(name, "f32_i32") {
     emit_call_args(node, Token::F32);
     append_byte(WASM, 0xa8);  // i32.trunc_s/f32
-  } else if str_eq_char(name, 'f32_i32u') {
+  } else if str_eq(name, "f32_i32u") {
     emit_call_args(node, Token::F32);
     append_byte(WASM, 0xa9);  // i32.trunc_u/f32
-  } else if str_eq_char(name, 'f64_i32') {
+  } else if str_eq(name, "f64_i32") {
     emit_call_args(node, Token::F64);
     append_byte(WASM, 0xaa);  // i32.trunc_s/f64
-  } else if str_eq_char(name, 'f64_i32u') {
+  } else if str_eq(name, "f64_i32u") {
     emit_call_args(node, Token::F64);
     append_byte(WASM, 0xab);  // i32.trunc_u/f64
-  } else if str_eq_char(name, 'i32_i64') {
+  } else if str_eq(name, "i32_i64") {
     emit_call_args(node, Token::I32);
     append_byte(WASM, 0xac);  // i64.extend_s/i32
-  } else if str_eq_char(name, 'i32_i64u') {
+  } else if str_eq(name, "i32_i64u") {
     emit_call_args(node, Token::I32);
     append_byte(WASM, 0xad);  // i64.extend_u/i32
-  } else if str_eq_char(name, 'f32_i64') {
+  } else if str_eq(name, "f32_i64") {
     emit_call_args(node, Token::F32);
     append_byte(WASM, 0xae);  // i64.trunc_s/f32
-  } else if str_eq_char(name, 'f32_i64u') {
+  } else if str_eq(name, "f32_i64u") {
     emit_call_args(node, Token::F32);
     append_byte(WASM, 0xaf);  // i64.trunc_u/f32
-  } else if str_eq_char(name, 'f64_i64') {
+  } else if str_eq(name, "f64_i64") {
     emit_call_args(node, Token::F64);
     append_byte(WASM, 0xb0);  // i64.trunc_s/f64
-  } else if str_eq_char(name, 'f64_i64u') {
+  } else if str_eq(name, "f64_i64u") {
     emit_call_args(node, Token::F64);
     append_byte(WASM, 0xb1);  // i64.trunc_u/f64
-  } else if str_eq_char(name, 'i32_f32') {
+  } else if str_eq(name, "i32_f32") {
     emit_call_args(node, Token::I32);
     append_byte(WASM, 0xb2);  // f32.convert_s/i32    
-  } else if str_eq_char(name, 'i32_f32u') {
+  } else if str_eq(name, "i32_f32u") {
     emit_call_args(node, Token::I32);
     append_byte(WASM, 0xb3);  // f32.convert_u/i32   
-  } else if str_eq_char(name, 'i64_f32') {
+  } else if str_eq(name, "i64_f32") {
     emit_call_args(node, Token::I64);
     append_byte(WASM, 0xb4);  // f32.convert_s/i64
-  } else if str_eq_char(name, 'i64_f32u') {
+  } else if str_eq(name, "i64_f32u") {
     emit_call_args(node, Token::I64);
     append_byte(WASM, 0xb5);  // f32.convert_u/i64
-  } else if str_eq_char(name, 'f64_f32') {
+  } else if str_eq(name, "f64_f32") {
     emit_call_args(node, Token::F64);
     append_byte(WASM, 0xb6);  // f32.demote/f64
-  } else if str_eq_char(name, 'i32_f64') {
+  } else if str_eq(name, "i32_f64") {
     emit_call_args(node, Token::I32);
     append_byte(WASM, 0xb7);  // f64.convert_s/i32
-  } else if str_eq_char(name, 'i32_f64u') {
+  } else if str_eq(name, "i32_f64u") {
     emit_call_args(node, Token::I32);
     append_byte(WASM, 0xb8);  // f64.convert_u/i32
-  } else if str_eq_char(name, 'i64_f64') {
+  } else if str_eq(name, "i64_f64") {
     emit_call_args(node, Token::I64);
     append_byte(WASM, 0xb9);  // f64.convert_s/i64
-  } else if str_eq_char(name, 'i64_f64u') {
+  } else if str_eq(name, "i64_f64u") {
     emit_call_args(node, Token::I64);
     append_byte(WASM, 0xba);  // f64.convert_u/i64
-  } else if str_eq_char(name, 'f32_f64') {
+  } else if str_eq(name, "f32_f64") {
     emit_call_args(node, Token::F32);
     append_byte(WASM, 0xbb);  // f64.promote/f32
-  } else if str_eq_char(name, 'load32') {
+  } else if str_eq(name, "load32") {
     emit_call_args(node, Token::I32);
     append_byte(WASM, 0x28);  // i32.load
     append_byte(WASM, 0x00);  // alignment
     append_byte(WASM, 0x00);  // offset
-  } else if str_eq_char(name, 'load64') {
+  } else if str_eq(name, "load64") {
     emit_call_args(node, Token::I32);
     append_byte(WASM, 0x29);  // i64.load
     append_byte(WASM, 0x00);  // alignment
     append_byte(WASM, 0x00);  // offset
-  } else if str_eq_char(name, 'loadf32') {
+  } else if str_eq(name, "loadf32") {
     emit_call_args(node, Token::I32);
     append_byte(WASM, 0x2a);  // f32.load
     append_byte(WASM, 0x00);  // alignment
     append_byte(WASM, 0x00);  // offset
-  } else if str_eq_char(name, 'loadf64') {
+  } else if str_eq(name, "loadf64") {
     emit_call_args(node, Token::I32);
     append_byte(WASM, 0x2b);  // f64.load
     append_byte(WASM, 0x00);  // alignment
     append_byte(WASM, 0x00);  // offset
-  } else if str_eq_char(name, 'load8') {
+  } else if str_eq(name, "load8") {
     emit_call_args(node, Token::I32);
     append_byte(WASM, 0x2c);  // i32.load8_s
     append_byte(WASM, 0x00);  // alignment
     append_byte(WASM, 0x00);  // offset
-  } else if str_eq_char(name, 'load8u') {
+  } else if str_eq(name, "load8u") {
     emit_call_args(node, Token::I32);
     append_byte(WASM, 0x2d);  // i32.load8_u
     append_byte(WASM, 0x00);  // alignment
     append_byte(WASM, 0x00);  // offset
-  } else if str_eq_char(name, 'load16') {
+  } else if str_eq(name, "load16") {
     emit_call_args(node, Token::I32);
     append_byte(WASM, 0x2e);  // i32.load16_s
     append_byte(WASM, 0x00);  // alignment
     append_byte(WASM, 0x00);  // offset
-  } else if str_eq_char(name, 'load16u') {
+  } else if str_eq(name, "load16u") {
     emit_call_args(node, Token::I32);
     append_byte(WASM, 0x2f);  // i32.load16_u
     append_byte(WASM, 0x00);  // alignment
     append_byte(WASM, 0x00);  // offset
-  } else if str_eq_char(name, 'loa8i64') {
+  } else if str_eq(name, "loa8i64") {
     emit_call_args(node, Token::I32);
     append_byte(WASM, 0x30);  // i64.load8_s
     append_byte(WASM, 0x00);  // alignment
     append_byte(WASM, 0x00);  // offset
-  } else if str_eq_char(name, 'loa8u64') {
+  } else if str_eq(name, "loa8u64") {
     emit_call_args(node, Token::I32);
     append_byte(WASM, 0x31);  // i64.load8_u
     append_byte(WASM, 0x00);  // alignment
     append_byte(WASM, 0x00);  // offset
-  } else if str_eq_char(name, 'loa16i64') {
+  } else if str_eq(name, "loa16i64") {
     emit_call_args(node, Token::I32);
     append_byte(WASM, 0x32);  // i64.load16_s
     append_byte(WASM, 0x00);  // alignment
     append_byte(WASM, 0x00);  // offset    
-  } else if str_eq_char(name, 'loa16u64') {
+  } else if str_eq(name, "loa16u64") {
     emit_call_args(node, Token::I32);
     append_byte(WASM, 0x33);  // i64.load16_u
     append_byte(WASM, 0x00);  // alignment
     append_byte(WASM, 0x00);  // offset 
-  } else if str_eq_char(name, 'loa32i64') {
+  } else if str_eq(name, "loa32i64") {
     emit_call_args(node, Token::I32);
     append_byte(WASM, 0x34);  // i64.load32_s
     append_byte(WASM, 0x00);  // alignment
     append_byte(WASM, 0x00);  // offset    
-  } else if str_eq_char(name, 'loa32u64') {
+  } else if str_eq(name, "loa32u64") {
     emit_call_args(node, Token::I32);
     append_byte(WASM, 0x35);  // i64.load32_u
     append_byte(WASM, 0x00);  // alignment
     append_byte(WASM, 0x00);  // offset    
-  } else if str_eq_char(name, 'store32') {
+  } else if str_eq(name, "store32") {
     emit_call_args(node, Token::I32);
     append_byte(WASM, 0x36);  // i32.store
     append_byte(WASM, 0x00);  // alignment
     append_byte(WASM, 0x00);  // offset
-  } else if str_eq_char(name, 'store64') {
+  } else if str_eq(name, "store64") {
     emit_call_args2(node, Token::I32, Token::I64);
     append_byte(WASM, 0x37);  // i64.store
     append_byte(WASM, 0x00);  // alignment
     append_byte(WASM, 0x00);  // offset
-  } else if str_eq_char(name, 'storeF32') {
+  } else if str_eq(name, "storeF32") {
     emit_call_args2(node, Token::I32, Token::F32);
     append_byte(WASM, 0x38);  // f32.store
     append_byte(WASM, 0x00);  // alignment
     append_byte(WASM, 0x00);  // offset
-  } else if str_eq_char(name, 'storeF64') {
+  } else if str_eq(name, "storeF64") {
     emit_call_args2(node, Token::I32, Token::F64);
     append_byte(WASM, 0x39);  // f64.store
     append_byte(WASM, 0x00);  // alignment
     append_byte(WASM, 0x00);  // offset
-  } else if str_eq_char(name, 'store8') {
+  } else if str_eq(name, "store8") {
     emit_call_args(node, Token::I32);
     append_byte(WASM, 0x3a);  // i32.store8
     append_byte(WASM, 0x00);  // alignment
     append_byte(WASM, 0x00);  // offset
-  } else if str_eq_char(name, 'store16') {
+  } else if str_eq(name, "store16") {
     emit_call_args(node, Token::I32);
     append_byte(WASM, 0x3b);  // i32.store16
     append_byte(WASM, 0x00);  // alignment
     append_byte(WASM, 0x00);  // offset
-  } else if str_eq_char(name, 'i64sto8') {
+  } else if str_eq(name, "i64sto8") {
     emit_call_args2(node, Token::I32, Token::I64);
     append_byte(WASM, 0x3c);  // i64.store8
     append_byte(WASM, 0x00);  // alignment
     append_byte(WASM, 0x00);  // offset
-  } else if str_eq_char(name, 'i64sto16') {
+  } else if str_eq(name, "i64sto16") {
     emit_call_args2(node, Token::I32, Token::I64);
     append_byte(WASM, 0x3d);  // i64.store16
     append_byte(WASM, 0x00);  // alignment
     append_byte(WASM, 0x00);  // offset
-  } else if str_eq_char(name, 'i64sto32') {
+  } else if str_eq(name, "i64sto32") {
     emit_call_args2(node, Token::I32, Token::I64);
     append_byte(WASM, 0x3e);  // i64.store32
     append_byte(WASM, 0x00);  // alignment
     append_byte(WASM, 0x00);  // offset
-  } else if str_eq_char(name, 'memsize') {
+  } else if str_eq(name, "memsize") {
     append_byte(WASM, 0x3f);  // current_memory
     append_byte(WASM, 0x00);  // memory number
-  } else if str_eq_char(name, 'memgrow') {
+  } else if str_eq(name, "memgrow") {
     emit_call_args(node, Token::I32);
     append_byte(WASM, 0x40);  // grow_memory
     append_byte(WASM, 0x00);  // memory number
@@ -2200,7 +2194,7 @@ fn emit_loop(node: i32) {
       }
       WhileNode.node_dataType = data_type;
     }
-    emit_operatorS(Token::Not, data_type, WhileNode);
+    emit_operator(Token::Not, data_type, WhileNode);
     append_byte(WASM, 0x0d);  // br_if
     append_uleb(WASM, scope_level(node, Node::Loop) + 1);
   }
@@ -2213,33 +2207,33 @@ fn emit_loop(node: i32) {
 
 fn infer_call_data_type(node: i32) -> i32 {
   let name: i32 = node.node_String;
-  if        str_eq_char(name, 'load64')   { return Token::I64;
-  } else if str_eq_char(name, 'load32')   { return Token::I32;
-  } else if str_eq_char(name, 'load8')    { return Token::I32;
-  } else if str_eq_char(name, 'load8u')   { return Token::I32;
-  } else if str_eq_char(name, 'memsize')  { return Token::I32;
-  } else if str_eq_char(name, 'loa_f32')  { return Token::F32;
-  } else if str_eq_char(name, 'loa_f64')  { return Token::F64;
-  } else if str_eq_char(name, 'f32_i32')  { return Token::I32;
-  } else if str_eq_char(name, 'f32_i32u') { return Token::I32;
-  } else if str_eq_char(name, 'f64_i32')  { return Token::I32;
-  } else if str_eq_char(name, 'f64_i32u') { return Token::I32;
-  } else if str_eq_char(name, 'i32_i64')  { return Token::I64;
-  } else if str_eq_char(name, 'i32_i64u') { return Token::I64;
-  } else if str_eq_char(name, 'f32_i64')  { return Token::I64;
-  } else if str_eq_char(name, 'f32_i64u') { return Token::I64;
-  } else if str_eq_char(name, 'f64_i64')  { return Token::I64;
-  } else if str_eq_char(name, 'f64_i64u') { return Token::I64;
-  } else if str_eq_char(name, 'i32_f32')  { return Token::F32;
-  } else if str_eq_char(name, 'i32_f32u') { return Token::F32;
-  } else if str_eq_char(name, 'i64_f32')  { return Token::F32;
-  } else if str_eq_char(name, 'i64_f32u') { return Token::F32;
-  } else if str_eq_char(name, 'f64_f32')  { return Token::F32;
-  } else if str_eq_char(name, 'i32_f64')  { return Token::F64;
-  } else if str_eq_char(name, 'i32_f64u') { return Token::F64;
-  } else if str_eq_char(name, 'i64_f64')  { return Token::F64;
-  } else if str_eq_char(name, 'i64_f64u') { return Token::F64;
-  } else if str_eq_char(name, 'f32_f64')  { return Token::F64;
+  if str_eq(name, "load64") { return Token::I64;
+  } else if str_eq(name, "load32") { return Token::I32;
+  } else if str_eq(name, "load8") { return Token::I32;
+  } else if str_eq(name, "load8u") { return Token::I32;
+  } else if str_eq(name, "memsize") { return Token::I32;
+  } else if str_eq(name, "loa_f32") { return Token::F32;
+  } else if str_eq(name, "loa_f64") { return Token::F64;
+  } else if str_eq(name, "f32_i32") { return Token::I32;
+  } else if str_eq(name, "f32_i32u") { return Token::I32;
+  } else if str_eq(name, "f64_i32") { return Token::I32;
+  } else if str_eq(name, "f64_i32u") { return Token::I32;
+  } else if str_eq(name, "i32_i64") { return Token::I64;
+  } else if str_eq(name, "i32_i64u") { return Token::I64;
+  } else if str_eq(name, "f32_i64") { return Token::I64;
+  } else if str_eq(name, "f32_i64u") { return Token::I64;
+  } else if str_eq(name, "f64_i64") { return Token::I64;
+  } else if str_eq(name, "f64_i64u") { return Token::I64;
+  } else if str_eq(name, "i32_f32") { return Token::F32;
+  } else if str_eq(name, "i32_f32u") { return Token::F32;
+  } else if str_eq(name, "i64_f32") { return Token::F32;
+  } else if str_eq(name, "i64_f32u") { return Token::F32;
+  } else if str_eq(name, "f64_f32") { return Token::F32;
+  } else if str_eq(name, "i32_f64") { return Token::F64;
+  } else if str_eq(name, "i32_f64u") { return Token::F64;
+  } else if str_eq(name, "i64_f64") { return Token::F64;
+  } else if str_eq(name, "i64_f64u") { return Token::F64;
+  } else if str_eq(name, "f32_f64") { return Token::F64;
   } else {
     let resolved_node: i32 = scope_resolve(CURRENT_SCOPE, name, node.node_Token);
     return resolved_node.node_dataType;
@@ -2332,60 +2326,60 @@ fn add_error(errorNo: i32, token: i32) {
 fn parse_error_list() {
   let mut ErrorItem: i32 = ERROR_LIST.list_First;
   if ErrorItem {
-    let ErrorString: i32 = new_empty_string(1000);
+    let error_message: i32 = new_empty_string(1000);
     while ErrorItem {
       let token: i32 = ErrorItem.item_Object;
       let errorNo: i32 = ErrorItem.item_number;
       if errorNo == Error::DuplicateName {
-        append_chr3(ErrorString, 'Duplicat', 'e identi', 'fier');
+        append_str(error_message, "Duplicate identifier");
       } else if errorNo == Error::InvalidToken {
-        append_chr2(ErrorString, 'Invalid ', 'token');
+        append_str(error_message, "Invalid token");
       } else if errorNo == Error::MissingToken {
-        append_chr2(ErrorString, 'Missing ', 'token');
+        append_str(error_message, "Missing token");
       } else if errorNo == Error::RootStatement {
-        append_chr3(ErrorString, 'Invalid ', 'root sta', 'tement');
+        append_str(error_message, "Invalid root statement");
       } else if errorNo == Error::BlockStatement {
-        append_chr3(ErrorString, 'Invalid ', 'Block st', 'atement');
+        append_str(error_message, "Invalid block statement");
       } else if errorNo == Error::TypeMismatchA {
-        append_chr2(ErrorString, 'Type mis', 'match A');
+        append_str(error_message, "Type mismatch A");
       } else if errorNo == Error::TypeMismatchB {
-        append_chr2(ErrorString, 'Type mis', 'match B');
+        append_str(error_message, "Type mismatch B");
       } else if errorNo == Error::NotDeclared {
-        append_chr3(ErrorString, 'Identifi', 'er Not d', 'eclared');
+        append_str(error_message, "Identifier Not declared");
       } else if errorNo == Error::LiteralToInt {
-        append_chr3(ErrorString, 'Could no', 't conver', 't to int');
+        append_str(error_message, "Could not convert to int");
       } else if errorNo == Error::Expression {
-        append_chr3(ErrorString, 'Expressi', 'on expec', 'ted');
+        append_str(error_message, "Expression expected");
       } else if errorNo == Error::TypeNotInferred {
-        append_chr3(ErrorString, 'Could no', 't determ', 'ine type');
+        append_str(error_message, "Could not determine type");
       } else if errorNo == Error::NotMutable {
-        append_chr2(ErrorString, 'Not ', 'mutable');
+        append_str(error_message, "Not mutable");
       } else if errorNo == Error::NoParamList {
-        append_chr3(ErrorString, 'No ', 'param ', 'list');  
+        append_str(error_message, "No param list");  
       } else if errorNo == Error::ParseAssignOp {
-        append_chr3(ErrorString, 'Parsing ', 'failed ', 'assignop');  
+        append_str(error_message, "Parsing failed assignop");  
       } else if errorNo == Error::EmitNode {
-        append_chr3(ErrorString, 'Unexpect', 'ed node ', 'type');
+        append_str(error_message, "Unexpected node type");
       } else if errorNo == Error::InvalidOperator {
-        append_chr2(ErrorString, 'Invalid ', 'operator');
+        append_str(error_message, "Invalid operator");
       } else {  
-        append_chr(ErrorString, 'Error ');
-        append_i32_to_str(ErrorString, errorNo);
+        append_str(error_message, "Error ");
+        append_i32_to_str(error_message, errorNo);
       }
       if token {
-        append_chr(ErrorString, ' line ');
-        append_i32_to_str(ErrorString, token.token_line);
-        append_chr(ErrorString, ' column ');
+        append_str(error_message, " line ");
+        append_i32_to_str(error_message, token.token_line);
+        append_str(error_message, " column ");
         if token.token_Value.i32 {
-          append_i32_to_str(ErrorString, token.token_column - token.token_Value.string_length);
-          append_chr(ErrorString, ' token ');
-          append_str(ErrorString, token.token_Value);
+          append_i32_to_str(error_message, token.token_column - token.token_Value.string_length);
+          append_str(error_message, " token ");
+          append_str(error_message, token.token_Value);
         } else {
-          append_i32_to_str(ErrorString, token.token_column);
+          append_i32_to_str(error_message, token.token_column);
         }
-        append_chr(ErrorString, 13);
+        append_byte(error_message, 13);
       }
-      WASM = ErrorString;
+      WASM = error_message;
       ErrorItem = ErrorItem.item_Next;
     }
   }
@@ -2509,31 +2503,31 @@ fn new_string(length: i32) -> i32 {
   string
 }
 
-fn new_empty_string(maxLength: i32) -> i32 {
+fn new_empty_string(max_length: i32) -> i32 {
   let string: i32 = allocate(string_size);
   string.string_dec0de = 7 - DEC0DE;
-  string.string_max = maxLength;
+  string.string_max = max_length;
   string.string_length = 0;
-  string.string_Chars = allocate(maxLength);
+  string.string_Chars = allocate(max_length);
   string
 }
 
-fn append_str(string: i32, AppendString: i32) {
-  let appendLength: i32 = AppendString.string_length;
-  let maxLength: i32 = string.string_max;
+fn append_str(string: i32, append: i32) {
+  let append_length: i32 = append.string_length;
+  let max_length: i32 = string.string_max;
   let mut offset: i32 = 0;
-  while offset < appendLength {
-    append_byte(string, get_chr(AppendString, offset));
-    if string.string_length >= maxLength { break; }
+  while offset < append_length {
+    append_byte(string, get_chr(append, offset));
+    if string.string_length >= max_length { break; }
     offset += 1;
   }
 }
 
 fn append_i32_to_str(string: i32, i: i32) {
   let length: i32 = string.string_length;
-  let appendLength: i32 = decimal_str_length(i);
-  let mut offset: i32 = appendLength;
-  if length + appendLength <= string.string_max {
+  let append_length: i32 = decimal_str_length(i);
+  let mut offset: i32 = append_length;
+  if length + append_length <= string.string_max {
     while offset {
       let chr: i32 = '0' + i % 10;
       offset = offset - 1;
@@ -2541,7 +2535,7 @@ fn append_i32_to_str(string: i32, i: i32) {
       i = i / 10;
       if !i { break; }
     }  
-    string.string_length = length + appendLength;
+    string.string_length = length + append_length;
   }
 }
 
@@ -2581,26 +2575,6 @@ fn append_byte(string: i32, i: i32) {
     store8(string.string_Chars + length, i);
     string.string_length = length + 1;
   }
-}
-
-fn append_chr(string: i32, i: i64) {
-  loop {
-    let chr: i32 = i64_i32(i % 256);
-    append_byte(string, chr);
-    i = i >>+ 8;
-    if i == 0 { break; }
-  }
-}
-
-fn append_chr2(string: i32, i: i64, j: i64) {
-  append_chr(string, i);
-  append_chr(string, j);
-}
-
-fn append_chr3(string: i32, i: i64, j: i64, k: i64) {
-  append_chr(string, i);
-  append_chr(string, j);
-  append_chr(string, k);
 }
 
 fn append_uleb(string: i32, i: i32) {
@@ -2685,7 +2659,6 @@ fn sub_str(string: i32, offset: i32, mut length: i32) -> i32 {
   result
 }
 
-
 fn str_eq(A: i32, B: i32) -> bool {
   let length: i32 = A.string_length;
   if length == B.string_length {
@@ -2698,20 +2671,6 @@ fn str_eq(A: i32, B: i32) -> bool {
     }
   } else {
     return false;
-  }
-  true
-}
-
-fn str_eq_char(string: i32, a: i64) -> bool {
-  let length: i32 = string.string_length;
-  if length > 8 {
-    return false;
-  } else if length > 4 {
-    if a != load64(string.string_Chars) { return false; }
-  } else if length > 0 {
-    if a != i32_i64(load32(string.string_Chars)) { return false; }
-  } else {
-    if a != 0 { return false; }
   }
   true
 }
