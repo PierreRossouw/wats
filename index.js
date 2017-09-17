@@ -69,8 +69,9 @@ compilerCompile.onclick = (e) => {
   WebAssembly.instantiate(ogWasm).then(results => {
     let mem = new Uint8Array(results.instance.exports.memory.buffer);
     let sourcecode = compilerSource.value;
-    new Uint32Array(mem.buffer)[2] = sourcecode.length;
-    for (var i = 0, strLen = sourcecode.length; i < strLen; i++) { mem[i + 12] = sourcecode.charCodeAt(i); }
+    new Uint32Array(mem.buffer)[2] = 16;
+    new Uint32Array(mem.buffer)[3] = sourcecode.length;
+    for (var i = 0, strLen = sourcecode.length; i < strLen; i++) { mem[i + 16] = sourcecode.charCodeAt(i); }
     let out = results.instance.exports.main();
     let binLen = mem[out] + (mem[out + 1] << 8) + (mem[out + 2] << 16) + (mem[out + 3] << 24);
     out = out + 4;
