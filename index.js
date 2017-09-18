@@ -92,7 +92,8 @@ testCompile.onclick = (e) => {
   WebAssembly.instantiate(compilerWasm).then(results => {
     let mem = new Uint8Array(results.instance.exports.memory.buffer);
     let sourcecode = testSource.value;
-    new Uint32Array(mem.buffer)[2] = 16;
+    new Uint32Array(mem.buffer)[1] = 16;  
+    new Uint32Array(mem.buffer)[2] = sourcecode.length;
     new Uint32Array(mem.buffer)[3] = sourcecode.length;
     for (var i = 0, strLen = sourcecode.length; i < strLen; i++) { mem[i + 16] = sourcecode.charCodeAt(i); }
     let out = results.instance.exports.main();
