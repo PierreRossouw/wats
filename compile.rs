@@ -1,4 +1,4 @@
-// A Rust-ish WebAssembly self-hosted compiler. github.com/PierreRossouw/rswasm v0.1.20170917
+// A Rust-ish WebAssembly self-hosted compiler. github.com/PierreRossouw/rswasm v0.1.20170918
 
 enum Token {
   Identifier,
@@ -55,7 +55,7 @@ enum Error {
 static mut WASM: i32 = 0;
 
 pub fn main() -> i32 {
-  let dwasm: i32 = 0;  // Input (string)
+  let dwasm: i32 = 4;  // Input (string)
   let ignore: i32 = new_string(dwasm.string_length);  // Fix the heap pointer to include the source string
   ERROR_LIST = new_list();
   lexx(dwasm);
@@ -69,7 +69,8 @@ pub fn main() -> i32 {
   if ERROR_LIST.list_count.i32 > 0 { 
     parse_error_list();
   }
-  WASM + string_length  // Return the memory location of the string
+  WASM.string_capacity.i32 = WASM.string_length;
+  WASM + string_capacity  // Return the memory location of the string
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -415,7 +416,7 @@ const node_CNode:      i32 = 28;  // If statement condition node
 const node_Nodes:      i32 = 32;  // list of child Node for Module/Block, enums, or fun locals
 const node_ParamNodes: i32 = 36;  // list of params for Call/fn
 const node_type:       i32 = 40;  // From the Token::_ enum
-const node_dataType:   i32 = 44;  // inferred data token_type
+const node_dataType:   i32 = 44;  // inferred data type
 const node_Token:      i32 = 48;
 const node_assigns:    i32 = 52;
 const node_size:       i32 = 56;
@@ -1306,7 +1307,7 @@ fn emit_global_section(root_node: i32) {
 }
 
 fn emit_native_global(node: i32) {
-  let data_type: i32 = node.node_type;  // Native token_type
+  let data_type: i32 = node.node_type;  // Native type
   if data_type == Token::F64 { 
     append_byte(WASM, 0x7c);
     append_byte(WASM, 0x01);  // Mutable
@@ -1399,13 +1400,9 @@ fn emit_data_section() {
       let DataString: i32 = DataItem.item_Name;
       let dataLength: i32 = DataString.string_length + string_size;
       append_uleb(WASM, dataLength);
-      let s: i32 = new_empty_string(string_size);
-      append_i32(s, 7 - DEC0DE);  // magic
-      append_i32(s, DataString.string_length);  // const string_max: i32 = 4;
-      append_i32(s, DataItem.item_Object + string_size);  // const string_Chars: i32 = 8;
-      append_i32(s, DataString.string_length);  // const string_length: i32 = 12;
-      s.string_length = string_size;
-      append_str(WASM, s);
+      append_i32(WASM, DataItem.item_Object + string_size);  // string_bytes
+      append_i32(WASM, DataString.string_length);  // string_length
+      append_i32(WASM, DataString.string_length);  // string_capacity
       append_str(WASM, DataString);
       DataItem = DataItem.item_Next;
     }
@@ -1856,13 +1853,13 @@ fn emit_chr_literal(node: i32, data_type: i32) {
   if data_type == Token::I64 {
     append_byte(WASM, 0x42);  // i64.const
     if name.string_length.i32 > 4 {
-      append_sleb64(WASM, load64(name.string_Chars));
+      append_sleb64(WASM, load64(name.string_bytes));
     } else {
-      append_sleb32(WASM, load32(name.string_Chars));
+      append_sleb32(WASM, load32(name.string_bytes));
     }
   } else {
     append_byte(WASM, 0x41);  // i32.const
-    append_sleb32(WASM, load32(name.string_Chars));
+    append_sleb32(WASM, load32(name.string_bytes));
   }
 }
 
@@ -2315,7 +2312,6 @@ fn emit_drop(node: i32) {
   append_byte(WASM, 0x1a);  // drop
 }
 
-
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // ERRORS
 
@@ -2493,34 +2489,31 @@ fn uleb_length(i: i32) -> i32 {
 // Strings
 
 // Structs
-const string_dec0de: i32 = 0;
-const string_max:    i32 = 4;
-const string_Chars:  i32 = 8;
-const string_length: i32 = 12;
-const string_size:   i32 = 16;
+const string_bytes:    i32 = 0;
+const string_length:   i32 = 4;
+const string_capacity: i32 = 8;
+const string_size:     i32 = 12;
 
 // Pascal-style strings: We store the length instead of using a null terminator
 fn new_string(length: i32) -> i32 {
   let string: i32 = allocate(string_size);
-  string.string_dec0de = 7 - DEC0DE;
-  string.string_max = length;
+  string.string_capacity = length;
   string.string_length = length;
-  string.string_Chars = allocate(length);
+  string.string_bytes = allocate(length);
   string
 }
 
 fn new_empty_string(max_length: i32) -> i32 {
   let string: i32 = allocate(string_size);
-  string.string_dec0de = 7 - DEC0DE;
-  string.string_max = max_length;
+  string.string_capacity = max_length;
   string.string_length = 0;
-  string.string_Chars = allocate(max_length);
+  string.string_bytes = allocate(max_length);
   string
 }
 
 fn append_str(string: i32, append: i32) {
   let append_length: i32 = append.string_length;
-  let max_length: i32 = string.string_max;
+  let max_length: i32 = string.string_capacity;
   let mut offset: i32 = 0;
   while offset < append_length {
     append_byte(string, get_chr(append, offset));
@@ -2533,7 +2526,7 @@ fn append_i32_to_str(string: i32, i: i32) {
   let length: i32 = string.string_length;
   let append_length: i32 = decimal_str_length(i);
   let mut offset: i32 = append_length;
-  if length + append_length <= string.string_max {
+  if length + append_length <= string.string_capacity {
     while offset {
       let chr: i32 = '0' + i % 10;
       offset = offset - 1;
@@ -2553,39 +2546,39 @@ fn i32_to_str(i: i32) -> i32 {
 
 fn append_i32(string: i32, i: i32) {
   let length: i32 = string.string_length;
-  if length + 4 <= string.string_max {
-    string.string_Chars.length = i;
+  if length + 4 <= string.string_capacity {
+    string.string_bytes.length = i;
     string.string_length = length + 4;
   }
 }
 
 fn append_f32(string: i32, f: f32) {
   let length: i32 = string.string_length;
-  if length + 4 <= string.string_max {
-    string.string_Chars.length = f;
+  if length + 4 <= string.string_capacity {
+    string.string_bytes.length = f;
     string.string_length = length + 4;
   }
 }
 
 fn append_f64(string: i32, f: f64) {
   let length: i32 = string.string_length;
-  if length + 8 <= string.string_max {
-    string.string_Chars.length = f;
+  if length + 8 <= string.string_capacity {
+    string.string_bytes.length = f;
     string.string_length = length + 8;
   }
 }
 
 fn append_byte(string: i32, i: i32) {
   let length: i32 = string.string_length;
-  if length + 1 <= string.string_max {
-    store8(string.string_Chars + length, i);
+  if length + 1 <= string.string_capacity {
+    store8(string.string_bytes + length, i);
     string.string_length = length + 1;
   }
 }
 
 fn append_uleb(string: i32, i: i32) {
   let length: i32 = string.string_length;
-  if length + uleb_length(i) <= string.string_max {
+  if length + uleb_length(i) <= string.string_capacity {
     while i >=+ 128 {
       let chr: i32 = 128 + (i % 128);
       append_byte(string, chr);
@@ -2619,7 +2612,7 @@ fn append_sleb64(string: i32, mut i: i64) {
 
 fn offset_tail(string: i32, start: i32, offset: i32) {
   if offset > 0 {
-    if string.string_length + offset <= string.string_max {
+    if string.string_length + offset <= string.string_capacity {
       string.string_length = string.string_length + offset;
       let mut copy: i32 = string.string_length;
       while copy >= start {
@@ -2641,11 +2634,11 @@ fn decimal_str_length(i: i32) -> i32 {
 }
 
 fn get_chr(string: i32, offset: i32) -> i32 {
-  return load8u(string.string_Chars + offset);
+  return load8u(string.string_bytes + offset);
 }
 
 fn set_chr(string: i32, offset: i32, chr: i32) {
-  store8(string.string_Chars + offset, chr);
+  store8(string.string_bytes + offset, chr);
 }
 
 fn sub_str(string: i32, offset: i32, mut length: i32) -> i32 {
@@ -2819,7 +2812,7 @@ const DEC0DE: i32 = 557785600;
 const ALIGNMENT: i32 = 4;
 
 // Next free memory location
-static mut HEAP: i32 = 0;
+static mut HEAP: i32 = 4;
 
 fn allocate(length: i32) -> i32 {
   let R: i32 = HEAP;
