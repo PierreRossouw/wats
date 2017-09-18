@@ -56,7 +56,9 @@ static mut WASM: i32 = 0;
 
 pub fn main() -> i32 {
   let dwasm: i32 = 4;  // Input (string)
-  let ignore: i32 = new_string(dwasm.string_length);  // Fix the heap pointer to include the source string
+  
+  // Fix the heap pointer to include the source string
+  let ignore: i32 = allocate(4 + string_size + dwasm.string_length);  
   ERROR_LIST = new_list();
   lexx(dwasm);
   let mut root_node: i32 = 0;
@@ -2362,18 +2364,18 @@ fn parse_error_list() {
         append_str(error_message, "Invalid operator");
       } else {  
         append_str(error_message, "Error ");
-        append_i32_to_str(error_message, errorNo);
+        append_i32_as_str(error_message, errorNo);
       }
       if token {
         append_str(error_message, " line ");
-        append_i32_to_str(error_message, token.token_line);
+        append_i32_as_str(error_message, token.token_line);
         append_str(error_message, " column ");
         if token.token_Value.i32 {
-          append_i32_to_str(error_message, token.token_column - token.token_Value.string_length);
+          append_i32_as_str(error_message, token.token_column - token.token_Value.string_length);
           append_str(error_message, " token ");
           append_str(error_message, token.token_Value);
         } else {
-          append_i32_to_str(error_message, token.token_column);
+          append_i32_as_str(error_message, token.token_column);
         }
         append_byte(error_message, 13);
       }
@@ -2496,6 +2498,8 @@ const string_size:     i32 = 12;
 
 // Pascal-style strings: We store the length instead of using a null terminator
 fn new_string(length: i32) -> i32 {
+  let debug: i32 = allocate(4);
+  debug.debug_magic = 7 - DEC0DE;
   let string: i32 = allocate(string_size);
   string.string_capacity = length;
   string.string_length = length;
@@ -2504,6 +2508,8 @@ fn new_string(length: i32) -> i32 {
 }
 
 fn new_empty_string(max_length: i32) -> i32 {
+  let debug: i32 = allocate(4);
+  debug.debug_magic = 7 - DEC0DE;
   let string: i32 = allocate(string_size);
   string.string_capacity = max_length;
   string.string_length = 0;
@@ -2522,7 +2528,7 @@ fn append_str(string: i32, append: i32) {
   }
 }
 
-fn append_i32_to_str(string: i32, i: i32) {
+fn append_i32_as_str(string: i32, i: i32) {
   let length: i32 = string.string_length;
   let append_length: i32 = decimal_str_length(i);
   let mut offset: i32 = append_length;
@@ -2540,7 +2546,7 @@ fn append_i32_to_str(string: i32, i: i32) {
 
 fn i32_to_str(i: i32) -> i32 {
   let S: i32 = new_empty_string(12);
-  append_i32_to_str(S, i);
+  append_i32_as_str(S, i);
   S
 }
 
@@ -2806,13 +2812,16 @@ fn index_list_search(list: i32, FindName: i32) -> i32 {
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Memory management
 
+// debugging struct
+const debug_magic: i32 = 0;
+
 // Magic number -0x00dec0de - used for debugging
 const DEC0DE: i32 = 557785600;
 
 const ALIGNMENT: i32 = 4;
 
 // Next free memory location
-static mut HEAP: i32 = 4;
+static mut HEAP: i32 = 0;
 
 fn allocate(length: i32) -> i32 {
   let R: i32 = HEAP;
