@@ -70,20 +70,20 @@ pub fn main() -> i32 {
   let dwasm: i32 = 4;  // Input (string)
 
   // Fix the heap pointer to include the source string
-  let ignore: i32 = allocate(4 + string_size + dwasm.string_length);  
+  let ignore: i32 = allocate(4 + string_size + dwasm->string_length);  
   ERROR_LIST = new_list();
   lexx(dwasm);
   let mut root_node: i32 = 0;
-  if ERROR_LIST.list_count.i32 == 0 { 
+  if ERROR_LIST->list_count->i32 == 0 { 
     root_node = parse();
   }
-  if ERROR_LIST.list_count.i32 == 0 {
+  if ERROR_LIST->list_count->i32 == 0 {
     emit(dwasm, root_node);
   }
-  if ERROR_LIST.list_count.i32 > 0 { 
+  if ERROR_LIST->list_count->i32 > 0 { 
     parse_error_list();
   }
-  WASM.string_capacity.i32 = WASM.string_length;
+  WASM->string_capacity->i32 = WASM->string_length;
   WASM + string_capacity  // Return the memory location of the string
 }
 
@@ -105,11 +105,11 @@ static mut NEXT_TOKEN: i32 = 0;
 
 fn add_token(kind: i32, text: i32, line: i32, column: i32) {
   let mut token: i32 = allocate(token_size);
-  token.token_dec0de = 6 - DEC0DE;
-  token.token_kind = kind;
-  token.token_Value = text;
-  token.token_line = line;
-  token.token_column = column;
+  token->token_dec0de = 6 - DEC0DE;
+  token->token_kind = kind;
+  token->token_Value = text;
+  token->token_line = line;
+  token->token_column = column;
   list_add(TOKEN_LIST, token);
 }
 
@@ -261,7 +261,7 @@ fn lexx(dwasm: i32) {
   let mut str_index: i32 = -1;
   let mut line: i32 = 1;
   let mut column: i32 = 0;
-  let length: i32 = dwasm.string_length;
+  let length: i32 = dwasm->string_length;
   let mut start: i32 = 0;
   let mut value_str: i32 = 0;
   while str_index < length { 
@@ -2632,40 +2632,40 @@ const string_size:     i32 = 12;
 
 fn new_string(length: i32) -> i32 {
   let debug: i32 = allocate(4);
-  debug.debug_magic = 7 - DEC0DE;
+  debug->debug_magic = 7 - DEC0DE;
   let string: i32 = allocate(string_size);
-  string.string_capacity = length;
-  string.string_length = length;
-  string.string_bytes = allocate(length);
+  string->string_capacity = length;
+  string->string_length = length;
+  string->string_bytes = allocate(length);
   string
 }
 
 fn new_empty_string(max_length: i32) -> i32 {
   let debug: i32 = allocate(4);
-  debug.debug_magic = 7 - DEC0DE;
+  debug->debug_magic = 7 - DEC0DE;
   let string: i32 = allocate(string_size);
-  string.string_capacity = max_length;
-  string.string_length = 0;
-  string.string_bytes = allocate(max_length);
+  string->string_capacity = max_length;
+  string->string_length = 0;
+  string->string_bytes = allocate(max_length);
   string
 }
 
 fn append_str(string: i32, append: i32) {
-  let append_length: i32 = append.string_length;
-  let max_length: i32 = string.string_capacity;
+  let append_length: i32 = append->string_length;
+  let max_length: i32 = string->string_capacity;
   let mut offset: i32 = 0;
   while offset < append_length {
     append_byte(string, get_chr(append, offset));
-    if string.string_length >= max_length { break; }
+    if string->string_length >= max_length { break; }
     offset += 1;
   }
 }
 
 fn append_i32_as_str(string: i32, i: i32) {
-  let length: i32 = string.string_length;
+  let length: i32 = string->string_length;
   let append_length: i32 = decimal_str_length(i);
   let mut offset: i32 = append_length;
-  if length + append_length <= string.string_capacity {
+  if length + append_length <= string->string_capacity {
     while offset {
       let chr: i32 = '0' + i % 10;
       offset = offset - 1;
@@ -2673,7 +2673,7 @@ fn append_i32_as_str(string: i32, i: i32) {
       i = i / 10;
       if !i { break; }
     }  
-    string.string_length = length + append_length;
+    string->string_length = length + append_length;
   }
 }
 
@@ -2684,40 +2684,40 @@ fn i32_to_str(i: i32) -> i32 {
 }
 
 fn append_i32(string: i32, i: i32) {
-  let length: i32 = string.string_length;
-  if length + 4 <= string.string_capacity {
-    string.string_bytes.length = i;
-    string.string_length = length + 4;
+  let length: i32 = string->string_length;
+  if length + 4 <= string->string_capacity {
+    string->string_bytes->length = i;
+    string->string_length = length + 4;
   }
 }
 
 fn append_f32(string: i32, f: f32) {
-  let length: i32 = string.string_length;
-  if length + 4 <= string.string_capacity {
-    string.string_bytes.length = f;
-    string.string_length = length + 4;
+  let length: i32 = string->string_length;
+  if length + 4 <= string->string_capacity {
+    string->string_bytes->length = f;
+    string->string_length = length + 4;
   }
 }
 
 fn append_f64(string: i32, f: f64) {
-  let length: i32 = string.string_length;
-  if length + 8 <= string.string_capacity {
-    string.string_bytes.length = f;
-    string.string_length = length + 8;
+  let length: i32 = string->string_length;
+  if length + 8 <= string->string_capacity {
+    string->string_bytes->length = f;
+    string->string_length = length + 8;
   }
 }
 
 fn append_byte(string: i32, i: i32) {
-  let length: i32 = string.string_length;
-  if length + 1 <= string.string_capacity {
-    store8(string.string_bytes + length, i);
-    string.string_length = length + 1;
+  let length: i32 = string->string_length;
+  if length + 1 <= string->string_capacity {
+    store8(string->string_bytes + length, i);
+    string->string_length = length + 1;
   }
 }
 
 fn append_uleb(string: i32, i: i32) {
-  let length: i32 = string.string_length;
-  if length + uleb_length(i) <= string.string_capacity {
+  let length: i32 = string->string_length;
+  if length + uleb_length(i) <= string->string_capacity {
     while i >=+ 128 {
       let chr: i32 = 128 + (i % 128);
       append_byte(string, chr);
@@ -2751,9 +2751,9 @@ fn append_sleb64(string: i32, mut i: i64) {
 
 fn offset_tail(string: i32, start: i32, offset: i32) {
   if offset > 0 {
-    if string.string_length + offset <= string.string_capacity {
-      string.string_length = string.string_length + offset;
-      let mut copy: i32 = string.string_length;
+    if string->string_length + offset <= string->string_capacity {
+      string->string_length = string->string_length + offset;
+      let mut copy: i32 = string->string_length;
       while copy >= start {
         set_chr(string, copy + offset, get_chr(string, copy));
         copy = copy - 1;
@@ -2773,19 +2773,19 @@ fn decimal_str_length(i: i32) -> i32 {
 }
 
 fn get_chr(string: i32, offset: i32) -> i32 {
-  return load8u(string.string_bytes + offset);
+  return load8u(string->string_bytes + offset);
 }
 
 fn set_chr(string: i32, offset: i32, chr: i32) {
-  store8(string.string_bytes + offset, chr);
+  store8(string->string_bytes + offset, chr);
 }
 
 fn sub_str(string: i32, offset: i32, mut length: i32) -> i32 {
-  if offset >= string.string_length {
+  if offset >= string->string_length {
     length = 0;
   }
-  if offset + length >= string.string_length {
-    length = string.string_length - offset;
+  if offset + length >= string->string_length {
+    length = string->string_length - offset;
   }
   let result: i32 = new_string(length);
   while length > 0 {
@@ -2798,8 +2798,8 @@ fn sub_str(string: i32, offset: i32, mut length: i32) -> i32 {
 }
 
 fn str_eq(A: i32, B: i32) -> bool {
-  let length: i32 = A.string_length;
-  if length == B.string_length {
+  let length: i32 = A->string_length;
+  if length == B->string_length {
     let mut offset: i32 = 0;
     while offset < length {
       if get_chr(A, offset) != get_chr(B, offset) {
@@ -2826,7 +2826,7 @@ fn hex_chr_to_i32(chr: i32) -> i32 {
 
 // Strings may contain escaped hex bytes for example "\5a" -> "Z"
 fn decode_str(S: i32) {
-  let length: i32 = S.string_length;
+  let length: i32 = S->string_length;
   let mut i: i32 = 0;
   let mut o: i32 = 0;
   while i < length {
@@ -2845,7 +2845,7 @@ fn decode_str(S: i32) {
     i += 1;
     o += 1;
   }
-  S.string_length = o;
+  S->string_length = o;
   while o < length {
     set_chr(S, o, 0);
     o += 1;
@@ -2885,58 +2885,58 @@ const item_size:   i32 = 16;
 
 fn new_list() -> i32 {
   let list: i32 = allocate(list_size);
-  list.list_dec0de = 4 - DEC0DE;
+  list->list_dec0de = 4 - DEC0DE;
   list
 }
 
 fn list_add(list: i32, Object: i32) {
   let item: i32 = allocate(item_size);
-  item.item_dec0de = 5 - DEC0DE;
-  item.item_Object = Object;
-  if !list.list_First.i32 {
-    list.list_First = item;
+  item->item_dec0de = 5 - DEC0DE;
+  item->item_Object = Object;
+  if !list->list_First->i32 {
+    list->list_First = item;
   } else {
-    list.list_Last.item_Next = item;
+    list->list_Last->item_Next = item;
   }
-  list.list_Last = item;
-  list.list_count.i32 = list.list_count + 1;
+  list->list_Last = item;
+  list->list_count->i32 = list->list_count + 1;
 }
 
 fn list_add_name(list: i32, Object: i32, name: i32) {
   let item: i32 = allocate(item_size);
-  item.item_dec0de = 5 - DEC0DE;
-  item.item_Object = Object;
-  item.item_Name = name;
-  if !list.list_First.i32 {
-    list.list_First = item;
+  item->item_dec0de = 5 - DEC0DE;
+  item->item_Object = Object;
+  item->item_Name = name;
+  if !list->list_First->i32 {
+    list->list_First = item;
   } else {
-    list.list_Last.item_Next = item;
+    list->list_Last->item_Next = item;
   }
-  list.list_Last = item;
-  list.list_count.i32 = list.list_count + 1;
+  list->list_Last = item;
+  list->list_count->i32 = list->list_count + 1;
 }
 
 // Find a string in a list & return the object
 fn list_search(list: i32, FindName: i32) -> i32 {
-  let mut item: i32 = list.list_First;
+  let mut item: i32 = list->list_First;
   while item {
-    if str_eq(item.item_Name, FindName) {
-      return item.item_Object;
+    if str_eq(item->item_Name, FindName) {
+      return item->item_Object;
     }
-    item = item.item_Next;
+    item = item->item_Next;
   }
   0
 }
 
 // Find a string in a list & return the index
 fn index_list_search(list: i32, FindName: i32) -> i32 {
-  let mut item: i32 = list.list_First;
+  let mut item: i32 = list->list_First;
   let mut index: i32 = 0;
   while item {
-    if str_eq(item.item_Name, FindName) {
+    if str_eq(item->item_Name, FindName) {
       return index;
     }
-    item = item.item_Next;
+    item = item->item_Next;
     index += 1;
   }
   -1
