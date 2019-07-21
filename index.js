@@ -13,7 +13,7 @@ xmlhttp.send();
 ogWasm = xmlhttp.responseText.trim();
 ogWasm = hexStringToByte(ogWasm.replace(/,/g, ""));
 
-xmlhttp.open('GET', 'example.rs', false);
+xmlhttp.open('GET', 'example.wat', false);
 xmlhttp.send();
 testSource.value = xmlhttp.responseText;
 
