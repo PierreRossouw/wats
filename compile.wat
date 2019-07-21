@@ -1114,16 +1114,6 @@ func $emit_localnames($node i32) {
 
   $LocalItem = $node(->)$node_Nodes(->)$list_First
   loop { br_if !$LocalItem 
-    local $data_type i32 = $LocalItem(->)$item_Object(->)$node_type
-    local mut $count i32 = 1
-    loop {
-      local $NextItem i32 = $LocalItem(->)$item_Next
-      br_if !$NextItem
-      br_if $data_type != $NextItem(->)$item_Object(->)$node_type
-      $LocalItem = $NextItem
-      $count += 1
-    }
-
     $append_uleb($WASM, $declCount)  ;; count
     $append_uleb($WASM, $LocalItem(->)$item_Object(->)$node_String(->)$string_length)
     $append_str($WASM, $LocalItem(->)$item_Object(->)$node_String)
