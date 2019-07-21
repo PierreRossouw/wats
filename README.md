@@ -1,5 +1,5 @@
-# compile.rs
-A quick and simple and WebAssembly language with a self-hosted compiler. The language syntax looks a bit like Rust but it's closer to C in functionality.
+# compile.wats
+A quick and simple and WebAssembly self-hosted compiler. The language is just the standard .WAT format with a bit of syntactic sugar to make it more palatable. 
 
 Try it out at https://pierrerossouw.github.io/rswasm
 
@@ -11,3 +11,6 @@ The compiler will return a memory location for the compiled binary
 
 ### Language reference
 Coming soon
+
+### Disassembler
+Coming even sooner
