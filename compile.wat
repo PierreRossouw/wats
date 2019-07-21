@@ -25,7 +25,7 @@ export func $main() i32 {
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Lexer 
 
-;; token struct offsets
+;; Token struct offsets
 global $token_dec0de i32 = 0  ;; debugging marker
 global $token_kind   i32 = 4
 global $token_Value  i32 = 8
@@ -1036,9 +1036,10 @@ global mut $FN_TYPE_LIST i32 = 0
 func $emit($dwasm i32, $root_node i32) {
   $WASM = $new_empty_string($dwasm(->)$string_length + 256)  ;; Guess
   $CURRENT_SCOPE = $root_node(->)$node_Scope
-  $emit_header()
   $TYPE_LIST = $new_list()
   $FN_TYPE_LIST = $new_list()
+
+  $emit_preamble()
   $emit_type_section($root_node)
   $emit_function_section()
   $emit_memory_section()
@@ -1046,9 +1047,126 @@ func $emit($dwasm i32, $root_node i32) {
   $emit_export_section($root_node)
   $emit_code_section($root_node)
   $emit_data_section()
+  $emit_name_section($root_node)
 }
 
-func $emit_header() {
+func $emit_name_section($root_node i32) {
+  local $BodyList i32 = $root_node(->)$node_Nodes
+  if $BodyList {
+    $append_byte($WASM, 0x00)  ;; Custom section
+    $append_byte($WASM, 0x00)  ;; Section size (guess)
+    local $start i32 = $WASM(->)$string_length
+
+    $append_uleb($WASM, 4)  
+    $append_str($WASM, "name")  ;; Section name
+    $emit_funcnamesubsec($root_node)
+    $emit_localnamesubsec($root_node)
+
+    local $length i32 = $WASM(->)$string_length - $start
+    local $offset i32 = $uleb_length($length) - 1
+    $offset_tail($WASM, $start, $offset)
+    $WASM(->)$string_length = $start - 1
+    $append_uleb($WASM, $length)
+    $WASM(->)$string_length = $WASM(->)$string_length + $length
+  }
+}
+
+func $emit_localnamesubsec($root_node i32) {
+  $append_byte($WASM, 0x02)  ;; Id: 2, Subjection: local names
+  $append_byte($WASM, 0x00)  ;; Section size (guess)
+  local $start i32 = $WASM(->)$string_length
+  
+  $append_uleb($WASM, $FN_TYPE_LIST(->)$list_count)  ;; function count
+  local mut $count i32 = 0
+  local mut $FunItem i32 = $root_node(->)$node_Nodes(->)$list_First
+  loop { br_if !$FunItem 
+    local $FunNode i32 = $FunItem(->)$item_Object
+    if i32.$FunNode(->)$node_kind == $Node_Fun {
+      $append_uleb($WASM, $count)
+      $emit_localnames($FunNode)
+      $count += 1
+    }
+    $FunItem = $FunItem(->)$item_Next
+  }
+
+  local $length i32 = $WASM(->)$string_length - $start
+  local $offset i32 = $uleb_length($length) - 1
+  $offset_tail($WASM, $start, $offset)
+  $WASM(->)$string_length = $start - 1
+  $append_uleb($WASM, $length)
+  $WASM(->)$string_length = $WASM(->)$string_length + $length
+}
+
+func $emit_localnames($node i32) {
+  $append_byte($WASM, 0x00)  ;; Local declaration count (guess)
+  local $start i32 = $WASM(->)$string_length
+
+  local mut $declCount i32 = 0
+
+  local mut $LocalItem i32 = $node(->)$node_ParamNodes(->)$list_First
+  loop { br_if !$LocalItem 
+    $append_uleb($WASM, $declCount)  ;; count
+    $append_uleb($WASM, $LocalItem(->)$item_Object(->)$node_String(->)$string_length)
+    $append_str($WASM, $LocalItem(->)$item_Object(->)$node_String)
+    $LocalItem = $LocalItem(->)$item_Next
+    $declCount += 1
+  }
+
+  $LocalItem = $node(->)$node_Nodes(->)$list_First
+  loop { br_if !$LocalItem 
+    local $data_type i32 = $LocalItem(->)$item_Object(->)$node_type
+    local mut $count i32 = 1
+    loop {
+      local $NextItem i32 = $LocalItem(->)$item_Next
+      br_if !$NextItem
+      br_if $data_type != $NextItem(->)$item_Object(->)$node_type
+      $LocalItem = $NextItem
+      $count += 1
+    }
+
+    $append_uleb($WASM, $declCount)  ;; count
+    $append_uleb($WASM, $LocalItem(->)$item_Object(->)$node_String(->)$string_length)
+    $append_str($WASM, $LocalItem(->)$item_Object(->)$node_String)
+    $LocalItem = $LocalItem(->)$item_Next
+    $declCount += 1
+  }
+
+  local $length i32 = $WASM(->)$string_length - $start
+  local $offset i32 = $uleb_length($declCount) - 1
+  $offset_tail($WASM, $start, $offset)
+  $WASM(->)$string_length = $start - 1
+  $append_uleb($WASM, $declCount)
+  $WASM(->)$string_length = $WASM(->)$string_length + $length
+}
+
+func $emit_funcnamesubsec($root_node i32) {
+  $append_byte($WASM, 0x01)  ;; Id: 1, Subjection: function names
+  $append_byte($WASM, 0x00)  ;; Section size (guess)
+  local $start i32 = $WASM(->)$string_length
+  
+  $append_uleb($WASM, $FN_TYPE_LIST(->)$list_count)  ;; function count
+  local mut $count i32 = 0
+  local mut $FunItem i32 = $root_node(->)$node_Nodes(->)$list_First
+  loop { br_if !$FunItem 
+    local $FunNode i32 = $FunItem(->)$item_Object
+    if i32.$FunNode(->)$node_kind == $Node_Fun {
+      $append_uleb($WASM, $count)
+      $append_uleb($WASM, $FunNode(->)$node_String(->)$string_length)  
+      $append_str($WASM, $FunNode(->)$node_String)
+      $count += 1
+    }
+    $FunItem = $FunItem(->)$item_Next
+  }
+
+  local $length i32 = $WASM(->)$string_length - $start
+  local $offset i32 = $uleb_length($length) - 1
+  $offset_tail($WASM, $start, $offset)
+  $WASM(->)$string_length = $start - 1
+  $append_uleb($WASM, $length)
+  $WASM(->)$string_length = $WASM(->)$string_length + $length
+}
+
+func $emit_preamble() {
   $append_str($WASM, "\00asm")  ;; WASM magic 00 61 73 6d
   $append_i32($WASM, 1)         ;; WASM version
 }
@@ -1389,7 +1507,7 @@ func $emit_node($node i32) {
   }
 }
 
-func $emit_expression($node i32) {
+func $emit_instruction($node i32) {
   if $node {
     local $kind i32 = $node(->)$node_kind
     if $kind == $Node_Binary {
@@ -1430,7 +1548,7 @@ func $emit_assign($node i32, $isExpression i32) {
     $add_error($Error_TypeMismatchA, $node(->)$node_Token)
   }
   $BNode(->)$node_dataType = $data_type
-  $emit_expression($BNode)
+  $emit_instruction($BNode)
   if $resolved_node(->)$node_Scope == $GLOBAL_SCOPE {
     $append_byte($WASM, 0x24)  ;; set_global
     if $isExpression {
@@ -1461,8 +1579,8 @@ func $emit_binary($node i32) {
   }
   $ANode(->)$node_dataType = $data_type
   $BNode(->)$node_dataType = $data_type
-  $emit_expression($ANode)
-  $emit_expression($BNode)
+  $emit_instruction($ANode)
+  $emit_instruction($BNode)
   $emit_operator($token_type, $data_type, $node)
 }
 
@@ -1602,7 +1720,7 @@ func $emit_unary($node i32) {
       $append_byte($WASM, 0x00)  ;; 0
     }
   }
-  $emit_expression($node(->)$node_BNode)
+  $emit_instruction($node(->)$node_BNode)
   $emit_operator($token_type, $data_type, $node)
 }
 
@@ -1682,7 +1800,7 @@ func $emit_dot_store($node i32) {
       if $item_no < $item_count {
         $append_byte($WASM, 0x28)  ;; i32.load
       } else {
-        $emit_expression($node(->)$node_ANode)
+        $emit_instruction($node(->)$node_ANode)
         if $data_type == $TokenType_F64 {
           $append_byte($WASM, 0x39)  ;; f64.store
         } else if $data_type == $TokenType_F32 {
@@ -1770,7 +1888,7 @@ func $emit_fn_call_args($call_node i32, $FunNode i32) {
         local $argument_node i32 = $argument_item(->)$item_Object
         local $param_node i32 = $param_item(->)$item_Object
         i32.$argument_node(->)$node_dataType = $param_node(->)$node_dataType
-        $emit_expression($argument_node)
+        $emit_instruction($argument_node)
         $argument_item = $argument_item(->)$item_Next
         $param_item = $param_item(->)$item_Next
       }
@@ -1786,7 +1904,7 @@ func $emit_call_args($call_node i32, $data_Type i32) {
   loop { br_if !$argument_item 
     local $argument_node i32 = $argument_item(->)$item_Object
     $argument_node(->)$node_dataType = $data_Type
-    $emit_expression($argument_node)
+    $emit_instruction($argument_node)
     $argument_item = $argument_item(->)$item_Next
   }
 }
@@ -1802,7 +1920,7 @@ func $emit_call_args2($call_node i32, $data_TypeA i32, $data_TypeB i32) {
     } else {    
       $argument_node(->)$node_dataType = $data_TypeB
     }
-    $emit_expression($argument_node)
+    $emit_instruction($argument_node)
     $argument_item = $argument_item(->)$item_Next
     $is_first = 0
   }
@@ -2018,7 +2136,7 @@ func $emit_block($node i32) {
 }
 
 func $emit_if($node i32) {
-  $emit_expression($node(->)$node_CNode)  ;; If condition Expression
+  $emit_instruction($node(->)$node_CNode)  ;; If condition Expression
   $append_byte($WASM, 0x04)  ;; if
   $append_byte($WASM, 0x40)  ;; void
   $emit_node($node(->)$node_ANode)  ;; Then Block
@@ -2048,7 +2166,7 @@ func $emit_loop($node i32) {
   $append_byte($WASM, 0x40)  ;; void 
   local $WhileNode i32 = $node(->)$node_CNode
   if $WhileNode {
-    $emit_expression($WhileNode)
+    $emit_instruction($WhileNode)
     local mut $data_type i32 = $WhileNode(->)$node_dataType
     if !$data_type {
       $data_type = $infer_data_type($WhileNode)
@@ -2140,7 +2258,7 @@ func $emit_variable($node i32) {
   local $token_type i32 = $node(->)$node_type
   local $BNode i32 = $node(->)$node_BNode
   $BNode(->)$node_dataType = $token_type
-  $emit_expression($BNode)
+  $emit_instruction($BNode)
   $append_byte($WASM, 0x21)  ;; set_local
   $append_uleb($WASM, $node(->)$node_index)
 }
@@ -2151,21 +2269,21 @@ func $emit_return($node i32) {
   if $data_type {
     $node(->)$node_dataType = $data_type
     $ANode(->)$node_dataType = $data_type
-    $emit_expression($ANode)
+    $emit_instruction($ANode)
   }
-  if $scope_level($node, $Node_Fun) > 0 {
+  if $scope_level($node, $Node_Fun) > 0 {  ;; TODO wat is this might be a bug
     $append_byte($WASM, 0x0f)  ;; return
   }
 }
 
 func $emit_br_if($node i32) {
-  $emit_expression($node(->)$node_CNode)  ;; If condition Expression
+  $emit_instruction($node(->)$node_CNode)  ;; If condition Expression
   $append_byte($WASM, 0x0d)  ;; br_if
   $append_uleb($WASM, $scope_level($node, $Node_Loop) + 1)
 }
 
 func $emit_drop($node i32) {
-  $emit_expression($node(->)$node_CNode)
+  $emit_instruction($node(->)$node_CNode)
   $append_byte($WASM, 0x1a)  ;; drop
 }
 
@@ -2769,28 +2887,30 @@ global $TokenType_Br            i32 = 102
 global $TokenType_Br_If         i32 = 103
 global $TokenType_Return        i32 = 104
 
-global $Node_Module     i32 = 1
-global $Node_Data       i32 = 2
-global $Node_Fun        i32 = 4 
-global $Node_Parameter  i32 = 5
-global $Node_Return     i32 = 6
-global $Node_Call       i32 = 7
-global $Node_Block      i32 = 8
-global $Node_Variable   i32 = 9
-global $Node_Identifier i32 = 10
-global $Node_Literal    i32 = 11
-global $Node_Assign     i32 = 12
-global $Node_Binary     i32 = 13
-global $Node_Unary      i32 = 14
-global $Node_DotLoad    i32 = 15
-global $Node_DotStore   i32 = 16
-global $Node_Iif        i32 = 17
-global $Node_If         i32 = 18
-global $Node_Loop       i32 = 19
-global $Node_Br         i32 = 20
-global $Node_Br_If      i32 = 21
-global $Node_Continue   i32 = 22
-global $Node_Pop        i32 = 23
+;; Enum list of node types
+global $Node_Module      i32 = 1  ;; The root node
+global $Node_Data        i32 = 2
+global $Node_Fun         i32 = 4 
+global $Node_Parameter   i32 = 5
+global $Node_Return      i32 = 6
+global $Node_Call        i32 = 7
+global $Node_Block       i32 = 8
+global $Node_Variable    i32 = 9
+global $Node_Identifier  i32 = 10
+global $Node_Literal     i32 = 11
+global $Node_Assign      i32 = 12
+global $Node_Binary      i32 = 13
+global $Node_Unary       i32 = 14
+global $Node_DotLoad     i32 = 15
+global $Node_DotStore    i32 = 16
+global $Node_Iif         i32 = 17
+global $Node_If          i32 = 18
+global $Node_Loop        i32 = 19
+global $Node_Br          i32 = 20
+global $Node_Br_If       i32 = 21
+global $Node_Continue    i32 = 22
+global $Node_Pop         i32 = 23
+global $Node_Instruction i32 = 24
 
 global $Error_DuplicateName   i32 = 1
 global $Error_InvalidToken    i32 = 2
