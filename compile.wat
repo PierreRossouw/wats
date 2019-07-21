@@ -1,5 +1,4 @@
 ;; Self-hosted WebAssembly compiler in a sugared Wat format. github.com/PierreRossouw 2019-07-21
-global mut $WASM i32 = 0  ;; Output Binary (string)
 
 export func $main() i32 {
   local $dwasm i32 = 4  ;; Input (string)
@@ -24,19 +23,6 @@ export func $main() i32 {
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Lexer 
-
-;; Token struct offsets
-global $token_dec0de i32 = 0  ;; debugging marker
-global $token_kind   i32 = 4
-global $token_Value  i32 = 8
-global $token_line   i32 = 12
-global $token_column i32 = 16
-global $token_size   i32 = 20
-
-global mut $TOKEN_LIST         i32 = 0
-global mut $CURRENT_TOKEN_ITEM i32 = 0
-global mut $CURRENT_TOKEN      i32 = 0
-global mut $NEXT_TOKEN         i32 = 0
 
 func $add_token($kind i32, $text i32, $line i32, $column i32) {
   local mut $token i32 = $allocate($token_size)
@@ -314,17 +300,6 @@ func $is_printable($chr i32) i32 {
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Scoper
 
-global $scope_dec0de     i32 = 0   ;; debugging marker
-global $scope_Node       i32 = 4
-global $scope_index      i32 = 8
-global $scope_Parent     i32 = 12
-global $scope_Symbols    i32 = 16
-global $scope_localIndex i32 = 20
-global $scope_size       i32 = 24
-
-global mut $CURRENT_SCOPE i32 = 0
-global mut $GLOBAL_SCOPE  i32 = 0
-
 func $push_scope($node i32) {
   local $scope i32 = $allocate($scope_size)
   $scope(->)$scope_dec0de = 3 - $DEC0DE
@@ -384,26 +359,6 @@ func $scope_resolve($scope i32, $name i32, $token i32) i32 {
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Parser 
 
-;; Structs
-global $node_dec0de     i32 = 0   ;; debugging marker
-global $node_kind       i32 = 4   ;; Node enum
-global $node_index      i32 = 8   ;; Zero based index number for funs, variables, parameters
-global $node_String     i32 = 12  ;; Literal value, or fn/var/Parameter name
-global $node_Scope      i32 = 16  ;; scope for Module/Block/loop/fun used for name resolution
-global $node_ANode      i32 = 20  ;; Binary left, Call fn, return Expression, Block, or fun body
-global $node_BNode      i32 = 24  ;; Binary/Unary right, else Block, fun return, Variable assignment
-global $node_CNode      i32 = 28  ;; If statement condition node
-global $node_Nodes      i32 = 32  ;; list of child Node for Module/Block, or fun locals
-global $node_ParamNodes i32 = 36  ;; list of params for Call/fn
-global $node_type       i32 = 40  ;; TokenType enum
-global $node_dataType   i32 = 44  ;; inferred data type
-global $node_Token      i32 = 48
-global $node_assigns    i32 = 52
-global $node_size       i32 = 56
-
-global mut $EXPORT_LIST i32 = 0
-global mut $DATA_LIST   i32 = 0
-
 func $parse() i32 {
   local $root_node i32 = $new_node($Node_Module)
   $EXPORT_LIST = $new_list()
@@ -436,9 +391,6 @@ func $parse_root_statement() i32 {
   }
   $node
 }
-
-;; Next function index number
-global mut $FN_INDEX i32 = 0 
 
 func $parse_func() i32 {
   local mut $exported i32 = 0
@@ -1028,10 +980,6 @@ func $parse_declaration() i32 {
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Compiler 
-
-global mut $CURRENT_FN_NODE i32 = 0
-global mut $TYPE_LIST i32 = 0
-global mut $FN_TYPE_LIST i32 = 0
 
 func $emit($dwasm i32, $root_node i32) {
   $WASM = $new_empty_string($dwasm(->)$string_length + 256)  ;; Guess
@@ -1854,8 +1802,6 @@ func $emit_literal($node i32) {
   }
 }
 
-global mut $OFFSET i32 = 65_536_000
-
 ;; Static strings are compiled to a pointer (i32.const) 
 ;; and a string is added to Data section list
 func $add_static_str($token i32) i32 {
@@ -2454,16 +2400,6 @@ func $uleb_length($i i32) i32 {
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Strings
 
-;; Structs
-global $str_bytes  i32 = 0
-global $str_length i32 = 4
-global $str_size   i32 = 8
-
-global $string_bytes    i32 = 0
-global $string_length   i32 = 4
-global $string_capacity i32 = 8
-global $string_size     i32 = 12
-
 func $new_string($length i32) i32 {
   local $debug i32 = $allocate(4)
   $debug(->)$debug_magic = 7 - $DEC0DE
@@ -2704,19 +2640,6 @@ func $is_number($chr i32, $hexNum i32) i32 {
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Lists
 
-;; List struct offsets
-global $list_dec0de i32 = 0  ;; debugging marker
-global $list_First  i32 = 4
-global $list_Last   i32 = 8
-global $list_count  i32 = 12
-global $list_size   i32 = 16
-
-global $item_dec0de i32 = 0  ;; debugging marker
-global $item_Next   i32 = 4
-global $item_Object i32 = 8
-global $item_Name   i32 = 12   global $item_number i32 = 12
-global $item_size   i32 = 16
-
 func $new_list() i32 {
   local $list i32 = $allocate($list_size)
   $list(->)$list_dec0de = 4 - $DEC0DE
@@ -2779,14 +2702,6 @@ func $index_list_search($list i32, $FindName i32) i32 {
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Memory management
 
-;; Magic number -0x00dec0de - used for debugging
-global $DEC0DE i32 = 557785600
-global $debug_magic i32 = 0
-global $ALIGNMENT i32 = 4
-
-;; Next free memory location
-global mut $HEAP i32 = 0
-
 func $allocate($length i32) i32 {
   local $R i32 = $HEAP
   $HEAP += $length
@@ -2795,6 +2710,92 @@ func $allocate($length i32) i32 {
   }
   $R
 }
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Globals
+
+global mut $WASM i32 = 0  ;; Output Binary (string)
+global mut $HEAP i32 = 0  ;; Next free memory location
+
+global mut $TOKEN_LIST         i32 = 0
+global mut $CURRENT_TOKEN_ITEM i32 = 0
+global mut $CURRENT_TOKEN      i32 = 0
+global mut $NEXT_TOKEN         i32 = 0
+
+global mut $CURRENT_SCOPE i32 = 0
+global mut $GLOBAL_SCOPE  i32 = 0
+
+global mut $EXPORT_LIST i32 = 0
+global mut $DATA_LIST   i32 = 0
+
+global mut $FN_INDEX i32 = 0  ;; Next function index number
+
+global mut $CURRENT_FN_NODE i32 = 0
+global mut $TYPE_LIST i32 = 0
+global mut $FN_TYPE_LIST i32 = 0
+
+global mut $OFFSET i32 = 65_536_000
+
+;; Token struct offsets
+global $token_dec0de i32 = 0  ;; debugging marker
+global $token_kind   i32 = 4
+global $token_Value  i32 = 8
+global $token_line   i32 = 12
+global $token_column i32 = 16
+global $token_size   i32 = 20
+
+global $scope_dec0de     i32 = 0   ;; debugging marker
+global $scope_Node       i32 = 4
+global $scope_index      i32 = 8
+global $scope_Parent     i32 = 12
+global $scope_Symbols    i32 = 16
+global $scope_localIndex i32 = 20
+global $scope_size       i32 = 24
+
+;; Node struct offsets
+global $node_dec0de     i32 = 0   ;; debugging marker
+global $node_kind       i32 = 4   ;; Node enum
+global $node_index      i32 = 8   ;; Zero based index number for funs, variables, parameters
+global $node_String     i32 = 12  ;; Literal value, or fn/var/Parameter name
+global $node_Scope      i32 = 16  ;; scope for Module/Block/loop/fun used for name resolution
+global $node_ANode      i32 = 20  ;; Binary left, Call fn, return Expression, Block, or fun body
+global $node_BNode      i32 = 24  ;; Binary/Unary right, else Block, fun return, Variable assignment
+global $node_CNode      i32 = 28  ;; If statement condition node
+global $node_Nodes      i32 = 32  ;; list of child Node for Module/Block, or fun locals
+global $node_ParamNodes i32 = 36  ;; list of params for Call/fn
+global $node_type       i32 = 40  ;; TokenType enum
+global $node_dataType   i32 = 44  ;; inferred data type
+global $node_Token      i32 = 48
+global $node_assigns    i32 = 52
+global $node_size       i32 = 56
+
+;; String structs
+global $str_bytes  i32 = 0
+global $str_length i32 = 4
+global $str_size   i32 = 8
+
+global $string_bytes    i32 = 0
+global $string_length   i32 = 4
+global $string_capacity i32 = 8
+global $string_size     i32 = 12
+
+;; List structs
+global $list_dec0de i32 = 0  ;; debugging marker
+global $list_First  i32 = 4
+global $list_Last   i32 = 8
+global $list_count  i32 = 12
+global $list_size   i32 = 16
+
+global $item_dec0de i32 = 0  ;; debugging marker
+global $item_Next   i32 = 4
+global $item_Object i32 = 8
+global $item_Name   i32 = 12   global $item_number i32 = 12
+global $item_size   i32 = 16
+
+;; Magic number -0x00dec0de - used for debugging
+global $DEC0DE i32 = 557785600
+global $debug_magic i32 = 0
+global $ALIGNMENT i32 = 4
 
 ;; Enums
 global $TokenType_Identifier    i32 = 1
