@@ -4,7 +4,7 @@ if (window.WebAssembly === void 0) {
 
 var xmlhttp, ogWasm;
 xmlhttp = new XMLHttpRequest();
-xmlhttp.open('GET', 'compile.rs', false);
+xmlhttp.open('GET', 'compile.wat', false);
 xmlhttp.send();
 compilerSource.value = xmlhttp.responseText;
 
