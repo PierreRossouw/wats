@@ -1,7 +1,7 @@
 # compile.wats
 A quick and simple and WebAssembly self-hosted compiler. The language is just the standard .WAT format with a bit of syntactic sugar to make it more palatable. 
 
-Try it out at https://pierrerossouw.github.io/rswasm
+Try it out at https://pierrerossouw.github.io/wats
 
 ### Using the compiler
 WebAssembly does not have IO so some JavaScript is needed to use the compiler  
