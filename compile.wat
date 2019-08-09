@@ -2081,6 +2081,13 @@ func $emit_builtin($node i32) {
   } else if $str_eq($name, "extend_u") {
     $emit_call_args($node, $TokenType_I32)
     $append_byte($WASM, 0xad) 
+  } else if $str_eq($name, "demote") {
+    $emit_call_args($node, $TokenType_F64)
+    $append_byte($WASM, 0xb6)
+  } else if $str_eq($name, "promote") {
+    $emit_call_args($node, $TokenType_F32)
+    $append_byte($WASM, 0xbb)
+
   } else if $str_eq($name, "trunc_s_f32") {
     $emit_call_args($node, $TokenType_F32)
     if $t == $TokenType_I32 {
@@ -2110,6 +2117,7 @@ func $emit_builtin($node i32) {
       $append_byte($WASM, 0xb7) 
     }
 
+
   } else if $str_eq($name, "f32_convert_s_i32") {
     $emit_call_args($node, $TokenType_I32)
     $append_byte($WASM, 0xb2)
@@ -2130,18 +2138,14 @@ func $emit_builtin($node i32) {
   } else if $str_eq($name, "f32_convert_u_i64") {
     $emit_call_args($node, $TokenType_I64)
     $append_byte($WASM, 0xb5)
-  } else if $str_eq($name, "f32_demote_f64") {
-    $emit_call_args($node, $TokenType_F64)
-    $append_byte($WASM, 0xb6)
+
   } else if $str_eq($name, "f64_convert_u_i32") {
     $emit_call_args($node, $TokenType_I32)
     $append_byte($WASM, 0xb8)
   } else if $str_eq($name, "f64_convert_u_i64") {
     $emit_call_args($node, $TokenType_I64)
     $append_byte($WASM, 0xba)
-  } else if $str_eq($name, "f64_promote_f32") {
-    $emit_call_args($node, $TokenType_F32)
-    $append_byte($WASM, 0xbb)
+
   } else {
     ;; todo error
   }
@@ -2220,23 +2224,18 @@ func $infer_call_data_type($node i32) i32 {
   } else if $str_eq($name, "wrap") { return $TokenType_I32
   } else if $str_eq($name, "extend_s") { return $TokenType_I64
   } else if $str_eq($name, "extend_u") { return $TokenType_I64
+  } else if $str_eq($name, "demote") { return $TokenType_F32
+  } else if $str_eq($name, "promote") { return $TokenType_F64
 
 
-
-  } else if $str_eq($name, "i32_reinterpret_f32") { return $TokenType_I32
-  } else if $str_eq($name, "i64_reinterpret_f64") { return $TokenType_I64
-  } else if $str_eq($name, "f32_demote_f64") { return $TokenType_F32
   } else if $str_eq($name, "f32_convert_s_i32") { return $TokenType_F32
-  } else if $str_eq($name, "f32_convert_s_i64") { return $TokenType_F32
-  } else if $str_eq($name, "f32_convert_u_i32") { return $TokenType_F32
-  } else if $str_eq($name, "f32_convert_u_i64") { return $TokenType_F32
-  } else if $str_eq($name, "f32_reinterpret_i32") { return $TokenType_F32
-  } else if $str_eq($name, "f64_promote_f32") { return $TokenType_F64
   } else if $str_eq($name, "f64_convert_s_i32") { return $TokenType_F64
+  } else if $str_eq($name, "f32_convert_s_i64") { return $TokenType_F32
   } else if $str_eq($name, "f64_convert_s_i64") { return $TokenType_F64
+  } else if $str_eq($name, "f32_convert_u_i32") { return $TokenType_F32
   } else if $str_eq($name, "f64_convert_u_i32") { return $TokenType_F64
+  } else if $str_eq($name, "f32_convert_u_i64") { return $TokenType_F32
   } else if $str_eq($name, "f64_convert_u_i64") { return $TokenType_F64
-  } else if $str_eq($name, "f64_reinterpret_i64") { return $TokenType_F64
   } else {
     local $resolved_node i32 = $scope_resolve($CURRENT_SCOPE, $name, $node[$node_Token])
     return $resolved_node[$node_dataType]
@@ -2430,11 +2429,11 @@ func $str_to_i64($string i32, $token i32) i64 {  ;; Supports ints & 0x-prefixed 
 }
 
 func $str_to_f32($string i32) f32 {
-  f32_demote_f64($str_to_f64($string))
+  demote($str_to_f64($string))
 }
 
 func $str_to_f64($string i32) f64 {
-  local mut $f f64 = $f
+  local mut $f f64 = 0
   local $length i32 = $string[$string_length]
   local mut $offset i32 = 0
   local mut $d f64 = 1
@@ -3002,4 +3001,4 @@ global $Error_NoIdentifiers   i32 = 115
 global $Error_NoParamList     i32 = 116
 global $Error_ParseAssignOp   i32 = 117
 
-;; Pierre Rossouw 2019-09-08 https://github.com/PierreRossouw/
+;; Pierre Rossouw 2019-09-09 https://github.com/PierreRossouw/
