@@ -1,4 +1,4 @@
-;; Self-hosted WebAssembly compiler in a sugared Wat format. github.com/PierreRossouw 2019-07-21
+;; Self-hosted WebAssembly compiler in a sugared Wat format. github.com/PierreRossouw 2019-09-08
 
 export func $main() i32 {
   local $dwasm i32 = 4  ;; Input (string)
@@ -23,92 +23,6 @@ export func $main() i32 {
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Lexer 
 
-func $add_token($kind i32, $text i32, $line i32, $column i32) {
-  local mut $token i32 = $allocate($token_size)
-  $token[$token_dec0de] = 6 - $DEC0DE
-  $token[$token_kind] = $kind
-  $token[$token_Value] = $text
-  $token[$token_line] = $line
-  $token[$token_column] = $column
-  $list_add($TOKEN_LIST, $token)
-}
-
-func $process_token($s i32, $line i32, $column i32) {
-  local mut $kind i32 = $TokenType_Identifier
-  if $str_eq($s, "!") { $kind = $TokenType_Exclam
-  } else if $str_eq($s, "%") { $kind = $TokenType_Percent
-  } else if $str_eq($s, "&") { $kind = $TokenType_Amp 
-  } else if $str_eq($s, "(") { $kind = $TokenType_LParen  
-  } else if $str_eq($s, ")") { $kind = $TokenType_RParen 
-  } else if $str_eq($s, "{") { $kind = $TokenType_LBrace 
-  } else if $str_eq($s, "}") { $kind = $TokenType_RBrace 
-  } else if $str_eq($s, "[") { $kind = $TokenType_LBrack
-  } else if $str_eq($s, "]") { $kind = $TokenType_RBrack
-  } else if $str_eq($s, "|") { $kind = $TokenType_Pipe 
-  } else if $str_eq($s, "*") { $kind = $TokenType_Star 
-  } else if $str_eq($s, "+") { $kind = $TokenType_Plus
-  } else if $str_eq($s, ",") { $kind = $TokenType_Comma 
-  } else if $str_eq($s, "-") { $kind = $TokenType_Minus
-  } else if $str_eq($s, ":") { $kind = $TokenType_Colon 
-  } else if $str_eq($s, "<") { $kind = $TokenType_Lt
-  } else if $str_eq($s, "/") { $kind = $TokenType_Slash 
-  } else if $str_eq($s, "=") { $kind = $TokenType_Equal 
-  } else if $str_eq($s, ">") { $kind = $TokenType_Gt
-  } else if $str_eq($s, "^") { $kind = $TokenType_Caret
-  } else if $str_eq($s, "!=") { $kind = $TokenType_ExclamEqual
-  } else if $str_eq($s, "%=") { $kind = $TokenType_PercentEqual
-  } else if $str_eq($s, "&=") { $kind = $TokenType_AmpEqual
-  } else if $str_eq($s, "*=") { $kind = $TokenType_StarEqual
-  } else if $str_eq($s, "+=") { $kind = $TokenType_PlusEqual
-  } else if $str_eq($s, "-=") { $kind = $TokenType_MinusEqual
-  } else if $str_eq($s, "/=") { $kind = $TokenType_SlashEqual
-  } else if $str_eq($s, "<<") { $kind = $TokenType_LtLt 
-  } else if $str_eq($s, "<=") { $kind = $TokenType_Lte
-  } else if $str_eq($s, "==") { $kind = $TokenType_EqualEqual
-  } else if $str_eq($s, ">=") { $kind = $TokenType_Gte 
-  } else if $str_eq($s, ">>") { $kind = $TokenType_GtGt
-  } else if $str_eq($s, "^=") { $kind = $TokenType_CaretEqual
-  } else if $str_eq($s, "|=") { $kind = $TokenType_PipeEqual
-  } else if $str_eq($s, "%+") { $kind = $TokenType_Remu
-  } else if $str_eq($s, "/+") { $kind = $TokenType_Divu 
-  } else if $str_eq($s, ">+") { $kind = $TokenType_Gtu
-  } else if $str_eq($s, "<+") { $kind = $TokenType_Ltu
-  } else if $str_eq($s, "<<=") { $kind = $TokenType_LtLtEqual
-  } else if $str_eq($s, ">>=") { $kind = $TokenType_GtGtEqual
-  } else if $str_eq($s, "<=+") { $kind = $TokenType_Leu 
-  } else if $str_eq($s, ">=+") { $kind = $TokenType_Geu
-  } else if $str_eq($s, ">>+") { $kind = $TokenType_Shru
-  } else if $str_eq($s, "i32") { $kind = $TokenType_I32
-  } else if $str_eq($s, "i64") { $kind = $TokenType_I64
-  } else if $str_eq($s, "f32") { $kind = $TokenType_F32
-  } else if $str_eq($s, "f64") { $kind = $TokenType_F64
-  } else if $str_eq($s, "br") { $kind = $TokenType_Br
-  } else if $str_eq($s, "continue") { $kind = $TokenType_Continue
-  } else if $str_eq($s, "else") { $kind = $TokenType_Else
-  } else if $str_eq($s, "func") { $kind = $TokenType_Func
-  } else if $str_eq($s, "if") { $kind = $TokenType_If 
-  } else if $str_eq($s, "br_if") { $kind = $TokenType_Br_If
-  } else if $str_eq($s, "local") { $kind = $TokenType_Local
-  } else if $str_eq($s, "loop") { $kind = $TokenType_Loop
-  } else if $str_eq($s, "mut") { $kind = $TokenType_Mut
-  } else if $str_eq($s, "export") { $kind = $TokenType_Export
-  } else if $str_eq($s, "return") { $kind = $TokenType_Return
-  } else if $str_eq($s, "global") { $kind = $TokenType_Global
-  } else if $str_eq($s, "type") { $kind = $TokenType_Type }
-  $add_token($kind, $s, $line, $column)
-}
-
-func $is_operator_chr($chr i32) i32 {
-  ($chr == '=') | ($chr == '+') | ($chr == '-') | ($chr == '*') | ($chr == '/')  
-    | ($chr == '<') | ($chr == '>') | ($chr == '!') | ($chr == '&') | ($chr == '|') 
-    | ($chr == '^') | ($chr == '%') | ($chr == '.') | ($chr == ':') | ($chr == '#') 
-    | ($chr == '[')
-}
-
-func $is_native_type_string($S i32) i32 {
-  ($str_eq($S, "i32") | $str_eq($S, "i64") | $str_eq($S, "f32") | $str_eq($S, "f64"))
-}
-
 func $lexx($dwasm i32) {
   $TOKEN_LIST = $new_list()
   local mut $str_index i32 = -1
@@ -123,10 +37,27 @@ func $lexx($dwasm i32) {
     $column += 1
     local mut $chr i32 = $get_chr($dwasm, $str_index)
 
-    ;; newline chr
+    ;; newline
     if $chr == 10 {
       $line += 1
       $column = 0
+
+    ;; keyword
+    } else if ($chr >= 'a') & ($chr <= 'z') {
+      $start = $str_index
+      loop {
+        br_if $str_index >= $length 
+        if !$is_keywordchar($chr) {
+          $str_index -= 1
+          $column -= 1
+          br
+        }
+        $str_index += 1
+        $column += 1
+        $chr = $get_chr($dwasm, $str_index)
+      }
+      $value_str = $sub_str($dwasm, $start, $str_index - $start + 1)
+      $add_keyword_token($value_str, $line, $column)
 
     ;; Identifier
     } else if $chr == '$' {
@@ -136,7 +67,7 @@ func $lexx($dwasm i32) {
       $start = $str_index
       loop {
         br_if $str_index >= $length 
-        if !$is_printable($chr) {
+        if !$is_idchar($chr) {
           $str_index -= 1
           $column -= 1
           br
@@ -146,28 +77,7 @@ func $lexx($dwasm i32) {
         $chr = $get_chr($dwasm, $str_index)
       }
       $value_str = $sub_str($dwasm, $start, $str_index - $start + 1)
-      $add_token($TokenType_Identifier, $value_str, $line, $column)
-
-    ;; Operators, reserved words, control instructions
-    } else if $is_alpha($chr) {
-      $start = $str_index
-      loop {
-        br_if $str_index >= $length 
-        if !$is_alpha($chr) & !$is_number($chr, 0) {
-          $str_index -= 1
-          $column -= 1
-          br
-        }
-        $str_index += 1
-        $column += 1
-        $chr = $get_chr($dwasm, $str_index)
-      }
-      $value_str = $sub_str($dwasm, $start, $str_index - $start + 1)
-      if $is_native_type_string($value_str) & $chr == '.' {   ;;  i32. i64. f32. f64.  
-          $str_index += 1
-          $column += 1
-      }
-      $process_token($value_str, $line, $column)
+      $add_token($TokenType_Id, $value_str, $line, $column)
     
     ;; Single quoted chars (byte)
     } else if $chr == 39 {
@@ -259,7 +169,7 @@ func $lexx($dwasm i32) {
     ;; Commas and brackets
     } else if $is_single_chr($chr) {
       $value_str = $sub_str($dwasm, $str_index, 1)
-      $process_token($value_str, $line, $column)
+      $add_single_chr_token($value_str, $line, $column)
 
     ;; Mathematical operators
     } else if $is_operator_chr($chr) {
@@ -276,15 +186,99 @@ func $lexx($dwasm i32) {
       } else {
         $value_str = $sub_str($dwasm, $str_index, 1)
       }
-      $process_token($value_str, $line, $column)
+      $add_operator_token($value_str, $line, $column)
 
     }
   }
 }
 
-;; ,(){}[]
+func $add_keyword_token($s i32, $line i32, $column i32) {
+  local mut $kind i32 = $TokenType_Builtin
+  if $str_eq($s, "i32") { $kind = $TokenType_I32
+  } else if $str_eq($s, "i64") { $kind = $TokenType_I64
+  } else if $str_eq($s, "f32") { $kind = $TokenType_F32
+  } else if $str_eq($s, "f64") { $kind = $TokenType_F64
+  } else if $str_eq($s, "br") { $kind = $TokenType_Br
+  } else if $str_eq($s, "br_table") { $kind = $TokenType_Br_Table
+  } else if $str_eq($s, "call_indirect") { $kind = $TokenType_Call_Indirect
+  } else if $str_eq($s, "continue") { $kind = $TokenType_Continue
+  } else if $str_eq($s, "else") { $kind = $TokenType_Else
+  } else if $str_eq($s, "func") { $kind = $TokenType_Func
+  } else if $str_eq($s, "if") { $kind = $TokenType_If 
+  } else if $str_eq($s, "br_if") { $kind = $TokenType_Br_If
+  } else if $str_eq($s, "local") { $kind = $TokenType_Local
+  } else if $str_eq($s, "loop") { $kind = $TokenType_Loop
+  } else if $str_eq($s, "drop") { $kind = $TokenType_Drop
+  } else if $str_eq($s, "select") { $kind = $TokenType_Select
+  } else if $str_eq($s, "mut") { $kind = $TokenType_Mut
+  } else if $str_eq($s, "export") { $kind = $TokenType_Export
+  } else if $str_eq($s, "return") { $kind = $TokenType_Return
+  } else if $str_eq($s, "global") { $kind = $TokenType_Global
+  } else if $str_eq($s, "unreachable") { $kind = $TokenType_Unreachable
+  } else if $str_eq($s, "nop") { $kind = $TokenType_Nop }
+  $add_token($kind, $s, $line, $column)
+}
+
+func $add_operator_token($s i32, $line i32, $column i32) {
+  local mut $kind i32 = 0
+  if $str_eq($s, "!") { $kind = $TokenType_Eqz
+  } else if $str_eq($s, "==") { $kind = $TokenType_Eq
+  } else if $str_eq($s, "!=") { $kind = $TokenType_Ne
+  } else if $str_eq($s, "<") { $kind = $TokenType_Lt
+  } else if $str_eq($s, "<+") { $kind = $TokenType_Ltu
+  } else if $str_eq($s, ">") { $kind = $TokenType_Gt
+  } else if $str_eq($s, ">+") { $kind = $TokenType_Gtu
+  } else if $str_eq($s, "<=") { $kind = $TokenType_Lte
+  } else if $str_eq($s, "<=+") { $kind = $TokenType_Leu 
+  } else if $str_eq($s, ">=") { $kind = $TokenType_Gte 
+  } else if $str_eq($s, ">=+") { $kind = $TokenType_Geu
+  } else if $str_eq($s, "+") { $kind = $TokenType_Add
+  } else if $str_eq($s, "-") { $kind = $TokenType_Sub
+  } else if $str_eq($s, "*") { $kind = $TokenType_Mul 
+  } else if $str_eq($s, "/") { $kind = $TokenType_Div 
+  } else if $str_eq($s, "/+") { $kind = $TokenType_Divu 
+  } else if $str_eq($s, "%") { $kind = $TokenType_Rem
+  } else if $str_eq($s, "%+") { $kind = $TokenType_Remu
+  } else if $str_eq($s, "&") { $kind = $TokenType_And 
+  } else if $str_eq($s, "|") { $kind = $TokenType_Or 
+  } else if $str_eq($s, "^") { $kind = $TokenType_Xor
+  } else if $str_eq($s, "<<") { $kind = $TokenType_Shl 
+  } else if $str_eq($s, ">>") { $kind = $TokenType_Shr
+  } else if $str_eq($s, ">>+") { $kind = $TokenType_Shru
+  } else if $str_eq($s, "=") { $kind = $TokenType_Set
+  } else if $str_eq($s, "+=") { $kind = $TokenType_Add_Set
+  } else if $str_eq($s, "-=") { $kind = $TokenType_Sub_Set
+  } else if $str_eq($s, "*=") { $kind = $TokenType_Mul_Set
+  } else if $str_eq($s, "/=") { $kind = $TokenType_Div_Set }
+  $add_token($kind, $s, $line, $column)
+}
+
+func $add_single_chr_token($s i32, $line i32, $column i32) {
+  local mut $kind i32 = 0
+  if $str_eq($s, ",") { $kind = $TokenType_Comma 
+  } else if $str_eq($s, ".") { $kind = $TokenType_Dot 
+  } else if $str_eq($s, "(") { $kind = $TokenType_LParen  
+  } else if $str_eq($s, ")") { $kind = $TokenType_RParen 
+  } else if $str_eq($s, "{") { $kind = $TokenType_LBrace 
+  } else if $str_eq($s, "}") { $kind = $TokenType_RBrace 
+  } else if $str_eq($s, "[") { $kind = $TokenType_LBrack
+  } else if $str_eq($s, "]") { $kind = $TokenType_RBrack }
+  $add_token($kind, $s, $line, $column)
+}
+
+func $is_operator_chr($chr i32) i32 {
+  ($chr == '=') | ($chr == '+') | ($chr == '-') | ($chr == '*') | ($chr == '/') | ($chr == '%') 
+    | ($chr == '<') | ($chr == '>') | ($chr == '!')
+    | ($chr == '&') | ($chr == '|') | ($chr == '^')
+}
+
+func $is_native_type_string($S i32) i32 {
+  ($str_eq($S, "i32") | $str_eq($S, "i64") | $str_eq($S, "f32") | $str_eq($S, "f64"))
+}
+
+;; ,.(){}[]
 func $is_single_chr($chr i32) i32 {
-  $chr == ',' 
+  $chr == ',' | $chr == '.' 
   | $chr == '(' | $chr == ')' 
   | $chr == '{' | $chr == '}' 
   | $chr == '[' | $chr == ']'
@@ -293,14 +287,8 @@ func $is_single_chr($chr i32) i32 {
 ;; 6.3.5 Identifiers
 ;; Indices can be given in both numeric and symbolic form. Symbolic identifiers that stand in lieu of indices start
 ;; with ‘$’, followed by any sequence of printable ASCII46 characters that does not contain a space, quotation mark,
-;; comma, semicolon, or bracket.   ;;  ",;(){}[]
-;; id ::= ‘$’ idchar+
-;; idchar ::= ‘0’ | . . . | ‘9’
-;; | ‘A’ | . . . | ‘Z’
-;; | ‘a’ | . . . | ‘z’
-;; | ‘!’ | ‘#’ | ‘$’ | ‘%’ | ‘&’ | ‘'’ | ‘*’ | ‘+’ | ‘−’ | ‘.’ | ‘/’
-;; | ‘:’ | ‘<’ | ‘=’ | ‘>’ | ‘?’ | ‘@’ | ‘∖’ | ‘^’ | ‘_’ | ‘`’ | ‘|’ | ‘~’
-func $is_printable($chr i32) i32 {
+;; comma, semicolon, or bracket.  
+func $is_idchar($chr i32) i32 {
   ($chr >= '0' & $chr <= '9') 
   | ($chr >= 'a' & $chr <= 'z') 
   | ($chr >= 'A' & $chr <= 'Z') 
@@ -308,6 +296,23 @@ func $is_printable($chr i32) i32 {
   | $chr == '*' | $chr == '+' | $chr == '-' | $chr == '.' | $chr == '/' 
   | $chr == ':' | $chr == '<' | $chr == '=' | $chr == '>' | $chr == '?' | $chr == '@' 
   | $chr == '\' | $chr == '^' | $chr == '_' | $chr == '`' | $chr == '|' | $chr == '~'
+}
+
+func $is_keywordchar($chr i32) i32 {
+  ($chr >= '0' & $chr <= '9') 
+  | ($chr >= 'a' & $chr <= 'z') 
+  | ($chr >= 'A' & $chr <= 'Z') 
+  | $chr == '_' 
+}
+
+func $add_token($kind i32, $text i32, $line i32, $column i32) {
+  local mut $token i32 = $allocate($token_size)
+  $token[$token_dec0de] = 6 - $DEC0DE
+  $token[$token_kind] = $kind
+  $token[$token_Value] = $text
+  $token[$token_line] = $line
+  $token[$token_column] = $column
+  $list_add($TOKEN_LIST, $token)
 }
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -471,6 +476,7 @@ func $parse_func_block() i32 {
 func $parse_statement() i32 {
   local mut $node i32 = 0
   local $kind i32 = $CURRENT_TOKEN[$token_kind]
+  local $next_kind i32 = $NEXT_TOKEN[$token_kind]
   if $kind ==  $TokenType_Local {
     $node = $parse_declaration()
   } else if $kind == $TokenType_If {
@@ -485,13 +491,18 @@ func $parse_statement() i32 {
     $node = $parse_br()
   } else if $kind == $TokenType_Return {
     $node = $parse_return_statement()
-  } else if $kind == $TokenType_Identifier {
-    local $next_kind i32 = $NEXT_TOKEN[$token_kind]
+  } else if $kind == $TokenType_Drop {
+    $node = $parse_drop_statement()
+  } else if $kind == $TokenType_Nop | $kind == $TokenType_Unreachable {
+    $node = $parse_instruction($kind)
+  } else if $kind == $TokenType_Builtin {
+    $node = $parse_builtin_statement()
+  } else if $kind == $TokenType_Id {
     if $next_kind == $TokenType_LParen {
       $node = $parse_call_statement()
     } else if $next_kind == $TokenType_LBrack {
       $node = $parse_bracket_store()
-    } else if $next_kind == $TokenType_Equal {
+    } else if $next_kind == $TokenType_Set {
       $node = $parse_assign_statement()
     } else if $is_assign_op($NEXT_TOKEN) {
       $node = $parse_assign_op_statement()
@@ -500,11 +511,26 @@ func $parse_statement() i32 {
     }
   } else if $is_native_type($CURRENT_TOKEN) {
     $next_token()
+    $eat_token($TokenType_Dot)
     $node = $parse_statement()
     $node[$node_ANode][$node_dataType] = $kind
   } else {
     $node = $parse_return_expression()
   }
+  $node
+}
+
+func $parse_drop_statement() i32 {
+  local $node i32 = $new_node($Node_Drop)
+  $eat_token($TokenType_Drop)
+  $node[$node_ANode] = $parse_expression($TokenType_MinPrecedence)
+  $node
+}
+
+func $parse_instruction($token_type i32) i32 {
+  local $node i32 = $new_node($Node_Instruction)
+  $node[$node_type] = $token_type
+  $next_token()
   $node
 }
 
@@ -524,7 +550,7 @@ func $parse_prefix() i32 {
   local $kind i32 = $CURRENT_TOKEN[$token_kind]
   if $is_literal($CURRENT_TOKEN) {
     $node = $parse_literal()
-  } else if $kind == $TokenType_Identifier {
+  } else if $kind == $TokenType_Id {
     local mut $nextKind i32 = 0
     if $NEXT_TOKEN {
        $nextKind = $NEXT_TOKEN[$token_kind]
@@ -534,8 +560,11 @@ func $parse_prefix() i32 {
     } else {
       $node = $parse_identifier()
     }
+  } else if $kind == $TokenType_Builtin {
+    $node = $parse_builtin_statement() 
   } else if $is_native_type($CURRENT_TOKEN) {
     $next_token()
+    $eat_token($TokenType_Dot)
     $node = $parse_expression($TokenType_MinPrecedence)
     $node[$node_dataType] = $kind
   } else if $kind == $TokenType_LParen {
@@ -582,26 +611,24 @@ func $next_token() {
 
 func $is_binary_op($token i32) i32 {
   local $kind i32 = $token[$token_kind]
-  $kind == $TokenType_Plus | $kind == $TokenType_Minus | $kind == $TokenType_Star | $kind == $TokenType_Slash 
-    | $kind == $TokenType_Percent | $kind == $TokenType_Remu | $kind == $TokenType_Pipe | $kind == $TokenType_Amp 
-    | $kind == $TokenType_Lt | $kind == $TokenType_EqualEqual | $kind == $TokenType_ExclamEqual 
-    | $kind == $TokenType_Lt | $kind == $TokenType_Lte | $kind == $TokenType_Gt | $kind == $TokenType_Gte 
-    | $kind == $TokenType_LtLt | $kind == $TokenType_GtGt | $kind == $TokenType_Caret | $kind == $TokenType_Ltu 
-    | $kind == $TokenType_Leu | $kind == $TokenType_Gtu | $kind == $TokenType_Geu | $kind == $TokenType_Shru 
+  $kind == $TokenType_Add | $kind == $TokenType_Sub | $kind == $TokenType_Mul 
+    | $kind == $TokenType_Div | $kind == $TokenType_Divu | $kind == $TokenType_Rem | $kind == $TokenType_Remu 
+    | $kind == $TokenType_Or | $kind == $TokenType_And | $kind == $TokenType_Xor 
+    | $kind == $TokenType_Eq | $kind == $TokenType_Ne 
+    | $kind == $TokenType_Lt | $kind == $TokenType_Ltu | $kind == $TokenType_Lte | $kind == $TokenType_Leu
+    | $kind == $TokenType_Gt | $kind == $TokenType_Gtu | $kind == $TokenType_Gte | $kind == $TokenType_Geu
+    | $kind == $TokenType_Shl | $kind == $TokenType_Shr | $kind == $TokenType_Shru 
     | $kind == $TokenType_Rotl | $kind == $TokenType_Rotr
 }
 
 func $is_assign_op($token i32) i32 {
   local $kind i32 = $token[$token_kind]
-  $kind == $TokenType_PlusEqual | $kind == $TokenType_AmpEqual | $kind == $TokenType_PipeEqual 
-    | $kind == $TokenType_CaretEqual | $kind == $TokenType_SlashEqual | $kind == $TokenType_StarEqual 
-    | $kind == $TokenType_PercentEqual | $kind == $TokenType_LtLtEqual
-    | $kind == $TokenType_GtGtEqual | $kind == $TokenType_MinusEqual
+  $kind == $TokenType_Add_Set | $kind == $TokenType_Div_Set | $kind == $TokenType_Mul_Set | $kind == $TokenType_Sub_Set
 }
 
 func $is_unary_op($token i32) i32 {
   local $kind i32 = $token[$token_kind]
-  $kind == $TokenType_Minus | $kind == $TokenType_Exclam | $kind == $TokenType_Cnt | $kind == $TokenType_Clz 
+  $kind == $TokenType_Sub | $kind == $TokenType_Eqz | $kind == $TokenType_Cnt | $kind == $TokenType_Clz 
     | $kind == $TokenType_Ctz | $kind == $TokenType_Abs | $kind == $TokenType_Neg | $kind == $TokenType_Ceil
     | $kind == $TokenType_Floor | $kind == $TokenType_Trunc | $kind == $TokenType_Round | $kind == $TokenType_Sqrt 
 }
@@ -620,6 +647,7 @@ func $eat_token($kind i32) {
   if $CURRENT_TOKEN {
     if $CURRENT_TOKEN[$token_kind] != $kind {
       $add_error($Error_InvalidToken, $CURRENT_TOKEN)
+      $add_error($kind, $CURRENT_TOKEN)
     }
     $next_token()
   } else {
@@ -719,19 +747,12 @@ func $parse_call_params() i32 {
   $param_list
 }
 
-func $parse_call_expression($Callee i32) i32 {
-  local $node i32 = $new_node($Node_Call)
-  $node[$node_ANode] = $Callee
-  $node[$node_ParamNodes] = $parse_call_params()
-  $node
-}
-
 func $parse_unary_expression() i32 {
   local $node i32 = $new_node($Node_Unary)
   i32.$node[$node_type] = $CURRENT_TOKEN[$token_kind]
   i32.$node[$node_String] = $CURRENT_TOKEN[$token_Value]
   $next_token()
-  $node[$node_BNode] = $parse_expression($TokenType_Plus)
+  $node[$node_BNode] = $parse_expression($TokenType_Add)
   $node
 }
 
@@ -764,7 +785,7 @@ func $parse_bracket_store() i32 {
     $list_add($BodyList, $parse_identifier())
     $eat_token($TokenType_RBrack)
   }
-  $eat_token($TokenType_Equal)
+  $eat_token($TokenType_Set)
   $node[$node_ANode] = $parse_expression($TokenType_MinPrecedence)
   $node[$node_ANode][$node_dataType] = $data_type
   $node
@@ -789,9 +810,9 @@ func $parse_binary_expression($level i32, $Left i32) i32 {
 func $parse_assign_statement() i32 {
   local $node i32 = $new_node($Node_Assign)
   $node[$node_ANode] = $parse_identifier()
-  $node[$node_type] = $TokenType_Equal
+  $node[$node_type] = $TokenType_Set
   i32.$node[$node_String] = $CURRENT_TOKEN[$token_Value]
-  $eat_token($TokenType_Equal)
+  $eat_token($TokenType_Set)
   $node[$node_BNode] = $parse_expression($TokenType_MinPrecedence)
   $node
 }
@@ -799,23 +820,17 @@ func $parse_assign_statement() i32 {
 func $parse_assign_op_statement() i32 {
   local $node i32 = $new_node($Node_Assign)
   $node[$node_ANode] = $parse_identifier()
-  $node[$node_type] = $TokenType_Equal
+  $node[$node_type] = $TokenType_Set
   i32.$node[$node_String] = $CURRENT_TOKEN[$token_Value]
   local $copy i32 = $copy_node($node[$node_ANode])
   local $b_node i32 = $new_node($Node_Binary)
   i32.$b_node[$node_String] = $CURRENT_TOKEN[$token_Value]
   $b_node[$node_ANode] = $copy
   local mut $b_type i32 = 0
-  if $try_eat_token($TokenType_PlusEqual) { $b_type = $TokenType_Plus
-  } else if $try_eat_token($TokenType_AmpEqual) { $b_type = $TokenType_Amp
-  } else if $try_eat_token($TokenType_PipeEqual) { $b_type = $TokenType_Pipe
-  } else if $try_eat_token($TokenType_CaretEqual) { $b_type = $TokenType_Caret
-  } else if $try_eat_token($TokenType_SlashEqual) { $b_type = $TokenType_Slash
-  } else if $try_eat_token($TokenType_StarEqual) { $b_type = $TokenType_Star
-  } else if $try_eat_token($TokenType_PercentEqual) { $b_type = $TokenType_Percent
-  } else if $try_eat_token($TokenType_LtLtEqual) { $b_type = $TokenType_LtLt
-  } else if $try_eat_token($TokenType_GtGtEqual) { $b_type = $TokenType_GtGt
-  } else if $try_eat_token($TokenType_MinusEqual) { $b_type = $TokenType_Minus 
+  if $try_eat_token($TokenType_Add_Set) { $b_type = $TokenType_Add
+  } else if $try_eat_token($TokenType_Div_Set) { $b_type = $TokenType_Div
+  } else if $try_eat_token($TokenType_Mul_Set) { $b_type = $TokenType_Mul
+  } else if $try_eat_token($TokenType_Sub_Set) { $b_type = $TokenType_Sub 
   } else {
     $add_error($Error_ParseAssignOp, $CURRENT_TOKEN)
     $next_token()
@@ -842,6 +857,20 @@ func $parse_infix($level i32, $Left i32) i32 {
 func $parse_call_statement() i32 {
   local $IdentifierNode i32 = $parse_identifier()
   local $node i32 = $parse_call_expression($IdentifierNode)
+  $node
+}
+
+func $parse_call_expression($Callee i32) i32 {
+  local $node i32 = $new_node($Node_Call)
+  $node[$node_ANode] = $Callee
+  $node[$node_ParamNodes] = $parse_call_params()
+  $node
+}
+
+func $parse_builtin_statement() i32 {
+  local $node i32 = $new_node($Node_Builtin)
+  $node[$node_ANode] = $parse_identifier()
+  $node[$node_ParamNodes] = $parse_call_params()
   $node
 }
 
@@ -944,7 +973,7 @@ func $parse_global() i32 {
     $node[$node_assigns] = 1
   }
   $scope_register_name($CURRENT_SCOPE, $name, $node, $NameToken)
-  $eat_token($TokenType_Equal)
+  $eat_token($TokenType_Set)
   $node[$node_BNode] = $parse_expression($TokenType_MinPrecedence)
   if i32.$CURRENT_SCOPE[$scope_Parent] {
     local $fn_scope i32 = $get_fn_scope($CURRENT_SCOPE)
@@ -977,7 +1006,7 @@ func $parse_declaration() i32 {
     $node[$node_assigns] = 0  ;; non-mutables can only be assigned once
   }
   $scope_register_name($CURRENT_SCOPE, $name, $node, $NameToken)
-  $eat_token($TokenType_Equal)
+  $eat_token($TokenType_Set)
   $node[$node_BNode] = $parse_expression($TokenType_MinPrecedence)
   if i32.$CURRENT_SCOPE[$scope_Parent] {
     local $fn_scope i32 = $get_fn_scope($CURRENT_SCOPE)
@@ -1456,13 +1485,21 @@ func $emit_node($node i32) {
     $emit_unary($node)
   } else if $kind == $Node_Call {
     $emit_call($node)
+  } else if $kind == $Node_Builtin {
+    $emit_builtin($node)
   } else if $kind == $Node_Return {
     $emit_return($node)
+  } else if $kind == $Node_Instruction {
+    if $node[$node_type] == $TokenType_Nop {
+      $append_byte($WASM, 0x01)  ;; nop
+    } else if $node[$node_type] == $TokenType_Unreachable {
+      $append_byte($WASM, 0x00)  ;; unreachable
+    }
   } else if $kind == $Node_If {
     $emit_if($node)
   } else if $kind == $Node_Br_If {
     $emit_br_if($node)
-  } else if $kind == $Node_Pop {
+  } else if $kind == $Node_Drop {
     $emit_drop($node)
   } else if $kind == $Node_Loop {
     $emit_loop($node)
@@ -1496,6 +1533,8 @@ func $emit_instruction($node i32) {
       $emit_unary($node)
     } else if $kind == $Node_Call {
       $emit_call($node)
+    } else if $kind == $Node_Builtin {
+      $emit_builtin($node)
     } else if $kind == $Node_Literal {
       $emit_literal($node)
     } else if $kind == $Node_Identifier {
@@ -1566,16 +1605,16 @@ func $emit_binary($node i32) {
 
 func $emit_operator($token_type i32, $data_type i32, $node i32) {
   if $data_type == $TokenType_F64 {
-    if $token_type == $TokenType_EqualEqual { $append_byte($WASM, 0x61) 
-    } else if $token_type == $TokenType_ExclamEqual { $append_byte($WASM, 0x62) 
+    if $token_type == $TokenType_Eq { $append_byte($WASM, 0x61) 
+    } else if $token_type == $TokenType_Ne { $append_byte($WASM, 0x62) 
     } else if $token_type == $TokenType_Lt { $append_byte($WASM, 0x63) 
     } else if $token_type == $TokenType_Gt { $append_byte($WASM, 0x64) 
     } else if $token_type == $TokenType_Lte { $append_byte($WASM, 0x65) 
     } else if $token_type == $TokenType_Gte { $append_byte($WASM, 0x66) 
-    } else if $token_type == $TokenType_Plus { $append_byte($WASM, 0xa0) 
-    } else if $token_type == $TokenType_Minus { $append_byte($WASM, 0xa1) 
-    } else if $token_type == $TokenType_Star { $append_byte($WASM, 0xa2) 
-    } else if $token_type == $TokenType_Slash { $append_byte($WASM, 0xa3) 
+    } else if $token_type == $TokenType_Add { $append_byte($WASM, 0xa0) 
+    } else if $token_type == $TokenType_Sub { $append_byte($WASM, 0xa1) 
+    } else if $token_type == $TokenType_Mul { $append_byte($WASM, 0xa2) 
+    } else if $token_type == $TokenType_Div { $append_byte($WASM, 0xa3) 
     } else if $token_type == $TokenType_Min { $append_byte($WASM, 0xa4) 
     } else if $token_type == $TokenType_Max { $append_byte($WASM, 0xa5) 
     } else if $token_type == $TokenType_Abs { $append_byte($WASM, 0x99) 
@@ -1590,8 +1629,8 @@ func $emit_operator($token_type i32, $data_type i32, $node i32) {
       $add_error($Error_InvalidOperator, $node[$node_Token]) 
     }
   } else if $data_type == $TokenType_F32 {
-    if $token_type == $TokenType_EqualEqual { $append_byte($WASM, 0x5b) 
-    } else if $token_type == $TokenType_ExclamEqual { $append_byte($WASM, 0x5c)
+    if $token_type == $TokenType_Eq { $append_byte($WASM, 0x5b) 
+    } else if $token_type == $TokenType_Ne { $append_byte($WASM, 0x5c)
     } else if $token_type == $TokenType_Lt { $append_byte($WASM, 0x5d)
     } else if $token_type == $TokenType_Gt { $append_byte($WASM, 0x5e)
     } else if $token_type == $TokenType_Lte { $append_byte($WASM, 0x5f)
@@ -1603,10 +1642,10 @@ func $emit_operator($token_type i32, $data_type i32, $node i32) {
     } else if $token_type == $TokenType_Trunc { $append_byte($WASM, 0x8f)
     } else if $token_type == $TokenType_Round { $append_byte($WASM, 0x90)
     } else if $token_type == $TokenType_Sqrt { $append_byte($WASM, 0x91)
-    } else if $token_type == $TokenType_Plus { $append_byte($WASM, 0x92)
-    } else if $token_type == $TokenType_Minus { $append_byte($WASM, 0x93)
-    } else if $token_type == $TokenType_Star { $append_byte($WASM, 0x94)
-    } else if $token_type == $TokenType_Slash { $append_byte($WASM, 0x95)
+    } else if $token_type == $TokenType_Add { $append_byte($WASM, 0x92)
+    } else if $token_type == $TokenType_Sub { $append_byte($WASM, 0x93)
+    } else if $token_type == $TokenType_Mul { $append_byte($WASM, 0x94)
+    } else if $token_type == $TokenType_Div { $append_byte($WASM, 0x95)
     } else if $token_type == $TokenType_Min { $append_byte($WASM, 0x96)
     } else if $token_type == $TokenType_Max { $append_byte($WASM, 0x97)
     } else if $token_type == $TokenType_CopySign { $append_byte($WASM, 0x98)
@@ -1614,9 +1653,9 @@ func $emit_operator($token_type i32, $data_type i32, $node i32) {
       $add_error($Error_InvalidOperator, $node[$node_Token]) 
     }
   } else if $data_type == $TokenType_I64 {
-    if $token_type == $TokenType_Exclam { $append_byte($WASM, 0x50) 
-    } else if $token_type == $TokenType_EqualEqual { $append_byte($WASM, 0x51) 
-    } else if $token_type == $TokenType_ExclamEqual { $append_byte($WASM, 0x52) 
+    if $token_type == $TokenType_Eqz { $append_byte($WASM, 0x50) 
+    } else if $token_type == $TokenType_Eq { $append_byte($WASM, 0x51) 
+    } else if $token_type == $TokenType_Ne { $append_byte($WASM, 0x52) 
     } else if $token_type == $TokenType_Lt { $append_byte($WASM, 0x53) 
     } else if $token_type == $TokenType_Ltu { $append_byte($WASM, 0x54) 
     } else if $token_type == $TokenType_Gt { $append_byte($WASM, 0x55) 
@@ -1628,18 +1667,18 @@ func $emit_operator($token_type i32, $data_type i32, $node i32) {
     } else if $token_type == $TokenType_Clz { $append_byte($WASM, 0x79)
     } else if $token_type == $TokenType_Ctz { $append_byte($WASM, 0x7a) 
     } else if $token_type == $TokenType_Cnt { $append_byte($WASM, 0x7b)
-    } else if $token_type == $TokenType_Plus { $append_byte($WASM, 0x7c)
-    } else if $token_type == $TokenType_Minus { $append_byte($WASM, 0x7d)
-    } else if $token_type == $TokenType_Star { $append_byte($WASM, 0x7e)
-    } else if $token_type == $TokenType_Slash { $append_byte($WASM, 0x7f)
+    } else if $token_type == $TokenType_Add { $append_byte($WASM, 0x7c)
+    } else if $token_type == $TokenType_Sub { $append_byte($WASM, 0x7d)
+    } else if $token_type == $TokenType_Mul { $append_byte($WASM, 0x7e)
+    } else if $token_type == $TokenType_Div { $append_byte($WASM, 0x7f)
     } else if $token_type == $TokenType_Divu { $append_byte($WASM, 0x80)
-    } else if $token_type == $TokenType_Percent { $append_byte($WASM, 0x81)
+    } else if $token_type == $TokenType_Rem { $append_byte($WASM, 0x81)
     } else if $token_type == $TokenType_Remu { $append_byte($WASM, 0x82)
-    } else if $token_type == $TokenType_Amp { $append_byte($WASM, 0x83)
-    } else if $token_type == $TokenType_Pipe { $append_byte($WASM, 0x84)
-    } else if $token_type == $TokenType_Caret { $append_byte($WASM, 0x85)
-    } else if $token_type == $TokenType_LtLt { $append_byte($WASM, 0x86)
-    } else if $token_type == $TokenType_GtGt { $append_byte($WASM, 0x87)
+    } else if $token_type == $TokenType_And { $append_byte($WASM, 0x83)
+    } else if $token_type == $TokenType_Or { $append_byte($WASM, 0x84)
+    } else if $token_type == $TokenType_Xor { $append_byte($WASM, 0x85)
+    } else if $token_type == $TokenType_Shl { $append_byte($WASM, 0x86)
+    } else if $token_type == $TokenType_Shr { $append_byte($WASM, 0x87)
     } else if $token_type == $TokenType_Shru { $append_byte($WASM, 0x88)
     } else if $token_type == $TokenType_Rotl { $append_byte($WASM, 0x89)
     } else if $token_type == $TokenType_Rotr { $append_byte($WASM, 0x8a) 
@@ -1647,9 +1686,9 @@ func $emit_operator($token_type i32, $data_type i32, $node i32) {
       $add_error($Error_InvalidOperator, $node[$node_Token]) 
     }
   } else {
-    if $token_type == $TokenType_Exclam { $append_byte($WASM, 0x45) 
-    } else if $token_type == $TokenType_EqualEqual { $append_byte($WASM, 0x46) 
-    } else if $token_type == $TokenType_ExclamEqual { $append_byte($WASM, 0x47) 
+    if $token_type == $TokenType_Eqz { $append_byte($WASM, 0x45) 
+    } else if $token_type == $TokenType_Eq { $append_byte($WASM, 0x46) 
+    } else if $token_type == $TokenType_Ne { $append_byte($WASM, 0x47) 
     } else if $token_type == $TokenType_Lt { $append_byte($WASM, 0x48) 
     } else if $token_type == $TokenType_Ltu { $append_byte($WASM, 0x49) 
     } else if $token_type == $TokenType_Gt { $append_byte($WASM, 0x4a) 
@@ -1661,18 +1700,18 @@ func $emit_operator($token_type i32, $data_type i32, $node i32) {
     } else if $token_type == $TokenType_Clz { $append_byte($WASM, 0x67) 
     } else if $token_type == $TokenType_Ctz { $append_byte($WASM, 0x68) 
     } else if $token_type == $TokenType_Cnt { $append_byte($WASM, 0x69) 
-    } else if $token_type == $TokenType_Plus { $append_byte($WASM, 0x6a) 
-    } else if $token_type == $TokenType_Minus { $append_byte($WASM, 0x6b) 
-    } else if $token_type == $TokenType_Star { $append_byte($WASM, 0x6c) 
-    } else if $token_type == $TokenType_Slash { $append_byte($WASM, 0x6d) 
+    } else if $token_type == $TokenType_Add { $append_byte($WASM, 0x6a) 
+    } else if $token_type == $TokenType_Sub { $append_byte($WASM, 0x6b) 
+    } else if $token_type == $TokenType_Mul { $append_byte($WASM, 0x6c) 
+    } else if $token_type == $TokenType_Div { $append_byte($WASM, 0x6d) 
     } else if $token_type == $TokenType_Divu { $append_byte($WASM, 0x6e) 
-    } else if $token_type == $TokenType_Percent { $append_byte($WASM, 0x6f) 
+    } else if $token_type == $TokenType_Rem { $append_byte($WASM, 0x6f) 
     } else if $token_type == $TokenType_Remu { $append_byte($WASM, 0x70) 
-    } else if $token_type == $TokenType_Amp { $append_byte($WASM, 0x71) 
-    } else if $token_type == $TokenType_Pipe { $append_byte($WASM, 0x72) 
-    } else if $token_type == $TokenType_Caret { $append_byte($WASM, 0x73) 
-    } else if $token_type == $TokenType_LtLt { $append_byte($WASM, 0x74) 
-    } else if $token_type == $TokenType_GtGt { $append_byte($WASM, 0x75) 
+    } else if $token_type == $TokenType_And { $append_byte($WASM, 0x71) 
+    } else if $token_type == $TokenType_Or { $append_byte($WASM, 0x72) 
+    } else if $token_type == $TokenType_Xor { $append_byte($WASM, 0x73) 
+    } else if $token_type == $TokenType_Shl { $append_byte($WASM, 0x74) 
+    } else if $token_type == $TokenType_Shr { $append_byte($WASM, 0x75) 
     } else if $token_type == $TokenType_Shru { $append_byte($WASM, 0x76) 
     } else if $token_type == $TokenType_Rotl { $append_byte($WASM, 0x77) 
     } else if $token_type == $TokenType_Rotr { $append_byte($WASM, 0x78) 
@@ -1685,7 +1724,7 @@ func $emit_operator($token_type i32, $data_type i32, $node i32) {
 func $emit_unary($node i32) {
   local $token_type i32 = $node[$node_type]
   local $data_type i32 = $node[$node_dataType]
-  if $token_type == $TokenType_Minus {
+  if $token_type == $TokenType_Sub {
     if $data_type == $TokenType_F64 {
       $append_byte($WASM, 0x44)  ;; f64.const
       $append_f64($WASM, 0) 
@@ -1911,6 +1950,17 @@ func $emit_call_args2($call_node i32, $data_TypeA i32, $data_TypeB i32) {
 
 func $emit_call($node i32) {
   local $name i32 = $node[$node_ANode][$node_String]
+  local $resolved_node i32 = $scope_resolve($CURRENT_SCOPE, $name, $node[$node_Token])
+  if $resolved_node {
+    $emit_fn_call_args($node, $resolved_node)
+    $append_byte($WASM, 0x10)  ;; Call
+    $append_uleb($WASM, $resolved_node[$node_index])
+  }
+}
+
+func $emit_builtin($node i32) {
+  local $name i32 = $node[$node_ANode][$node_String]
+  local $t i32 = $node[$node_ANode][$node_dataType]
   if $str_eq($name, "i32_load") {
     $emit_call_args($node, $TokenType_I32)
     $append_byte($WASM, 0x28)  ;; i32.load
@@ -1931,24 +1981,26 @@ func $emit_call($node i32) {
     $append_byte($WASM, 0x2b)
     $append_byte($WASM, 0x00)  ;; alignment
     $append_byte($WASM, 0x00)  ;; offset
+
+  } else if $str_eq($name, "load") {
+    $emit_call_args($node, $TokenType_I32)
+    if $t == $TokenType_I32 {
+      $append_byte($WASM, 0x28)
+    } else if $t == $TokenType_I64 {
+      $append_byte($WASM, 0x29) 
+    } else if $t == $TokenType_F32 {
+      $append_byte($WASM, 0x2a) 
+    } else if $t == $TokenType_F64 {
+      $append_byte($WASM, 0x2b) 
+    }
+    $append_byte($WASM, 0x00)  ;; alignment
+    $append_byte($WASM, 0x00)  ;; offset
+
+
+
   } else if $str_eq($name, "i32_load8_s") {
     $emit_call_args($node, $TokenType_I32)
     $append_byte($WASM, 0x2c)
-    $append_byte($WASM, 0x00)  ;; alignment
-    $append_byte($WASM, 0x00)  ;; offset
-  } else if $str_eq($name, "i32_load8_u") {
-    $emit_call_args($node, $TokenType_I32)
-    $append_byte($WASM, 0x2d)
-    $append_byte($WASM, 0x00)  ;; alignment
-    $append_byte($WASM, 0x00)  ;; offset
-  } else if $str_eq($name, "i32_load16_s") {
-    $emit_call_args($node, $TokenType_I32)
-    $append_byte($WASM, 0x2e)
-    $append_byte($WASM, 0x00)  ;; alignment
-    $append_byte($WASM, 0x00)  ;; offset
-  } else if $str_eq($name, "i32_load16_u") {
-    $emit_call_args($node, $TokenType_I32)
-    $append_byte($WASM, 0x2f)
     $append_byte($WASM, 0x00)  ;; alignment
     $append_byte($WASM, 0x00)  ;; offset
   } else if $str_eq($name, "i64_load8_s") {
@@ -1956,9 +2008,20 @@ func $emit_call($node i32) {
     $append_byte($WASM, 0x30)
     $append_byte($WASM, 0x00)  ;; alignment
     $append_byte($WASM, 0x00)  ;; offset
-  } else if $str_eq($name, "i64_load8_u") {
+
+  } else if $str_eq($name, "load8_u") {
     $emit_call_args($node, $TokenType_I32)
-    $append_byte($WASM, 0x31) 
+    if $t == $TokenType_I32 {
+      $append_byte($WASM, 0x2d)
+    } else if $t == $TokenType_I64 {
+      $append_byte($WASM, 0x31) 
+    }
+    $append_byte($WASM, 0x00)  ;; alignment
+    $append_byte($WASM, 0x00)  ;; offset
+
+  } else if $str_eq($name, "i32_load16_s") {
+    $emit_call_args($node, $TokenType_I32)
+    $append_byte($WASM, 0x2e)
     $append_byte($WASM, 0x00)  ;; alignment
     $append_byte($WASM, 0x00)  ;; offset
   } else if $str_eq($name, "i64_load16_s") {
@@ -1966,11 +2029,18 @@ func $emit_call($node i32) {
     $append_byte($WASM, 0x32) 
     $append_byte($WASM, 0x00)  ;; alignment
     $append_byte($WASM, 0x00)  ;; offset    
+    
+  } else if $str_eq($name, "i32_load16_u") {
+    $emit_call_args($node, $TokenType_I32)
+    $append_byte($WASM, 0x2f)
+    $append_byte($WASM, 0x00)  ;; alignment
+    $append_byte($WASM, 0x00)  ;; offset
   } else if $str_eq($name, "i64_load16_u") {
     $emit_call_args($node, $TokenType_I32)
     $append_byte($WASM, 0x33) 
     $append_byte($WASM, 0x00)  ;; alignment
     $append_byte($WASM, 0x00)  ;; offset 
+
   } else if $str_eq($name, "i64_load32_s") {
     $emit_call_args($node, $TokenType_I32)
     $append_byte($WASM, 0x34)
@@ -1981,14 +2051,10 @@ func $emit_call($node i32) {
     $append_byte($WASM, 0x35)
     $append_byte($WASM, 0x00)  ;; alignment
     $append_byte($WASM, 0x00)  ;; offset    
+
   } else if $str_eq($name, "i32_store") {
     $emit_call_args($node, $TokenType_I32)
     $append_byte($WASM, 0x36)
-    $append_byte($WASM, 0x00)  ;; alignment
-    $append_byte($WASM, 0x00)  ;; offset
-  } else if $str_eq($name, "i64_store64") {
-    $emit_call_args2($node, $TokenType_I32, $TokenType_I64)
-    $append_byte($WASM, 0x37)
     $append_byte($WASM, 0x00)  ;; alignment
     $append_byte($WASM, 0x00)  ;; offset
   } else if $str_eq($name, "f32_store") {
@@ -2001,14 +2067,15 @@ func $emit_call($node i32) {
     $append_byte($WASM, 0x39)
     $append_byte($WASM, 0x00)  ;; alignment
     $append_byte($WASM, 0x00)  ;; offset
+  } else if $str_eq($name, "i64_store64") {
+    $emit_call_args2($node, $TokenType_I32, $TokenType_I64)
+    $append_byte($WASM, 0x37)
+    $append_byte($WASM, 0x00)  ;; alignment
+    $append_byte($WASM, 0x00)  ;; offset
+
   } else if $str_eq($name, "i32_store8") {
     $emit_call_args($node, $TokenType_I32)
     $append_byte($WASM, 0x3a)
-    $append_byte($WASM, 0x00)  ;; alignment
-    $append_byte($WASM, 0x00)  ;; offset
-  } else if $str_eq($name, "i32_store16") {
-    $emit_call_args($node, $TokenType_I32)
-    $append_byte($WASM, 0x3b)
     $append_byte($WASM, 0x00)  ;; alignment
     $append_byte($WASM, 0x00)  ;; offset
   } else if $str_eq($name, "i64_store8") {
@@ -2016,16 +2083,24 @@ func $emit_call($node i32) {
     $append_byte($WASM, 0x3c)
     $append_byte($WASM, 0x00)  ;; alignment
     $append_byte($WASM, 0x00)  ;; offset
+
+  } else if $str_eq($name, "i32_store16") {
+    $emit_call_args($node, $TokenType_I32)
+    $append_byte($WASM, 0x3b)
+    $append_byte($WASM, 0x00)  ;; alignment
+    $append_byte($WASM, 0x00)  ;; offset
   } else if $str_eq($name, "i64_store16") {
     $emit_call_args2($node, $TokenType_I32, $TokenType_I64)
     $append_byte($WASM, 0x3d)
     $append_byte($WASM, 0x00)  ;; alignment
     $append_byte($WASM, 0x00)  ;; offset
-  } else if $str_eq($name, "i64_store32") {
+
+  } else if $str_eq($name, "store32") {
     $emit_call_args2($node, $TokenType_I32, $TokenType_I64)
-    $append_byte($WASM, 0x3e)
+    $append_byte($WASM, 0x3e)  ;; i64.store32
     $append_byte($WASM, 0x00)  ;; alignment
     $append_byte($WASM, 0x00)  ;; offset
+
   } else if $str_eq($name, "current_memory") {
     $append_byte($WASM, 0x3f) 
     $append_byte($WASM, 0x00)  ;; memory number
@@ -2097,12 +2172,7 @@ func $emit_call($node i32) {
     $emit_call_args($node, $TokenType_F32)
     $append_byte($WASM, 0xbb)
   } else {
-    local $resolved_node i32 = $scope_resolve($CURRENT_SCOPE, $name, $node[$node_Token])
-    if $resolved_node {
-      $emit_fn_call_args($node, $resolved_node)
-      $append_byte($WASM, 0x10)  ;; Call
-      $append_uleb($WASM, $resolved_node[$node_index])
-    }
+    ;; todo error
   }
 }
 
@@ -2160,9 +2230,9 @@ func $emit_loop($node i32) {
       }
       $WhileNode[$node_dataType] = $data_type
     }
-    $emit_operator($TokenType_Exclam, $data_type, $WhileNode)
+    $emit_operator($TokenType_Eqz, $data_type, $WhileNode)
     $append_byte($WASM, 0x0d)  ;; br_if
-    $append_uleb($WASM, $scope_level($node, $Node_Loop) + 1)
+    $append_uleb($WASM, $scope_level($node, $Node_Loop) + 1)  ;; TODO FIX / REMOVE
   }
   $emit_node($node[$node_ANode])
   $append_byte($WASM, 0x0c)  ;; br
@@ -2175,12 +2245,10 @@ func $infer_call_data_type($node i32) i32 {
   local $name i32 = $node[$node_String]
   if $str_eq($name, "current_memory") { return $TokenType_I32
   } else if $str_eq($name, "i32_load8_s") { return $TokenType_I32
-  } else if $str_eq($name, "i32_load8_u") { return $TokenType_I32
   } else if $str_eq($name, "i32_load16_s") { return $TokenType_I32
   } else if $str_eq($name, "i32_load16_u") { return $TokenType_I32
   } else if $str_eq($name, "i32_load") { return $TokenType_I32
   } else if $str_eq($name, "i64_load8_s") { return $TokenType_I64
-  } else if $str_eq($name, "i64_load8_u") { return $TokenType_I64
   } else if $str_eq($name, "i64_load16_s") { return $TokenType_I64
   } else if $str_eq($name, "i64_load16_u") { return $TokenType_I64
   } else if $str_eq($name, "i64_load32_s") { return $TokenType_I64
@@ -2235,6 +2303,8 @@ func $infer_data_type($node i32) i32 {
     $data_type = $infer_data_type($node[$node_BNode])
   } else if $kind == $Node_Call {
     $data_type = $infer_call_data_type($node[$node_ANode])
+  } else if $kind == $Node_Builtin {
+    $data_type = $infer_call_data_type($node[$node_ANode])
   }
   $data_type
 }
@@ -2256,7 +2326,7 @@ func $emit_return($node i32) {
     $ANode[$node_dataType] = $data_type
     $emit_instruction($ANode)
   }
-  if $scope_level($node, $Node_Fun) > 0 {  ;; TODO wat is this might be a bug
+  if $scope_level($node, $Node_Fun) > 0 {  ;; TODO wat is this might be a bug, breaks if removed
     $append_byte($WASM, 0x0f)  ;; return
   }
 }
@@ -2268,7 +2338,7 @@ func $emit_br_if($node i32) {
 }
 
 func $emit_drop($node i32) {
-  $emit_instruction($node[$node_CNode])
+  $emit_instruction($node[$node_ANode])
   $append_byte($WASM, 0x1a)  ;; drop
 }
 
@@ -2599,7 +2669,7 @@ func $decimal_str_length($i i32) i32 {
 }
 
 func $get_chr($string i32, $offset i32) i32 {
-  i32_load8_u($string[$string_bytes] + $offset)
+  i32.load8_u($string[$string_bytes] + $offset)
 }
 
 func $set_chr($string i32, $offset i32, $chr i32) {
@@ -2659,7 +2729,7 @@ func $decode_str($S i32) {
   local mut $o i32 = 0
   loop {
     br_if $i >= $length 
-    if $get_chr($S, $i) == 92 {  ;;\
+    if $get_chr($S, $i) == '\' { 
       $i += 1
       if $is_number($get_chr($S, $i), 1) & $is_number($get_chr($S, $i + 1), 1) {
         local mut $chr i32 = $hex_chr_to_i32($get_chr($S, $i))
@@ -2680,10 +2750,6 @@ func $decode_str($S i32) {
     $set_chr($S, $o, 0)
     $o += 1
   }
-}
-
-func $is_alpha($chr i32) i32 {
-  ($chr >= 'a' & $chr <= 'z') | ($chr >= 'A' & $chr <= 'Z') | ($chr == '_')
 }
 
 func $is_number($chr i32, $hexNum i32) i32 {
@@ -2854,35 +2920,30 @@ global $debug_magic i32 = 0
 global $ALIGNMENT i32 = 4
 
 ;; Enums
-global $TokenType_Identifier    i32 = 1
-global $TokenType_StrLiteral    i32 = 2
-global $TokenType_CharLiteral   i32 = 3
-global $TokenType_NumLiteral    i32 = 4
-global $TokenType_LBrack        i32 = 8  ;; Symbols
-global $TokenType_RBrack        i32 = 9
-global $TokenType_LParen        i32 = 10 
-global $TokenType_RParen        i32 = 11
-global $TokenType_LBrace        i32 = 12
-global $TokenType_RBrace        i32 = 13
-global $TokenType_Comma         i32 = 14
-global $TokenType_Colon         i32 = 15
+global $TokenType_Keyword       i32 = 1
+global $TokenType_NumLiteral    i32 = 2
+global $TokenType_Id            i32 = 3
+global $TokenType_StrLiteral    i32 = 4
+global $TokenType_CharLiteral   i32 = 5
+global $TokenType_LBrack        i32 = 6  ;; Symbols
+global $TokenType_RBrack        i32 = 7
+global $TokenType_LParen        i32 = 8 
+global $TokenType_RParen        i32 = 9
+global $TokenType_LBrace        i32 = 10
+global $TokenType_RBrace        i32 = 11
+global $TokenType_Comma         i32 = 12
+global $TokenType_Dot           i32 = 13
 global $TokenType_MinPrecedence i32 = 20  ;; Operators
-global $TokenType_Equal         i32 = 21
-global $TokenType_PlusEqual     i32 = 22
-global $TokenType_AmpEqual      i32 = 23
-global $TokenType_PipeEqual     i32 = 24
-global $TokenType_CaretEqual    i32 = 25
-global $TokenType_SlashEqual    i32 = 26
-global $TokenType_StarEqual     i32 = 27
-global $TokenType_PercentEqual  i32 = 28 
-global $TokenType_LtLtEqual     i32 = 29
-global $TokenType_GtGtEqual     i32 = 30
-global $TokenType_MinusEqual    i32 = 31
-global $TokenType_Pipe          i32 = 32
-global $TokenType_Caret         i32 = 33
-global $TokenType_Amp           i32 = 34
-global $TokenType_EqualEqual    i32 = 35
-global $TokenType_ExclamEqual   i32 = 36
+global $TokenType_Set           i32 = 21
+global $TokenType_Add_Set       i32 = 22
+global $TokenType_Sub_Set       i32 = 23
+global $TokenType_Mul_Set       i32 = 24
+global $TokenType_Div_Set       i32 = 25
+global $TokenType_Or            i32 = 32
+global $TokenType_Xor           i32 = 33
+global $TokenType_And           i32 = 34
+global $TokenType_Eq            i32 = 35
+global $TokenType_Ne            i32 = 36
 global $TokenType_Lt            i32 = 37
 global $TokenType_Ltu           i32 = 38
 global $TokenType_Lte           i32 = 39
@@ -2891,17 +2952,17 @@ global $TokenType_Gt            i32 = 41
 global $TokenType_Gtu           i32 = 42
 global $TokenType_Gte           i32 = 43
 global $TokenType_Geu           i32 = 44
-global $TokenType_LtLt          i32 = 45
-global $TokenType_GtGt          i32 = 46
+global $TokenType_Shl           i32 = 45
+global $TokenType_Shr           i32 = 46
 global $TokenType_Shru          i32 = 47
-global $TokenType_Plus          i32 = 48
-global $TokenType_Minus         i32 = 49
-global $TokenType_Star          i32 = 50
-global $TokenType_Slash         i32 = 51
+global $TokenType_Add           i32 = 48
+global $TokenType_Sub           i32 = 49
+global $TokenType_Mul           i32 = 50
+global $TokenType_Div           i32 = 51
 global $TokenType_Divu          i32 = 52
-global $TokenType_Percent       i32 = 53
+global $TokenType_Rem           i32 = 53
 global $TokenType_Remu          i32 = 54
-global $TokenType_Exclam        i32 = 55
+global $TokenType_Eqz           i32 = 55
 global $TokenType_Min           i32 = 56
 global $TokenType_Max           i32 = 57
 global $TokenType_CopySign      i32 = 58
@@ -2925,7 +2986,6 @@ global $TokenType_Export        i32 = 90  ;; Keywords
 global $TokenType_Mut           i32 = 91
 global $TokenType_Global        i32 = 92
 global $TokenType_Func          i32 = 94
-global $TokenType_Type          i32 = 95
 global $TokenType_Local         i32 = 96
 global $TokenType_If            i32 = 97
 global $TokenType_Else          i32 = 98
@@ -2934,6 +2994,13 @@ global $TokenType_Continue      i32 = 101
 global $TokenType_Br            i32 = 102
 global $TokenType_Br_If         i32 = 103
 global $TokenType_Return        i32 = 104
+global $TokenType_Builtin       i32 = 105
+global $TokenType_Nop           i32 = 106
+global $TokenType_Unreachable   i32 = 107
+global $TokenType_Br_Table      i32 = 108
+global $TokenType_Call_Indirect i32 = 109
+global $TokenType_Drop          i32 = 110
+global $TokenType_Select        i32 = 111
 
 ;; Enum list of node types
 global $Node_Module      i32 = 1  ;; The root node
@@ -2957,23 +3024,26 @@ global $Node_Loop        i32 = 19
 global $Node_Br          i32 = 20
 global $Node_Br_If       i32 = 21
 global $Node_Continue    i32 = 22
-global $Node_Pop         i32 = 23
+global $Node_Drop        i32 = 23
 global $Node_Instruction i32 = 24
+global $Node_Builtin     i32 = 25
 
-global $Error_DuplicateName   i32 = 1
-global $Error_InvalidToken    i32 = 2
-global $Error_MissingToken    i32 = 3
-global $Error_Expression      i32 = 4
-global $Error_TypeMismatchA   i32 = 5
-global $Error_TypeMismatchB   i32 = 6
-global $Error_RootStatement   i32 = 7
-global $Error_TypeNotInferred i32 = 8
-global $Error_NotDeclared     i32 = 9
-global $Error_LiteralToInt    i32 = 10
-global $Error_BlockStatement  i32 = 11
-global $Error_EmitNode        i32 = 12
-global $Error_InvalidOperator i32 = 13
-global $Error_NotMutable      i32 = 14
-global $Error_NoIdentifiers   i32 = 15
-global $Error_NoParamList     i32 = 16
-global $Error_ParseAssignOp   i32 = 17
+global $Error_DuplicateName   i32 = 121
+global $Error_InvalidToken    i32 = 122
+global $Error_MissingToken    i32 = 123
+global $Error_Expression      i32 = 124
+global $Error_TypeMismatchA   i32 = 125
+global $Error_TypeMismatchB   i32 = 126
+global $Error_RootStatement   i32 = 127
+global $Error_TypeNotInferred i32 = 128
+global $Error_NotDeclared     i32 = 129
+global $Error_LiteralToInt    i32 = 110
+global $Error_BlockStatement  i32 = 111
+global $Error_EmitNode        i32 = 112
+global $Error_InvalidOperator i32 = 113
+global $Error_NotMutable      i32 = 114
+global $Error_NoIdentifiers   i32 = 115
+global $Error_NoParamList     i32 = 116
+global $Error_ParseAssignOp   i32 = 117
+
+;; https://github.com/PierreRossouw/wats
