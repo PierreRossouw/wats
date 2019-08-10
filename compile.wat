@@ -43,7 +43,7 @@ func $lexx($dwasm i32) {
       $column = 0
 
     ;; keyword
-    } else if ($chr >= 'a') & ($chr <= 'z') {
+    } else if $chr >= 'a' & $chr <= 'z' {
       $start = $str_index
       loop {
         br_if $str_index >= $length 
@@ -275,19 +275,14 @@ func $is_native_type_string($S i32) i32 {
   $str_eq($S, "i32") | $str_eq($S, "i64") | $str_eq($S, "f32") | $str_eq($S, "f64")
 }
 
-;; ,.(){}[]
-func $is_single_chr($chr i32) i32 {
+func $is_single_chr($chr i32) i32 {  ;; ,.(){}[]
   $chr == ',' | $chr == '.' 
   | $chr == '(' | $chr == ')' 
   | $chr == '{' | $chr == '}' 
   | $chr == '[' | $chr == ']'
 }
 
-;; 6.3.5 Identifiers
-;; Indices can be given in both numeric and symbolic form. Symbolic identifiers that stand in lieu of indices start
-;; with ‘$’, followed by any sequence of printable ASCII46 characters that does not contain a space, quotation mark,
-;; comma, semicolon, or bracket.  
-func $is_idchar($chr i32) i32 {
+func $is_idchar($chr i32) i32 {  ;; Symbolic identifiers that stand in lieu of indices start with ‘$’
   ($chr >= '0' & $chr <= '9') 
   | ($chr >= 'a' & $chr <= 'z') 
   | ($chr >= 'A' & $chr <= 'Z') 
@@ -298,10 +293,7 @@ func $is_idchar($chr i32) i32 {
 }
 
 func $is_keywordchar($chr i32) i32 {
-  ($chr >= '0' & $chr <= '9') 
-  | ($chr >= 'a' & $chr <= 'z') 
-  | ($chr >= 'A' & $chr <= 'Z') 
-  | $chr == '_' 
+  ($chr >= '0' & $chr <= '9') | ($chr >= 'a' & $chr <= 'z') | ($chr >= 'A' & $chr <= 'Z') | $chr == '_' 
 }
 
 func $add_token($kind i32, $text i32, $line i32, $column i32) {
@@ -773,7 +765,6 @@ func $parse_bracket_load() i32 {
   $node
 }
 
-;; $A[b][c] = x
 func $parse_bracket_store() i32 {
   local $node i32 = $new_node($Node_DotStore)
   local $BodyList i32 = $new_list()
@@ -1769,10 +1760,7 @@ func $emit_identifier($node i32) {
   $append_uleb($WASM, $resolved_node[$node_index])
 }
 
-;; ???.A[B][C][D]
-;; load???(load(load(A + B) + C) + D)
-;; A B + i32.load() C + i32.load() D + ???.load()
-func $emit_dot_load($node i32) {
+func $emit_dot_load($node i32) {  ;;  f32.$A[$B][$C]  ->  f32.load(load($A + $B) + $C)
   local $data_type i32 = $node[$node_dataType]
   local $ident_list i32 = $node[$node_Nodes]
   local mut $item i32 = $ident_list[$list_First]
@@ -1807,10 +1795,7 @@ func $emit_dot_load($node i32) {
   }
 }
 
-;; ???.$A[b][c] = x
-;; ???.store(load(load($A + b) + c) + d, x)
-;; A B + load() C + load() D + x store???()
-func $emit_dot_store($node i32) {
+func $emit_dot_store($node i32) {  ;; f64.$A[$B][$C] = $x  ->  f64.store(load(load($A + $B) + $C), $x)
   local mut $data_type i32 = $node[$node_dataType]
   if !$data_type {
     $data_type = $infer_data_type($node[$node_ANode])
@@ -1981,7 +1966,7 @@ func $emit_builtin($node i32) {
       $append_byte($WASM, 0x2a) 
     } else if $t == $TokenType_F64 {
       $append_byte($WASM, 0x2b) 
-    }
+    } else { $add_error($Error_BuiltinType, $node[$node_Token]) }
     $append_byte($WASM, 0x00)  ;; alignment
     $append_byte($WASM, 0x00)  ;; offset
   } else if $str_eq($name, "load8_s") {
@@ -1990,7 +1975,7 @@ func $emit_builtin($node i32) {
       $append_byte($WASM, 0x2c)
     } else if $t == $TokenType_I64 {
       $append_byte($WASM, 0x30) 
-    }
+    } else { $add_error($Error_BuiltinType, $node[$node_Token]) }
     $append_byte($WASM, 0x00)  ;; alignment
     $append_byte($WASM, 0x00)  ;; offset
   } else if $str_eq($name, "load8_u") {
@@ -1999,7 +1984,7 @@ func $emit_builtin($node i32) {
       $append_byte($WASM, 0x2d)
     } else if $t == $TokenType_I64 {
       $append_byte($WASM, 0x31) 
-    }
+    } else { $add_error($Error_BuiltinType, $node[$node_Token]) }
     $append_byte($WASM, 0x00)  ;; alignment
     $append_byte($WASM, 0x00)  ;; offset
   } else if $str_eq($name, "load16_s") {
@@ -2008,7 +1993,7 @@ func $emit_builtin($node i32) {
       $append_byte($WASM, 0x2e)
     } else if $t == $TokenType_I64 {
       $append_byte($WASM, 0x32) 
-    }
+    } else { $add_error($Error_BuiltinType, $node[$node_Token]) }
     $append_byte($WASM, 0x00)  ;; alignment
     $append_byte($WASM, 0x00)  ;; offset
   } else if $str_eq($name, "load16_u") {
@@ -2017,7 +2002,7 @@ func $emit_builtin($node i32) {
       $append_byte($WASM, 0x2f)
     } else if $t == $TokenType_I64 {
       $append_byte($WASM, 0x33) 
-    }
+    } else { $add_error($Error_BuiltinType, $node[$node_Token]) }
     $append_byte($WASM, 0x00)  ;; alignment
     $append_byte($WASM, 0x00)  ;; offset
   } else if $str_eq($name, "load32_s") {
@@ -2043,7 +2028,7 @@ func $emit_builtin($node i32) {
     } else if $t == $TokenType_F64 {
       $emit_call_args2($node, $TokenType_I32, $TokenType_F64)
       $append_byte($WASM, 0x39) 
-    }
+    } else { $add_error($Error_BuiltinType, $node[$node_Token]) }
     $append_byte($WASM, 0x00)  ;; alignment
     $append_byte($WASM, 0x00)  ;; offset
   } else if $str_eq($name, "store8") {
@@ -2053,7 +2038,7 @@ func $emit_builtin($node i32) {
     } else if $t == $TokenType_I64 {
       $emit_call_args2($node, $TokenType_I32, $TokenType_I64)
       $append_byte($WASM, 0x3c) 
-    }
+    } else { $add_error($Error_BuiltinType, $node[$node_Token]) }
     $append_byte($WASM, 0x00)  ;; alignment
     $append_byte($WASM, 0x00)  ;; offset
   } else if $str_eq($name, "store16") {
@@ -2063,7 +2048,7 @@ func $emit_builtin($node i32) {
     } else if $t == $TokenType_I64 {
       $emit_call_args2($node, $TokenType_I32, $TokenType_I64)
       $append_byte($WASM, 0x3d) 
-    }
+    } else { $add_error($Error_BuiltinType, $node[$node_Token]) }
     $append_byte($WASM, 0x00)  ;; alignment
     $append_byte($WASM, 0x00)  ;; offset
   } else if $str_eq($name, "store32") {
@@ -2093,67 +2078,57 @@ func $emit_builtin($node i32) {
   } else if $str_eq($name, "promote") {
     $emit_call_args($node, $TokenType_F32)
     $append_byte($WASM, 0xbb)
-
   } else if $str_eq($name, "trunc_s_f32") {
     $emit_call_args($node, $TokenType_F32)
     if $t == $TokenType_I32 {
       $append_byte($WASM, 0xa8)
     } else if $t == $TokenType_I64 {
       $append_byte($WASM, 0xae) 
-    }
+    } else { $add_error($Error_BuiltinType, $node[$node_Token]) }
   } else if $str_eq($name, "trunc_u_f32") {
     $emit_call_args($node, $TokenType_F32)
     if $t == $TokenType_I32 {
       $append_byte($WASM, 0xa9)
     } else if $t == $TokenType_I64 {
       $append_byte($WASM, 0xaf) 
-    }
+    } else { $add_error($Error_BuiltinType, $node[$node_Token]) }
   } else if $str_eq($name, "trunc_u_f64") {
     $emit_call_args($node, $TokenType_F64)
     if $t == $TokenType_I32 {
       $append_byte($WASM, 0xab)
     } else if $t == $TokenType_I64 {
       $append_byte($WASM, 0xb1) 
-    }
+    } else { $add_error($Error_BuiltinType, $node[$node_Token]) }
   } else if $str_eq($name, "convert_s_i32") {
     $emit_call_args($node, $TokenType_I32)
     if $t == $TokenType_F32 {
       $append_byte($WASM, 0xb2)
     } else if $t == $TokenType_F64 {
       $append_byte($WASM, 0xb7) 
-    }
-
-
-  } else if $str_eq($name, "f32_convert_s_i32") {
-    $emit_call_args($node, $TokenType_I32)
-    $append_byte($WASM, 0xb2)
-  } else if $str_eq($name, "f64_convert_s_i32") {
-    $emit_call_args($node, $TokenType_I32)
-    $append_byte($WASM, 0xb7)
-
-  } else if $str_eq($name, "f32_convert_s_i64") {
+    } else { $add_error($Error_BuiltinType, $node[$node_Token]) }
+  } else if $str_eq($name, "convert_s_i64") {
     $emit_call_args($node, $TokenType_I64)
-    $append_byte($WASM, 0xb4)
-  } else if $str_eq($name, "f64_convert_s_i64") {
-    $emit_call_args($node, $TokenType_I64)
-    $append_byte($WASM, 0xb9)
-
-  } else if $str_eq($name, "f32_convert_u_i32") {
+    if $t == $TokenType_F32 {
+      $append_byte($WASM, 0xb4)
+    } else if $t == $TokenType_F64 {
+      $append_byte($WASM, 0xb9) 
+    } else { $add_error($Error_BuiltinType, $node[$node_Token]) }
+  } else if $str_eq($name, "convert_u_i32") {
     $emit_call_args($node, $TokenType_I32)
-    $append_byte($WASM, 0xb3)
-  } else if $str_eq($name, "f32_convert_u_i64") {
+    if $t == $TokenType_F32 {
+      $append_byte($WASM, 0xb3)
+    } else if $t == $TokenType_F64 {
+      $append_byte($WASM, 0xb8) 
+    } else { $add_error($Error_BuiltinType, $node[$node_Token]) }
+  } else if $str_eq($name, "convert_u_i64") {
     $emit_call_args($node, $TokenType_I64)
-    $append_byte($WASM, 0xb5)
-
-  } else if $str_eq($name, "f64_convert_u_i32") {
-    $emit_call_args($node, $TokenType_I32)
-    $append_byte($WASM, 0xb8)
-  } else if $str_eq($name, "f64_convert_u_i64") {
-    $emit_call_args($node, $TokenType_I64)
-    $append_byte($WASM, 0xba)
-
+    if $t == $TokenType_F32 {
+      $append_byte($WASM, 0xba)
+    } else if $t == $TokenType_F64 {
+      $append_byte($WASM, 0xb5) 
+    } else { $add_error($Error_BuiltinType, $node[$node_Token]) }
   } else {
-    ;; todo error
+    $add_error($Error_BuiltinType, $node[$node_Token])
   }
 }
 
@@ -2232,16 +2207,6 @@ func $infer_call_data_type($node i32) i32 {
   } else if $str_eq($name, "extend_u") { return $TokenType_I64
   } else if $str_eq($name, "demote") { return $TokenType_F32
   } else if $str_eq($name, "promote") { return $TokenType_F64
-
-
-  } else if $str_eq($name, "f32_convert_s_i32") { return $TokenType_F32
-  } else if $str_eq($name, "f64_convert_s_i32") { return $TokenType_F64
-  } else if $str_eq($name, "f32_convert_s_i64") { return $TokenType_F32
-  } else if $str_eq($name, "f64_convert_s_i64") { return $TokenType_F64
-  } else if $str_eq($name, "f32_convert_u_i32") { return $TokenType_F32
-  } else if $str_eq($name, "f64_convert_u_i32") { return $TokenType_F64
-  } else if $str_eq($name, "f32_convert_u_i64") { return $TokenType_F32
-  } else if $str_eq($name, "f64_convert_u_i64") { return $TokenType_F64
   } else {
     local $resolved_node i32 = $scope_resolve($CURRENT_SCOPE, $name, $node[$node_Token])
     return $resolved_node[$node_dataType]
@@ -2340,6 +2305,8 @@ func $parse_error_list() {
         $append_str($error_message, "Could not convert to int")
       } else if $errorNo == $Error_Expression {
         $append_str($error_message, "Expression expected")
+      } else if $errorNo == $Error_BuiltinType {
+        $append_str($error_message, "Builtin func type error")
       } else if $errorNo == $Error_TypeNotInferred {
         $append_str($error_message, "Could not determine type")
       } else if $errorNo == $Error_NotMutable {
@@ -2451,11 +2418,11 @@ func $str_to_f64($string i32) f64 {
       $isAfterDot = 1
     } else {
       if $isAfterDot { 
-        $f += f64_convert_s_i32($chr - '0') / $d
+        $f += (f64.convert_s_i32($chr - '0')) / $d  ;; TODO: fails to compile without the extra parens
         $d = $d * 10
       } else {
         if $chr >= '0' & $chr <= '9' {
-          $f = $f * 10 + f64_convert_s_i32($chr - '0')
+          $f = $f * 10 + f64.convert_s_i32($chr - '0')
         }
       }
     }
@@ -3006,5 +2973,6 @@ global $Error_NotMutable      i32 = 114
 global $Error_NoIdentifiers   i32 = 115
 global $Error_NoParamList     i32 = 116
 global $Error_ParseAssignOp   i32 = 117
+global $Error_BuiltinType     i32 = 118
 
 ;; Pierre Rossouw https://github.com/PierreRossouw/
