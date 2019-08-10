@@ -1,4 +1,4 @@
-;; Self-hosted WebAssembly compiler in a sugared Wat format. github.com/PierreRossouw
+;; Self-hosted WebAssembly compiler in a sugared Wat format. github.com/PierreRossouw/wats 2019-08-10
 
 export func $main() i32 {
   local $dwasm i32 = 4  ;; Input (string)
@@ -267,13 +267,12 @@ func $add_single_chr_token($s i32, $line i32, $column i32) {
 }
 
 func $is_operator_chr($chr i32) i32 {
-  ($chr == '=') | ($chr == '+') | ($chr == '-') | ($chr == '*') | ($chr == '/') | ($chr == '%') 
-    | ($chr == '<') | ($chr == '>') | ($chr == '!')
-    | ($chr == '&') | ($chr == '|') | ($chr == '^')
+  $chr == '=' | $chr == '+' | $chr == '-' | $chr == '*' | $chr == '/' | $chr == '%' 
+    | $chr == '<' | $chr == '>' | $chr == '!' | $chr == '&' | $chr == '|' | $chr == '^'
 }
 
 func $is_native_type_string($S i32) i32 {
-  ($str_eq($S, "i32") | $str_eq($S, "i64") | $str_eq($S, "f32") | $str_eq($S, "f64"))
+  $str_eq($S, "i32") | $str_eq($S, "i64") | $str_eq($S, "f32") | $str_eq($S, "f64")
 }
 
 ;; ,.(){}[]
@@ -570,7 +569,6 @@ func $parse_prefix() i32 {
 
 
     $node[$node_ANode][$node_dataType] = $kind
-
   } else if $kind == $TokenType_LParen {
     $next_token()
     $node = $parse_expression($TokenType_MinPrecedence)
@@ -860,7 +858,13 @@ func $parse_infix($level i32, $Left i32) i32 {
 
 func $parse_call_statement() i32 {
   local $IdentifierNode i32 = $parse_identifier()
-  local $node i32 = $parse_call_expression($IdentifierNode)
+  local mut $node i32 = $parse_call_expression($IdentifierNode)
+  if $is_binary_op($CURRENT_TOKEN) {
+    local $rnode i32 = $new_node($Node_Return)
+    local $Expression i32 = $parse_binary_expression($TokenType_MinPrecedence, $node)
+    $rnode[$node_ANode] = $Expression
+    $node = $rnode
+  }
   $node
 }
 
@@ -1549,9 +1553,11 @@ func $emit_instruction($node i32) {
       $emit_variable($node)
     } else {
       $add_error($Error_Expression, $node[$node_Token])
+      $add_error($kind , $node[$node_Token])
     }
   } else {
     $add_error($Error_Expression, 0)
+    $add_error($node, 0)
   }
 }
 
@@ -3001,4 +3007,4 @@ global $Error_NoIdentifiers   i32 = 115
 global $Error_NoParamList     i32 = 116
 global $Error_ParseAssignOp   i32 = 117
 
-;; Pierre Rossouw 2019-09-09 https://github.com/PierreRossouw/
+;; Pierre Rossouw https://github.com/PierreRossouw/
