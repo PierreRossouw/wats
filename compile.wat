@@ -1,41 +1,58 @@
-;; Self-hosted WebAssembly compiler in a sugared Wat format. github.com/PierreRossouw/wats 2019-08-10
+;; Self-hosted WebAssembly compiler in a sugared WAT format. github.com/PierreRossouw/wats 2019-08-11
+
+;; Compiler settings
+global $PLS_emit_name_section i32 = 0   ;; The name section is optional debugging symbols
+global $PLS_memory_pages i32 = 50   ;; Memory size in 64kB pages 
 
 export func $main() i32 {
-  local $dwasm i32 = 4  ;; Input (string)
-  ;; Fix the heap pointer to include the source string
-  local $ignore i32 = $allocate(4 + $string_size + $dwasm[$string_length])  
-  $ERROR_LIST = $new_list()
-  $lexx($dwasm)
+  local $wats i32 = $read_input_str()
   local mut $root_node i32 = 0
+  $ERROR_LIST = $new_list()
+  $lexx($wats)
   if !i32.$ERROR_LIST[$list_count] { 
     $root_node = $parse()
   }
   if !i32.$ERROR_LIST[$list_count] {
-    $emit($dwasm, $root_node)
+    $emit($wats, $root_node)
   }
   if i32.$ERROR_LIST[$list_count] { 
     $parse_error_list()
   }
   i32.$WASM[$string_capacity] = $WASM[$string_length]
-  $WASM + $string_capacity  ;; Return the memory location of the string
+  $WASM + $string_capacity   ;; Return the memory location of the string
+}
+
+func $read_input_str() i32 {   ;; The source code is in the memory as a null-terminated string
+  local mut $l i32 = 0
+  loop {
+    br_if !i32.load8_u($l)
+    $l += 1
+  }
+  drop $allocate($l)   ;; Fix the heap pointer to include the source string
+  local mut $wats i32 = $new_string(0)   ;; Create a String struct
+  $wats[$string_bytes] = 0  
+  $wats[$string_capacity] = $l
+  $wats[$string_length] = $l
+  $wats
 }
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Lexer 
 
-func $lexx($dwasm i32) {
+func $lexx($wats i32) {
   $TOKEN_LIST = $new_list()
   local mut $str_index i32 = -1
   local mut $line i32 = 1
   local mut $column i32 = 0
-  local $length i32 = $dwasm[$string_length]
+  local $length i32 = $wats[$string_length]
   local mut $start i32 = 0
   local mut $value_str i32 = 0
+  local mut $prev_chr i32 = 0
   loop {
     br_if $str_index >= $length
     $str_index += 1
     $column += 1
-    local mut $chr i32 = $get_chr($dwasm, $str_index)
+    local mut $chr i32 = $get_chr($wats, $str_index)
 
     ;; newline
     if $chr == 10 {
@@ -54,16 +71,16 @@ func $lexx($dwasm i32) {
         }
         $str_index += 1
         $column += 1
-        $chr = $get_chr($dwasm, $str_index)
+        $chr = $get_chr($wats, $str_index)
       }
-      $value_str = $sub_str($dwasm, $start, $str_index - $start + 1)
+      $value_str = $sub_str($wats, $start, $str_index - $start + 1)
       $add_keyword_token($value_str, $line, $column)
 
     ;; Identifier
     } else if $chr == '$' {
       $str_index += 1
       $column += 1
-      $chr = $get_chr($dwasm, $str_index)
+      $chr = $get_chr($wats, $str_index)
       $start = $str_index
       loop {
         br_if $str_index >= $length 
@@ -74,48 +91,48 @@ func $lexx($dwasm i32) {
         }
         $str_index += 1
         $column += 1
-        $chr = $get_chr($dwasm, $str_index)
+        $chr = $get_chr($wats, $str_index)
       }
-      $value_str = $sub_str($dwasm, $start, $str_index - $start + 1)
+      $value_str = $sub_str($wats, $start, $str_index - $start + 1)
       $add_token($TokenType_Id, $value_str, $line, $column)
     
     ;; Single quoted chars (byte)
     } else if $chr == 39 {
       $str_index += 1
       $column += 1
-      $chr = $get_chr($dwasm, $str_index)
+      $chr = $get_chr($wats, $str_index)
       $start = $str_index
       loop {
         br_if $str_index >= $length 
         br_if $chr == 39
         $str_index += 1
         $column += 1
-        $chr = $get_chr($dwasm, $str_index)
+        $chr = $get_chr($wats, $str_index)
       }
-      $value_str = $sub_str($dwasm, $start, $str_index - $start)
+      $value_str = $sub_str($wats, $start, $str_index - $start)
       $decode_str($value_str)
       $add_token($TokenType_CharLiteral, $value_str, $line, $column)
 
     ;; Double quoted strings
-    } else if $chr == 34 {
+    } else if $chr == '"' {
       $str_index += 1
       $column += 1
-      $chr = $get_chr($dwasm, $str_index)
+      $chr = $get_chr($wats, $str_index)
       $start = $str_index
       loop {
         br_if $str_index >= $length 
-        br_if $chr == 34
+        br_if $chr == '"'
         $str_index += 1
         $column += 1
-        $chr = $get_chr($dwasm, $str_index)
+        $chr = $get_chr($wats, $str_index)
       }
-      $value_str = $sub_str($dwasm, $start, $str_index - $start)
+      $value_str = $sub_str($wats, $start, $str_index - $start)
       $decode_str($value_str)
       $add_token($TokenType_StrLiteral, $value_str, $line, $column)
 
     ;; Number literals, for example -42, 3.14, 0x8d4f0
     ;; May contain underscores e.g. 1_234 is the same as 1234
-    } else if $is_number($chr, 0) | ($chr == '-' & $is_number($get_chr($dwasm, $str_index + 1), 0)) {
+    } else if $is_number($chr, 0) | ($chr == '-' & $is_number($get_chr($wats, $str_index + 1), 0)) {
       $start = $str_index
       local mut $is_hex i32 = 0
       loop {
@@ -131,12 +148,12 @@ func $lexx($dwasm i32) {
         }
         $str_index += 1
         $column += 1
-        $chr = $get_chr($dwasm, $str_index)
+        $chr = $get_chr($wats, $str_index)
       }
       if $chr == '.' & !$is_hex {
         $str_index += 2
         $column += 2
-        $chr = $get_chr($dwasm, $str_index)
+        $chr = $get_chr($wats, $str_index)
         loop {
           br_if $str_index >= $length 
           if !$is_number($chr, $is_hex) & $chr != '_' {
@@ -146,14 +163,14 @@ func $lexx($dwasm i32) {
           }
           $str_index += 1
           $column += 1
-          $chr = $get_chr($dwasm, $str_index)
+          $chr = $get_chr($wats, $str_index)
         }
       }
-      $value_str = $sub_str($dwasm, $start, $str_index - $start + 1)
+      $value_str = $sub_str($wats, $start, $str_index - $start + 1)
       $add_token($TokenType_NumLiteral, $value_str, $line, $column)
 
     ;; Comments
-    } else if $chr == ';' & $get_chr($dwasm, $str_index + 1) == ';' {
+    } else if $chr == ';' & $get_chr($wats, $str_index + 1) == ';' {
       loop {
         br_if $str_index >= $length 
         if $chr == 10 | $chr == 13 {  ;; LF | CR
@@ -163,28 +180,43 @@ func $lexx($dwasm i32) {
         }
         $str_index += 1
         $column += 1
-        $chr = $get_chr($dwasm, $str_index)
+        $chr = $get_chr($wats, $str_index)
+      }
+    } else if $chr == '(' & $get_chr($wats, $str_index + 1) == ';' {
+      $str_index += 1
+      $column += 1
+      loop {
+        $str_index += 1
+        $column += 1
+        $prev_chr = $chr
+        $chr = $get_chr($wats, $str_index)
+        br_if $str_index >= $length 
+        br_if $prev_chr == ';' & $chr == ')' 
+        if $chr == 10 | $chr == 13 {  ;; LF | CR
+          $column = 0
+          $line += 1
+        }
       }
     
     ;; Commas and brackets
     } else if $is_single_chr($chr) {
-      $value_str = $sub_str($dwasm, $str_index, 1)
+      $value_str = $sub_str($wats, $str_index, 1)
       $add_single_chr_token($value_str, $line, $column)
 
     ;; Mathematical operators
     } else if $is_operator_chr($chr) {
-      if $is_operator_chr($get_chr($dwasm, $str_index + 1)) {
-        if $is_operator_chr($get_chr($dwasm, $str_index + 2)) {
-          $value_str = $sub_str($dwasm, $str_index, 3)
+      if $is_operator_chr($get_chr($wats, $str_index + 1)) {
+        if $is_operator_chr($get_chr($wats, $str_index + 2)) {
+          $value_str = $sub_str($wats, $str_index, 3)
           $str_index += 2
           $column += 2
         } else {
-          $value_str = $sub_str($dwasm, $str_index, 2)
+          $value_str = $sub_str($wats, $str_index, 2)
           $str_index += 1
           $column += 1
         }
       } else {
-        $value_str = $sub_str($dwasm, $str_index, 1)
+        $value_str = $sub_str($wats, $str_index, 1)
       }
       $add_operator_token($value_str, $line, $column)
 
@@ -217,7 +249,6 @@ func $add_keyword_token($s i32, $line i32, $column i32) {
   } else if $str_eq($s, "abs") { $kind = $TokenType_Abs
   } else if $str_eq($s, "unreachable") { $kind = $TokenType_Unreachable
   } else if $str_eq($s, "nop") { $kind = $TokenType_Nop }
-  ;; TODO: ABS
   $add_token($kind, $s, $line, $column)
 }
 
@@ -583,18 +614,21 @@ func $new_node($kind i32) i32 {
 }
 
 func $next_token() {
-  $CURRENT_TOKEN_ITEM = $CURRENT_TOKEN_ITEM[$item_Next]
+  if $CURRENT_TOKEN_ITEM {
+    $CURRENT_TOKEN_ITEM = $CURRENT_TOKEN_ITEM[$item_Next]
+  }
+  $NEXT_TOKEN = 0
   if $CURRENT_TOKEN_ITEM {
     $CURRENT_TOKEN = $CURRENT_TOKEN_ITEM[$item_Object]
+  
+    local $next_token_item i32 = $CURRENT_TOKEN_ITEM[$item_Next]
+    if $next_token_item {
+      $NEXT_TOKEN = $next_token_item[$item_Object]
+    }
   } else {
     $CURRENT_TOKEN = 0
   }
-  local $next_token_item i32 = $CURRENT_TOKEN_ITEM[$item_Next]
-  if $next_token_item {
-    $NEXT_TOKEN = $next_token_item[$item_Object]
-  } else {
-    $NEXT_TOKEN = 0
-  }
+  
 }
 
 func $is_binary_op($token i32) i32 {
@@ -1017,8 +1051,8 @@ func $parse_declaration() i32 {
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Compiler 
 
-func $emit($dwasm i32, $root_node i32) {
-  $WASM = $new_empty_string($dwasm[$string_length] + 256)  ;; Guess
+func $emit($wats i32, $root_node i32) {
+  $WASM = $new_empty_string($wats[$string_length] + 256)  ;; Guess
   $CURRENT_SCOPE = $root_node[$node_Scope]
   $TYPE_LIST = $new_list()
   $FN_TYPE_LIST = $new_list()
@@ -1030,7 +1064,9 @@ func $emit($dwasm i32, $root_node i32) {
   $emit_export_section($root_node)
   $emit_code_section($root_node)
   $emit_data_section()
-  $emit_name_section($root_node)
+  if $PLS_emit_name_section {
+    $emit_name_section($root_node)
+  }
 }
 
 func $emit_name_section($root_node i32) {
@@ -1267,10 +1303,10 @@ func $emit_function_section() {
 
 func $emit_memory_section() {
   $append_byte($WASM, 0x05)   ;; Memory section
-  $append_uleb($WASM, 2 + $uleb_length(1_000))  ;; Size in bytes
+  $append_uleb($WASM, 2 + $uleb_length($PLS_memory_pages))  ;; Size in bytes
   $append_byte($WASM, 0x01)   ;; Count
   $append_byte($WASM, 0x00)   ;; Resizable
-  $append_uleb($WASM, 1_000)  ;; Pages
+  $append_uleb($WASM, $PLS_memory_pages)  ;; Pages
 }
 
 func $emit_global_section($root_node i32) {
@@ -1410,6 +1446,7 @@ func $emit_data_section() {
 }
 
 func $emit_code_section($root_node i32) {
+  $OFFSET = 65_536 * $PLS_memory_pages
   if i32.$FN_TYPE_LIST[$list_count] {
     $append_byte($WASM, 0x0a)  ;; Code section
     $append_byte($WASM, 0x00)  ;; Section size (guess)
@@ -2421,11 +2458,11 @@ func $str_to_f64($string i32) f64 {
       $isAfterDot = 1
     } else {
       if $isAfterDot { 
-        $f += f64.convert_s_i32($chr - '0') / $d
+        $f += f64.convert_s_i32($chr - '0') / $d  ;; TODO
         $d = $d * 10
       } else {
         if $chr >= '0' & $chr <= '9' {
-          $f = $f * 10 + f64.convert_s_i32($chr - '0')
+          $f = $f * 10 + f64.convert_s_i32($chr - '0')  ;; TODO
         }
       }
     }
@@ -2787,7 +2824,7 @@ global mut $FN_INDEX           i32 = 0  ;; Next function index number
 global mut $CURRENT_FN_NODE    i32 = 0
 global mut $TYPE_LIST          i32 = 0
 global mut $FN_TYPE_LIST       i32 = 0
-global mut $OFFSET             i32 = 65_536_000
+global mut $OFFSET             i32 = 0
 
 ;; Token struct offsets
 global $token_dec0de i32 = 0  ;; debugging marker
@@ -2846,9 +2883,9 @@ global $item_Name   i32 = 12   global $item_number i32 = 12
 global $item_size   i32 = 16
 
 ;; Magic number -0x00dec0de - used for debugging
-global $DEC0DE i32 = 557785600
+global $DEC0DE      i32 = 557785600
 global $debug_magic i32 = 0
-global $ALIGNMENT i32 = 4
+global $ALIGNMENT   i32 = 4
 
 ;; Enums
 global $TokenType_Keyword       i32 = 1
@@ -2905,7 +2942,7 @@ global $TokenType_Ceil          i32 = 63
 global $TokenType_Floor         i32 = 64
 global $TokenType_Trunc         i32 = 65
 global $TokenType_Round         i32 = 66
-global $TokenType_Sqrt          i32 = 67
+global $TokenType_Sqrt          i32 = 67  ;; TODO
 global $TokenType_Clz           i32 = 68
 global $TokenType_Ctz           i32 = 69
 global $TokenType_Cnt           i32 = 70
@@ -2936,10 +2973,10 @@ global $TokenType_Select        i32 = 111
 ;; Enum list of node types
 global $Node_Module      i32 = 1  ;; The root node
 global $Node_Data        i32 = 2
-global $Node_Return  i32 = 3
+global $Node_Return      i32 = 3
 global $Node_Fun         i32 = 4 
 global $Node_Parameter   i32 = 5
-global $Node_Expression      i32 = 6
+global $Node_Expression  i32 = 6
 global $Node_Call        i32 = 7
 global $Node_Block       i32 = 8
 global $Node_Variable    i32 = 9
