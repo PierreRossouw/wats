@@ -214,8 +214,10 @@ func $add_keyword_token($s i32, $line i32, $column i32) {
   } else if $str_eq($s, "export") { $kind = $TokenType_Export
   } else if $str_eq($s, "return") { $kind = $TokenType_Return
   } else if $str_eq($s, "global") { $kind = $TokenType_Global
+  } else if $str_eq($s, "abs") { $kind = $TokenType_Abs
   } else if $str_eq($s, "unreachable") { $kind = $TokenType_Unreachable
   } else if $str_eq($s, "nop") { $kind = $TokenType_Nop }
+  ;; TODO: ABS
   $add_token($kind, $s, $line, $column)
 }
 
@@ -271,15 +273,8 @@ func $is_operator_chr($chr i32) i32 {
     | $chr == '<' | $chr == '>' | $chr == '!' | $chr == '&' | $chr == '|' | $chr == '^'
 }
 
-func $is_native_type_string($S i32) i32 {
-  $str_eq($S, "i32") | $str_eq($S, "i64") | $str_eq($S, "f32") | $str_eq($S, "f64")
-}
-
 func $is_single_chr($chr i32) i32 {  ;; ,.(){}[]
-  $chr == ',' | $chr == '.' 
-  | $chr == '(' | $chr == ')' 
-  | $chr == '{' | $chr == '}' 
-  | $chr == '[' | $chr == ']'
+  $chr == ',' | $chr == '.' | $chr == '(' | $chr == ')' | $chr == '{' | $chr == '}' | $chr == '[' | $chr == ']'
 }
 
 func $is_idchar($chr i32) i32 {  ;; Symbolic identifiers that stand in lieu of indices start with ‘$’
@@ -504,6 +499,7 @@ func $parse_statement() i32 {
     $next_token()
     $eat_token($TokenType_Dot)
     $node = $parse_statement()
+    $node[$node_dataType] = $kind
     $node[$node_ANode][$node_dataType] = $kind
   } else {
     $node = $parse_return_expression()
@@ -558,8 +554,6 @@ func $parse_prefix() i32 {
     $eat_token($TokenType_Dot)
     $node = $parse_expression($TokenType_MinPrecedence)
     $node[$node_dataType] = $kind
-
-
     $node[$node_ANode][$node_dataType] = $kind
   } else if $kind == $TokenType_LParen {
     $next_token()
@@ -885,7 +879,7 @@ func $parse_return_expression() i32 {
   local $Expression i32 = $parse_expression($TokenType_MinPrecedence)
   $node[$node_ANode] = $Expression
   if !$Expression {
-    $add_error($Error_BlockStatement, $CURRENT_TOKEN)   ;; Error: Invalid block statement
+    $add_error($Error_BlockStatement, $CURRENT_TOKEN)
     $next_token()
   }
   $node
@@ -1955,7 +1949,10 @@ func $emit_call($node i32) {
 
 func $emit_builtin($node i32) {
   local $name i32 = $node[$node_ANode][$node_String]
-  local $t i32 = $node[$node_ANode][$node_dataType]
+  local mut $t i32 = $node[$node_ANode][$node_dataType]
+  if !$t {
+    $t = $node[$node_dataType]
+  }
   if $str_eq($name, "load") {
     $emit_call_args($node, $TokenType_I32)
     if $t == $TokenType_I32 {
@@ -2175,21 +2172,6 @@ func $emit_loop($node i32) {
   $append_byte($WASM, 0x40)  ;; void 
   $append_byte($WASM, 0x03)  ;; loop
   $append_byte($WASM, 0x40)  ;; void 
-  local $WhileNode i32 = $node[$node_CNode]
-  if $WhileNode {
-    $emit_instruction($WhileNode)
-    local mut $data_type i32 = $WhileNode[$node_dataType]
-    if !$data_type {
-      $data_type = $infer_data_type($WhileNode)
-      if !$data_type {
-        $add_error($Error_TypeNotInferred, $WhileNode[$node_Token])
-      }
-      $WhileNode[$node_dataType] = $data_type
-    }
-    $emit_operator($TokenType_Eqz, $data_type, $WhileNode)
-    $append_byte($WASM, 0x0d)  ;; br_if
-    $append_uleb($WASM, $scope_level($node, $Node_Loop) + 1)  ;; TODO FIX / REMOVE
-  }
   $emit_node($node[$node_ANode])
   $append_byte($WASM, 0x0c)  ;; br
   $append_byte($WASM, 0x00)  ;; level 
@@ -2418,7 +2400,7 @@ func $str_to_f64($string i32) f64 {
       $isAfterDot = 1
     } else {
       if $isAfterDot { 
-        $f += (f64.convert_s_i32($chr - '0')) / $d  ;; TODO: fails to compile without the extra parens
+        $f += f64.convert_s_i32($chr - '0') / $d
         $d = $d * 10
       } else {
         if $chr >= '0' & $chr <= '9' {
