@@ -35,6 +35,20 @@ $i
 $GLOBAL_VAR
 ```
 
+### Integers and Floats
+
+Both decimal and 0x prefixed hex integers are supported. Underscores can be used between digits.
+Single-quoted characters also converts to integers.
+Decimal floats work, hex float literals not yet implemented.
+
+```
+1000
+1_000
+0x0f
+0.25
+'Z'  ;; 90
+```
+
 ### Functions
 
 Functions can not be nested. They optionally return a value of one of the four native data types. 
@@ -52,9 +66,62 @@ func $do_nothing() {
 
 ### Globals
 
-Global variables can be mutable or static. They can appear in any order together with the Functions at root level.
+Global variables are static unless marked using the mut keyword. They can appear in any order together with the Functions at root level.
 
 ```
 global $STATIC i32 = 42
-global mut $current_year i32 = 2019
+global mut $current_year = 2019
+```
+
+### Locals
+
+Local variables are statuc unless marked as mutable using the mut modifier. They can appear in any part of a function.
+
+```
+func $f() {
+    local mut $variable i32 = 1
+    $variable = 10
+}
+```
+
+### Control Instructions
+
+Loops run until it reaches a br or evaluates to non-zero on a br_if statement
+
+```
+$i = 0
+loop {
+    br_if $i > 10 
+    $i += 1
+}
+
+loop {
+    br  ;; exit the loop immediately
+}  
+```
+
+If statements have an optional else clause. Wasm also supports returning a value but this is not yet fully supported in this compiler
+
+```
+if $pigs_fly {
+    ;; do stuff
+} else {
+    ;; do other stuff
+}
+
+i32.if $pickfirst {  ;; The data type decoration requires
+    42
+} else {
+    44
+}
+```
+
+
+### Instructions
+
+```
+$var = 42  ;; Assignment of local or global variables (must be mutable)
+$var += 1  ;; Shortened assignment statement. Also supports  -=  /=  *=
+$var = 40 / 10 + 4  ;; 8
+... TODO
 ```
