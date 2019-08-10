@@ -76,10 +76,10 @@ compilerCompile.onclick = (e) => {
     if (0x6d7361 == mem[out + 1] + (mem[out + 2] << 8) + (mem[out + 3] << 16)) {
       let compilerWasm = mem.slice(out, out + binLen)
       compilerBinary.value = byteToHexString(compilerWasm);
-      testMemory.value = byteToDumpString(mem.slice(0, 64000));
+      testMemory.value = byteToDumpString(mem.slice(0, 65536));
     } else {
       compilerBinary.value = String.fromCharCode.apply(null, mem.slice(out, out + binLen));
-      testMemory.value = byteToDumpString(mem.slice(0, 64000));
+      testMemory.value = byteToDumpString(mem.slice(0, 65536));
     };
   });
 };
@@ -97,10 +97,10 @@ testCompile.onclick = (e) => {
     if (0x6d7361 == mem[out + 1] + (mem[out + 2] << 8) + (mem[out + 3] << 16)) {
       let testWasm = mem.slice(out, out + outLen);
       testBinary.value = byteToHexString(testWasm)
-      testMemory.value = byteToDumpString(mem.slice(0, 64000));
+      testMemory.value = byteToDumpString(mem.slice(0, 65536));
     } else {   // Error message
       testBinary.value = String.fromCharCode.apply(null, mem.slice(out, out + outLen));
-      testMemory.value = byteToDumpString(mem.slice(0, 64000));
+      testMemory.value = byteToDumpString(mem.slice(0, 65536));
     };
   });
 };
@@ -112,7 +112,7 @@ execute.onclick = (e) => {
     if (results.instance.exports.memory) {
       let mem = new Uint8Array(results.instance.exports.memory.buffer);
       execResult.value = results.instance.exports.main();
-      testMemory.value = byteToDumpString(mem.slice(0, 64000));
+      testMemory.value = byteToDumpString(mem.slice(0, 65536));
     } else {
       execResult.value = results.instance.exports.main();
     }
