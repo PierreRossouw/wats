@@ -845,7 +845,7 @@ func $parse_call_statement() i32 {
   local $IdentifierNode i32 = $parse_identifier()
   local mut $node i32 = $parse_call_expression($IdentifierNode)
   if $is_binary_op($CURRENT_TOKEN) {
-    local $rnode i32 = $new_node($Node_Return)
+    local $rnode i32 = $new_node($Node_Expression)
     local $Expression i32 = $parse_binary_expression($TokenType_MinPrecedence, $node)
     $rnode[$node_ANode] = $Expression
     $node = $rnode
@@ -868,14 +868,14 @@ func $parse_builtin_statement() i32 {
 }
 
 func $parse_return_statement() i32 {
-  local $node i32 = $new_node($Node_Return_Statement)
+  local $node i32 = $new_node($Node_Return)
   $eat_token($TokenType_Return)
   $node[$node_ANode] = $parse_expression($TokenType_MinPrecedence)
   $node
 }
 
 func $parse_return_expression() i32 {
-  local $node i32 = $new_node($Node_Return)
+  local $node i32 = $new_node($Node_Expression)
   local $Expression i32 = $parse_expression($TokenType_MinPrecedence)
   $node[$node_ANode] = $Expression
   if !$Expression {
@@ -1480,10 +1480,10 @@ func $emit_node($node i32) {
     $emit_call($node)
   } else if $kind == $Node_Builtin {
     $emit_builtin($node)
-  } else if $kind == $Node_Return_Statement {
-    $emit_return_statement($node)
   } else if $kind == $Node_Return {
     $emit_return($node)
+  } else if $kind == $Node_Expression {
+    $emit_expression($node)
   } else if $kind == $Node_Instruction {
     if $node[$node_type] == $TokenType_Nop {
       $append_byte($WASM, 0x01)  ;; nop
@@ -2239,7 +2239,7 @@ func $emit_variable($node i32) {
   $append_uleb($WASM, $node[$node_index])
 }
 
-func $emit_return_statement($node i32) {
+func $emit_return($node i32) {
   local $ANode i32 = $node[$node_ANode]
   local $data_type i32 = $CURRENT_FN_NODE[$node_dataType]
   if $data_type {
@@ -2250,7 +2250,7 @@ func $emit_return_statement($node i32) {
   $append_byte($WASM, 0x0f)  ;; return
 }
 
-func $emit_return($node i32) {
+func $emit_expression($node i32) {
   local $ANode i32 = $node[$node_ANode]
   local $data_type i32 = $CURRENT_FN_NODE[$node_dataType]
   if $data_type {
@@ -2936,10 +2936,10 @@ global $TokenType_Select        i32 = 111
 ;; Enum list of node types
 global $Node_Module      i32 = 1  ;; The root node
 global $Node_Data        i32 = 2
-global $Node_Return_Statement  i32 = 3
+global $Node_Return  i32 = 3
 global $Node_Fun         i32 = 4 
 global $Node_Parameter   i32 = 5
-global $Node_Return      i32 = 6
+global $Node_Expression      i32 = 6
 global $Node_Call        i32 = 7
 global $Node_Block       i32 = 8
 global $Node_Variable    i32 = 9
