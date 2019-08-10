@@ -3,9 +3,9 @@ export func $main() i32 {
 }
 
 func $fib($n i32) i32 {
-  if $n > 1 {
-    return $fib($n - 1) + $fib($n - 2) 
+  i32.if $n > 1 {
+    $fib($n - 1) + $fib($n - 2) 
+  } else {
+    $n
   }
-  $n
 }
-
