@@ -4,9 +4,7 @@ A quick and simple and WebAssembly self-hosted compiler. The language is just th
 Try it out at https://pierrerossouw.github.io/wats
 
 ### Using the compiler
-WebAssembly does not have IO so some JavaScript is needed to use the compiler  
-Write the source code to the shared memory as a null-terminated string
-The compiler will return a memory location for the compiled binary  
+WebAssembly does not have IO so some JavaScript is needed to use the compiler. Write the source code to the shared memory as a null-terminated string and the compiler will return a memory location for the compiled binary.
 
 # Disassembler
 Coming soon
