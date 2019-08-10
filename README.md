@@ -35,6 +35,16 @@ $i
 $GLOBAL_VAR
 ```
 
+### Comments
+
+Comments are treated as whitespace
+
+```
+;; Single line comments start anywhere and run until a linebreak
+(; Multi line comments 
+   are also supported. ;)
+```
+
 ### Integers and Floats
 
 Both decimal and 0x prefixed hex integers are supported. Underscores can be used between digits.
