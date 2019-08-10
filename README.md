@@ -14,8 +14,9 @@ Coming soon
 
 # Language reference
 
-Data Types
-----------
+### Data Types
+
+Wasm has four native data types. i32 also serves as a memory pointer or as a binary type.
 
 ```
 i32
@@ -24,6 +25,36 @@ f32
 f64
 ```
 
+### Identifiers
 
+All identifiers must start with a dollar sign. This includes names of functions, variables, and globals.
 
+```
+$main()
+$i
+$GLOBAL_VAR
+```
 
+### Functions
+
+Functions can not be nested. They optionally return a value of one of the four native data types. 
+The export keyword adds the function to the module's export list.
+
+```
+export func $main() i32 {
+    $do_nothing() ;; call the other function
+    40 + 2  ;; should return 42 
+}
+
+func $do_nothing() {
+}
+```
+
+### Globals
+
+Global variables can be mutable or static. They can appear in any order together with the Functions at root level.
+
+```
+global $STATIC i32 = 42
+global mut $current_year i32 = 2019
+```
