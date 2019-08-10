@@ -5,8 +5,7 @@ Try it out at https://pierrerossouw.github.io/wats
 
 ### Using the compiler
 WebAssembly does not have IO so some JavaScript is needed to use the compiler  
-Write the source code to the shared memory starting at byte 12  
-Write the length as a 32 bit int in bytes 8-11  
+Write the source code to the shared memory as a null-terminated string
 The compiler will return a memory location for the compiled binary  
 
 # Disassembler
