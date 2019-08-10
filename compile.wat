@@ -868,7 +868,7 @@ func $parse_builtin_statement() i32 {
 }
 
 func $parse_return_statement() i32 {
-  local $node i32 = $new_node($Node_Return)
+  local $node i32 = $new_node($Node_Return_Statement)
   $eat_token($TokenType_Return)
   $node[$node_ANode] = $parse_expression($TokenType_MinPrecedence)
   $node
@@ -1480,6 +1480,8 @@ func $emit_node($node i32) {
     $emit_call($node)
   } else if $kind == $Node_Builtin {
     $emit_builtin($node)
+  } else if $kind == $Node_Return_Statement {
+    $emit_return_statement($node)
   } else if $kind == $Node_Return {
     $emit_return($node)
   } else if $kind == $Node_Instruction {
@@ -2143,9 +2145,20 @@ func $emit_block($node i32) {
 }
 
 func $emit_if($node i32) {
+  local $data_type i32 = $node[$node_dataType]
   $emit_instruction($node[$node_CNode])  ;; If condition Expression
   $append_byte($WASM, 0x04)  ;; if
-  $append_byte($WASM, 0x40)  ;; void
+  if $data_type == $TokenType_F64 {
+    $append_byte($WASM, 0x7c)
+  } else if $data_type == $TokenType_F32 {
+    $append_byte($WASM, 0x7d)
+  } else if $data_type == $TokenType_I64 {
+    $append_byte($WASM, 0x7e)
+  } else if $data_type == $TokenType_I32 {
+    $append_byte($WASM, 0x7f)
+  } else {
+    $append_byte($WASM, 0x40) ;; void
+  }
   $emit_node($node[$node_ANode])  ;; Then Block
   local $ElseBlock i32 = $node[$node_BNode]
   if $ElseBlock {
@@ -2226,7 +2239,7 @@ func $emit_variable($node i32) {
   $append_uleb($WASM, $node[$node_index])
 }
 
-func $emit_return($node i32) {
+func $emit_return_statement($node i32) {
   local $ANode i32 = $node[$node_ANode]
   local $data_type i32 = $CURRENT_FN_NODE[$node_dataType]
   if $data_type {
@@ -2234,8 +2247,16 @@ func $emit_return($node i32) {
     $ANode[$node_dataType] = $data_type
     $emit_instruction($ANode)
   }
-  if $scope_level($node, $Node_Fun) > 0 {  ;; TODO wat is this might be a bug, breaks if removed
-    $append_byte($WASM, 0x0f)  ;; return
+  $append_byte($WASM, 0x0f)  ;; return
+}
+
+func $emit_return($node i32) {
+  local $ANode i32 = $node[$node_ANode]
+  local $data_type i32 = $CURRENT_FN_NODE[$node_dataType]
+  if $data_type {
+    $node[$node_dataType] = $data_type
+    $ANode[$node_dataType] = $data_type
+    $emit_instruction($ANode)
   }
 }
 
@@ -2915,6 +2936,7 @@ global $TokenType_Select        i32 = 111
 ;; Enum list of node types
 global $Node_Module      i32 = 1  ;; The root node
 global $Node_Data        i32 = 2
+global $Node_Return_Statement  i32 = 3
 global $Node_Fun         i32 = 4 
 global $Node_Parameter   i32 = 5
 global $Node_Return      i32 = 6
