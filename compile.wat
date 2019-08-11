@@ -30,7 +30,7 @@ func $read_input_str() i32 {   ;; The source code is in the memory as a null-ter
   }
   drop $allocate($l)   ;; Fix the heap pointer to include the source string
   local mut $wats i32 = $new_string(0)   ;; Create a String struct
-  $wats[$string_bytes] = 0  
+  $wats[$string_bytes] = 0   ;; Pointer to the string bytes
   $wats[$string_capacity] = $l
   $wats[$string_length] = $l
   $wats
@@ -620,7 +620,6 @@ func $next_token() {
   $NEXT_TOKEN = 0
   if $CURRENT_TOKEN_ITEM {
     $CURRENT_TOKEN = $CURRENT_TOKEN_ITEM[$item_Object]
-  
     local $next_token_item i32 = $CURRENT_TOKEN_ITEM[$item_Next]
     if $next_token_item {
       $NEXT_TOKEN = $next_token_item[$item_Object]
@@ -628,7 +627,6 @@ func $next_token() {
   } else {
     $CURRENT_TOKEN = 0
   }
-  
 }
 
 func $is_binary_op($token i32) i32 {
@@ -650,7 +648,7 @@ func $is_assign_op($token i32) i32 {
 
 func $is_unary_op($token i32) i32 {
   local $kind i32 = $token[$token_kind]
-  $kind == $TokenType_Sub | $kind == $TokenType_Eqz | $kind == $TokenType_Cnt | $kind == $TokenType_Clz 
+  $kind == $TokenType_Sub | $kind == $TokenType_Eqz | $kind == $TokenType_Popcnt | $kind == $TokenType_Clz 
     | $kind == $TokenType_Ctz | $kind == $TokenType_Abs | $kind == $TokenType_Neg | $kind == $TokenType_Ceil
     | $kind == $TokenType_Floor | $kind == $TokenType_Trunc | $kind == $TokenType_Round | $kind == $TokenType_Sqrt 
 }
@@ -1700,7 +1698,7 @@ func $emit_operator($token_type i32, $data_type i32, $node i32) {
     } else if $token_type == $TokenType_Geu { $append_byte($WASM, 0x5a)
     } else if $token_type == $TokenType_Clz { $append_byte($WASM, 0x79)
     } else if $token_type == $TokenType_Ctz { $append_byte($WASM, 0x7a) 
-    } else if $token_type == $TokenType_Cnt { $append_byte($WASM, 0x7b)
+    } else if $token_type == $TokenType_Popcnt { $append_byte($WASM, 0x7b)
     } else if $token_type == $TokenType_Add { $append_byte($WASM, 0x7c)
     } else if $token_type == $TokenType_Sub { $append_byte($WASM, 0x7d)
     } else if $token_type == $TokenType_Mul { $append_byte($WASM, 0x7e)
@@ -1733,7 +1731,7 @@ func $emit_operator($token_type i32, $data_type i32, $node i32) {
     } else if $token_type == $TokenType_Geu { $append_byte($WASM, 0x4f) 
     } else if $token_type == $TokenType_Clz { $append_byte($WASM, 0x67) 
     } else if $token_type == $TokenType_Ctz { $append_byte($WASM, 0x68) 
-    } else if $token_type == $TokenType_Cnt { $append_byte($WASM, 0x69) 
+    } else if $token_type == $TokenType_Popcnt { $append_byte($WASM, 0x69) 
     } else if $token_type == $TokenType_Add { $append_byte($WASM, 0x6a) 
     } else if $token_type == $TokenType_Sub { $append_byte($WASM, 0x6b) 
     } else if $token_type == $TokenType_Mul { $append_byte($WASM, 0x6c) 
@@ -2095,9 +2093,9 @@ func $emit_builtin($node i32) {
   } else if $str_eq($name, "current_memory") {
     $append_byte($WASM, 0x3f) 
     $append_byte($WASM, 0x00)  ;; memory number
-  } else if $str_eq($name, "memgrow") {
+  } else if $str_eq($name, "grow_memory") {
     $emit_call_args($node, $TokenType_I32)
-    $append_byte($WASM, 0x40)  ;; grow_memory
+    $append_byte($WASM, 0x40)
     $append_byte($WASM, 0x00)  ;; memory number
   } else if $str_eq($name, "wrap") {
     $emit_call_args($node, $TokenType_I64)
@@ -2458,11 +2456,11 @@ func $str_to_f64($string i32) f64 {
       $isAfterDot = 1
     } else {
       if $isAfterDot { 
-        $f += f64.convert_s_i32($chr - '0') / $d  ;; TODO
+        $f += convert_s_i32($chr - '0') / $d  ;; TODO
         $d = $d * 10
       } else {
         if $chr >= '0' & $chr <= '9' {
-          $f = $f * 10 + f64.convert_s_i32($chr - '0')  ;; TODO
+          $f = $f * 10 + convert_s_i32($chr - '0')  ;; TODO
         }
       }
     }
@@ -2888,7 +2886,6 @@ global $debug_magic i32 = 0
 global $ALIGNMENT   i32 = 4
 
 ;; Enums
-global $TokenType_Keyword       i32 = 1
 global $TokenType_NumLiteral    i32 = 2
 global $TokenType_Id            i32 = 3
 global $TokenType_StrLiteral    i32 = 4
@@ -2934,18 +2931,18 @@ global $TokenType_Eqz           i32 = 55
 global $TokenType_Min           i32 = 56
 global $TokenType_Max           i32 = 57
 global $TokenType_CopySign      i32 = 58
-global $TokenType_Rotl          i32 = 59
-global $TokenType_Rotr          i32 = 60
+global $TokenType_Rotl          i32 = 59  ;; TODO
+global $TokenType_Rotr          i32 = 60  ;; TODO
 global $TokenType_Abs           i32 = 61
-global $TokenType_Neg           i32 = 62
-global $TokenType_Ceil          i32 = 63
-global $TokenType_Floor         i32 = 64
-global $TokenType_Trunc         i32 = 65
-global $TokenType_Round         i32 = 66
+global $TokenType_Neg           i32 = 62  ;; TODO
+global $TokenType_Ceil          i32 = 63  ;; TODO
+global $TokenType_Floor         i32 = 64  ;; TODO
+global $TokenType_Trunc         i32 = 65  ;; TODO
+global $TokenType_Round         i32 = 66  ;; TODO
 global $TokenType_Sqrt          i32 = 67  ;; TODO
-global $TokenType_Clz           i32 = 68
-global $TokenType_Ctz           i32 = 69
-global $TokenType_Cnt           i32 = 70
+global $TokenType_Clz           i32 = 68  ;; TODO
+global $TokenType_Ctz           i32 = 69  ;; TODO
+global $TokenType_Popcnt        i32 = 70  ;; TODO
 global $TokenType_F64           i32 = 80  ;; Data types
 global $TokenType_F32           i32 = 81
 global $TokenType_I64           i32 = 82
