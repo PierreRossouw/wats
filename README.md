@@ -150,5 +150,21 @@ wrap extend_s extend_u   ;; i32 <--> i64 conversions
 demote promote wrap      ;; float conversions
 trunc_s trunc_u
 convert_s convert_u
+```
+
+### Memory access shortcuts
+
+The bracket-load and bracket-save shortcuts are handy for common memory access patters. They allow you to use pointers almost like structs.
 
 ```
+global $list_first_item i32 = 0  ;; memory offsets we want to use
+global $list_count i32      = 4  ;; i32s take 4 bytes, 
+global $list_stuct_size i32 = 8  ;; so we need 8 bytes for a $list
+
+...
+
+$item = $MyList[$list_first_item]   ;; $item = i32.load($MyList + $list_first_item)
+$MyList[$list_size] = 2             ;; i32.store($MyList + $list_size, 2)
+```
+
+
