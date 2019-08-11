@@ -123,7 +123,6 @@ i32.if $pickfirst {   ;; data type decoration is currently required
 }
 ```
 
-
 ### Instructions
 
 ```
@@ -139,7 +138,7 @@ $var += 1     ;; Shorthand for $var = $var + 1
 <+ >+ <=+ >=+   ;; lt_u gt_u le_u ge_u  (unsigned integer comparison)
 /+ %+ >>+       ;; div_u rem_u shr_u
 
-current_memory() i32  ;; Memory ops
+current_memory() i32   ;; Memory ops
 grow_memory(i32) i32
 
 load(i32) i32         ;; also: load8_s load8_u load16_s load16_u
@@ -157,14 +156,14 @@ convert_s convert_u
 The bracket-load and bracket-save shortcuts are handy for common memory access patters. They allow you to use pointers almost like structs.
 
 ```
-global $list_first_item i32 = 0  ;; memory offsets we want to use
-global $list_count i32      = 4  ;; i32s take 4 bytes, 
-global $list_stuct_size i32 = 8  ;; so we need 8 bytes for a $list
+global $list_first_item i32 = 0   ;; memory offsets we want to use
+global $list_count i32      = 4   ;; i32s take 4 bytes, 
+global $list_stuct_size i32 = 8   ;; so we need 8 bytes for a $list
 
 ...
 
 $item = $MyList[$list_first_item]   ;; $item = i32.load($MyList + $list_first_item)
-$MyList[$list_size] = 2             ;; i32.store($MyList + $list_size, 2)
+$MyList[$list_count] = 2            ;; i32.store($MyList + $list_count, 2)
 ```
 
 
