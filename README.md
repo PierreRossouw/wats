@@ -116,7 +116,7 @@ if $pigs_fly {
     ;; do other stuff
 }
 
-i32.if $pickfirst {  ;; The data type decoration requires
+i32.if $pickfirst {   ;; data type decoration is currently required
     42
 } else {
     44
@@ -127,8 +127,28 @@ i32.if $pickfirst {  ;; The data type decoration requires
 ### Instructions
 
 ```
-$var = 42  ;; Assignment of local or global variables (must be mutable)
-$var += 1  ;; Shortened assignment statement. Also supports  -=  /=  *=
-$var = 40 / 10 + 4  ;; 8
-... TODO
+$var = 42     ;; Assignment of local or global variables (must be mutable)
+$var += 1     ;; Shorthand for $var = $var + 1
+-=  /=  *=    ;; other supported shorthand assignment operators
+
++ - / * %     ;; add sub mul div_s rem_s
+& | ^ << >>   ;; and or xor shl shr_s
+== !=         ;; eq ne
+! < > <= >=   ;; eqz lt_s gt_s le_s ge_s
+
+<+ >+ <=+ >=+   ;; lt_u gt_u le_u ge_u  (unsigned integer comparison)
+/+ %+ >>+       ;; div_u rem_u shr_u
+
+current_memory() i32  ;; Memory ops
+grow_memory(i32) i32
+
+load(i32) i32         ;; also: load8_s load8_u load16_s load16_u
+                      ;;       load32_s load32_u
+store(i32, i32)       ;; also: store8 store16 store32
+
+wrap extend_s extend_u   ;; i32 <--> i64 conversions
+demote promote wrap      ;; float conversions
+trunc_s trunc_u
+convert_s convert_u
+
 ```
