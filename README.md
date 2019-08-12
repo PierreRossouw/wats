@@ -36,7 +36,7 @@ $GLOBAL_VAR
 
 Comments are treated as whitespace
 
-```
+```wat
 ;; Single line comments start anywhere and run until a linebreak
 (; Multi line comments 
    are also supported. ;)
@@ -61,7 +61,7 @@ Decimal floats work, hex float literals not yet implemented.
 Functions can not be nested. They optionally return a value of one of the four native data types. 
 The export keyword adds the function to the module's export list.
 
-```
+```wat
 export func $main() i32 {
     $do_nothing() ;; call the other function
     40 + 2  ;; should return 42 
@@ -75,7 +75,7 @@ func $do_nothing() {
 
 Global variables are static unless marked using the mut keyword. They can appear in any order together with the Functions at root level.
 
-```
+```wat
 global $STATIC i32 = 42
 global mut $current_year = 2019
 ```
@@ -84,7 +84,7 @@ global mut $current_year = 2019
 
 Local variables are statuc unless marked as mutable using the mut modifier. They can appear in any part of a function.
 
-```
+```wat
 func $f() {
     local mut $variable i32 = 1
     $variable = 10
@@ -95,7 +95,7 @@ func $f() {
 
 Loops run until it reaches a br or evaluates to non-zero on a br_if statement
 
-```
+```wat
 $i = 0
 loop {
     br_if $i > 10 
@@ -109,7 +109,7 @@ loop {
 
 If statements have an optional else clause. Wasm also supports returning a value but this is not yet fully supported in this compiler
 
-```
+```wat
 if $pigs_fly {
     ;; do stuff
 } else {
@@ -125,7 +125,7 @@ i32.if $pickfirst {   ;; data type decoration is currently required
 
 ### Instructions
 
-```
+```wat
 $var = 42     ;; Assignment of local or global variables (must be mutable)
 $var += 1     ;; Shorthand for $var = $var + 1
 -=  /=  *=    ;; other supported shorthand assignment operators
@@ -155,7 +155,7 @@ convert_s convert_u
 
 The bracket-load and bracket-save shortcuts are handy for common memory access patters. They allow you to use pointers almost like structs.
 
-```
+```wat
 global $list_first_item i32 = 0   ;; memory offsets we want to use
 global $list_count i32      = 4   ;; i32s take 4 bytes, 
 global $list_stuct_size i32 = 8   ;; so we need 8 bytes for a $list
